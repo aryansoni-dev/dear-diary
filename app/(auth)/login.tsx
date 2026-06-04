@@ -1,0 +1,23 @@
+import type { Href } from "expo-router";
+import { Stack } from "expo-router";
+
+import { AuthScreen } from "@/components/auth/auth-screen";
+
+const signupHref = "/signup" as Href;
+
+export default function LoginScreen() {
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <AuthScreen
+        buttonText="Log In"
+        footerLinkHref={signupHref}
+        footerLinkText="SignUp"
+        footerText="Don't have an account?"
+        heading="Welcome back"
+        mode="login"
+        subheading="Your thoughts are waiting for you."
+      />
+    </>
+  );
+}

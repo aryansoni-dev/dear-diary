@@ -1,10 +1,13 @@
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, Stack } from "expo-router";
+import type { Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { images } from "@/constants/images";
+
+const loginHref = "/login" as Href;
 
 export default function OnboardingScreenOne() {
   return (
@@ -60,13 +63,13 @@ export default function OnboardingScreenOne() {
             Your space to reflect.
           </Text>
           <Text className="mt-1 text-center text-[42px] leading-[50px]">🌸</Text>
-          <Text className="mt-6 max-w-[280px] text-center text-[17px] leading-7 text-zinc-500">
+          <Text className="mt-6 text-center text-[17px] leading-5 text-zinc-500">
             Reflect, understand, and grow.
           </Text>
         </View>
 
         <View className="items-center gap-4 pt-6">
-          <Link href="/onboarding-screen-2" asChild>
+          <Link href="/signup" asChild>
             <Pressable
               className="h-14 w-full items-center justify-center rounded-full bg-[#ff2056]"
               style={{
@@ -79,11 +82,13 @@ export default function OnboardingScreenOne() {
             </Pressable>
           </Link>
 
-          <Pressable className="px-4 py-1">
-            <Text className="text-sm font-medium leading-5 text-zinc-400">
-              I already have an account
-            </Text>
-          </Pressable>
+          <Link href={loginHref} asChild>
+            <Pressable className="px-4 py-1">
+              <Text className="text-sm font-medium leading-5 text-zinc-400">
+                I already have an account
+              </Text>
+            </Pressable>
+          </Link>
         </View>
       </ScrollView>
     </LinearGradient>
