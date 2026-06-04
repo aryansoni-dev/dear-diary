@@ -1,4 +1,6 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { images } from "@/constants/images";
+import { Image } from "expo-image";
 import { Link, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -29,61 +31,61 @@ export default function Index() {
       <StatusBar hidden />
 
       <View className="relative flex-1 items-center overflow-visible">
-        <View className="absolute left-1 top-1 size-1.5 rounded-full bg-white" />
-        <Text className="absolute left-0 top-[82px] text-[10px] leading-3 text-[#FFAEC9]">
+        <View className="absolute left-2 top-3 size-1.5 rounded-full bg-white" />
+        <Text className="absolute left-0 top-[116px] text-[10px] leading-3 text-[#FFAEC9]">
           |
         </Text>
         <Ionicons
           name="sparkles-outline"
           size={16}
           color="#ff8aae"
-          style={{ left: 74, position: "absolute", top: 78 }}
+          style={{ left: 64, position: "absolute", top: 88 }}
         />
         <Feather
           name="star"
           size={12}
           color="#d9c5ff"
-          style={{ left: 38, position: "absolute", top: 110 }}
+          style={{ left: 24, position: "absolute", top: 164 }}
         />
-        <View className="absolute left-38 top-[138px] size-2 rounded-full bg-[#DDEFFF]" />
-        <View className="absolute left-32 top-[258px] size-1 rounded-full bg-[#ffb6c7]" />
+        <View className="absolute left-5 top-[232px] size-2 rounded-full bg-[#DDEFFF]" />
+        <View className="absolute left-16 top-[344px] size-1 rounded-full bg-[#ffb6c7]" />
         <Ionicons
           name="grid-outline"
           size={13}
           color="#ff9cc0"
-          style={{ left: 82, position: "absolute", top: 283 }}
+          style={{ left: 18, position: "absolute", top: 374 }}
         />
         <Ionicons
           name="star-outline"
           size={14}
           color="#f6c959"
-          style={{ left: 153, position: "absolute", top: 287 }}
+          style={{ left: 118, position: "absolute", top: 356 }}
         />
         <Ionicons
           name="sparkles-outline"
           size={13}
           color="#f0ce62"
-          style={{ position: "absolute", right: 42, top: 14 }}
+          style={{ position: "absolute", right: 36, top: 36 }}
         />
-        <View className="absolute right-11 top-8 size-1.5 rounded-full bg-[#ffb6c7]" />
+        <View className="absolute right-16 top-20 size-1.5 rounded-full bg-[#ffb6c7]" />
         <Ionicons
           name="sparkles-outline"
           size={13}
           color="#f0ce62"
-          style={{ position: "absolute", right: 52, top: 104 }}
+          style={{ position: "absolute", right: 8, top: 138 }}
         />
-        <View className="absolute right-44 top-[132px] size-1.5 rounded-full bg-white" />
+        <View className="absolute right-5 top-[226px] size-1.5 rounded-full bg-white" />
         <Ionicons
           name="flower-outline"
           size={13}
           color="#e4b3ff"
-          style={{ position: "absolute", right: 28, top: 132 }}
+          style={{ position: "absolute", right: 34, top: 178 }}
         />
         <Ionicons
           name="star-outline"
           size={18}
           color="#ffb6c7"
-          style={{ position: "absolute", right: 22, top: 232 }}
+          style={{ position: "absolute", right: 12, top: 320 }}
         />
         <Ionicons
           name="star-outline"
@@ -93,38 +95,16 @@ export default function Index() {
         />
         <View
           className="items-center"
-          style={{ marginTop: isCompact ? 74 : 138 }}
+          style={{ marginTop: isCompact ? 52 : 106 }}
         >
-          <View
-            className="relative items-center justify-center rounded-[26px] bg-white/75"
+          <Image
+            source={images.splashLogo}
+            contentFit="contain"
             style={{
-              boxShadow: "0 18px 45px -16px rgba(255, 32, 86, 0.35)",
-              height: isCompact ? 118 : 138,
-              width: isCompact ? 118 : 138,
+              height: isCompact ? 142 : 170,
+              width: isCompact ? 300 : 342,
             }}
-          >
-            <Feather
-              name="book-open"
-              size={isCompact ? 56 : 66}
-              color="#ff2056"
-            />
-            <View className="absolute -right-3 -top-3 size-8 items-center justify-center rounded-full bg-[#ff2056]">
-              <Ionicons name="sparkles-outline" size={18} color="#ffffff" />
-            </View>
-          </View>
-
-          <Text className="mt-5 text-center text-[10px] font-medium tracking-[6px] text-[#ff2056]">
-            YOUR DIARY
-          </Text>
-          <Text
-            className="mt-3 text-center font-serif text-zinc-950"
-            style={{
-              fontSize: isCompact ? 40 : 44,
-              lineHeight: isCompact ? 46 : 52,
-            }}
-          >
-            DearDiary
-          </Text>
+          />
           <Text className="mt-3 max-w-[240px] text-center font-serif text-[16px] italic leading-6 text-zinc-500">
             Every thought deserves a place to rest.
           </Text>
