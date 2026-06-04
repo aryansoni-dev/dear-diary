@@ -1,3 +1,4 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { Link, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -32,19 +33,23 @@ export default function OnboardingScreenFour() {
   const isCompact = height < 760;
 
   return (
-    <ScrollView
-      className="flex-1 bg-[linear-gradient(to_bottom,#FFDDE8_0%,#F4EFFA_100%)]"
-      contentContainerStyle={{
-        flexGrow: 1,
-        paddingBottom: isCompact ? 24 : 32,
-        paddingHorizontal: 24,
-        paddingTop: isCompact ? 32 : 48,
-      }}
-      contentInsetAdjustmentBehavior="automatic"
-      showsVerticalScrollIndicator={false}
+    <LinearGradient
+      colors={["#FFDDE8", "#F4EFFA"]}
+      style={{ flex: 1 }}
     >
-      <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar hidden />
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: isCompact ? 24 : 32,
+          paddingHorizontal: 24,
+          paddingTop: isCompact ? 32 : 48,
+        }}
+        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false}
+      >
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar hidden />
 
       <View className="items-center justify-center" style={{ paddingTop: 16 }}>
         <View className="flex-row items-center justify-center gap-2">
@@ -162,6 +167,7 @@ export default function OnboardingScreenFour() {
           </Pressable>
         </Link>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </LinearGradient>
   );
 }

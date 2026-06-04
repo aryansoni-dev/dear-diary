@@ -1,4 +1,5 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -40,19 +41,24 @@ export default function OnboardingScreenFive() {
   const featureIconSize = isCompact ? 50 : 56;
 
   return (
-    <ScrollView
-      className="flex-1 bg-[linear-gradient(to_bottom,#F4EFFA_0%,#FFDDE8_45%,#FAF7F2_100%)]"
-      contentContainerStyle={{
-        flexGrow: 1,
-        paddingBottom: isCompact ? 24 : 32,
-        paddingHorizontal: 32,
-        paddingTop: isCompact ? 40 : 64,
-      }}
-      contentInsetAdjustmentBehavior="automatic"
-      showsVerticalScrollIndicator={false}
+    <LinearGradient
+      colors={["#F4EFFA", "#FFDDE8", "#FAF7F2"]}
+      locations={[0, 0.45, 1]}
+      style={{ flex: 1 }}
     >
-      <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar hidden />
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: isCompact ? 24 : 32,
+          paddingHorizontal: 32,
+          paddingTop: isCompact ? 40 : 64,
+        }}
+        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false}
+      >
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar hidden />
 
       <View className="flex-row items-center justify-center gap-3">
         <View className="size-2 rounded-full bg-[#ff2056]" />
@@ -67,7 +73,7 @@ export default function OnboardingScreenFive() {
         style={{ height: heroHeight, marginTop: isCompact ? 4 : 8 }}
       >
         <View
-          className="absolute size-56 rounded-full bg-[radial-gradient(circle,rgba(255,32,86,0.35)_0%,rgba(255,32,86,0)_70%)]"
+          className="absolute size-56 rounded-full bg-[#ff2056] opacity-20"
           style={{ filter: "blur(14px)" }}
         />
 
@@ -147,9 +153,14 @@ export default function OnboardingScreenFive() {
             width: outerSize,
           }}
         >
-          <View
-            className="items-center justify-center rounded-3xl bg-[linear-gradient(145deg,#FFDDE8,#F4EFFA)]"
+          <LinearGradient
+            colors={["#FFDDE8", "#F4EFFA"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={{
+              alignItems: "center",
+              borderRadius: 24,
+              justifyContent: "center",
               height: innerSize,
               width: innerSize,
             }}
@@ -167,7 +178,7 @@ export default function OnboardingScreenFive() {
                 }}
               />
             </View>
-          </View>
+          </LinearGradient>
         </View>
       </View>
 
@@ -259,6 +270,7 @@ export default function OnboardingScreenFive() {
           </Text>
         </Pressable>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </LinearGradient>
   );
 }

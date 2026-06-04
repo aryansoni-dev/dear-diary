@@ -1,4 +1,5 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Link, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -20,19 +21,23 @@ export default function OnboardingScreenTwo() {
   const featureIconSize = isCompact ? 48 : 56;
 
   return (
-    <ScrollView
-      className="flex-1 bg-[linear-gradient(to_bottom,#F4EFFA_0%,#FAF7F2_100%)]"
-      contentContainerStyle={{
-        flexGrow: 1,
-        paddingBottom: isCompact ? 24 : 32,
-        paddingHorizontal: 32,
-        paddingTop: isCompact ? 32 : 48,
-      }}
-      contentInsetAdjustmentBehavior="automatic"
-      showsVerticalScrollIndicator={false}
+    <LinearGradient
+      colors={["#F4EFFA", "#FAF7F2"]}
+      style={{ flex: 1 }}
     >
-      <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar hidden />
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: isCompact ? 24 : 32,
+          paddingHorizontal: 32,
+          paddingTop: isCompact ? 32 : 48,
+        }}
+        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false}
+      >
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar hidden />
 
       <View className="items-center justify-center" style={{ paddingTop: 8 }}>
         <View className="flex-row items-center justify-center gap-2">
@@ -241,6 +246,7 @@ export default function OnboardingScreenTwo() {
           </Pressable>
         </Link>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </LinearGradient>
   );
 }
