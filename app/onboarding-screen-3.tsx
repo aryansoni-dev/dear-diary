@@ -1,3 +1,4 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { Link, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -55,19 +56,24 @@ export default function OnboardingScreenThree() {
   const sceneMarginTop = isCompact ? 24 : 32;
 
   return (
-    <ScrollView
-      className="flex-1 bg-[linear-gradient(to_bottom,#DDEFFF_0%,#FFDDE8_48%,#FAF7F2_100%)]"
-      contentContainerStyle={{
-        flexGrow: 1,
-        paddingBottom: isCompact ? 24 : 32,
-        paddingHorizontal: 32,
-        paddingTop: isCompact ? 32 : 48,
-      }}
-      contentInsetAdjustmentBehavior="automatic"
-      showsVerticalScrollIndicator={false}
+    <LinearGradient
+      colors={["#DDEFFF", "#FFDDE8", "#FAF7F2"]}
+      locations={[0, 0.48, 1]}
+      style={{ flex: 1 }}
     >
-      <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar hidden />
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: isCompact ? 24 : 32,
+          paddingHorizontal: 32,
+          paddingTop: isCompact ? 32 : 48,
+        }}
+        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false}
+      >
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar hidden />
 
       <View className="items-center justify-center pt-2">
         <View className="flex-row items-center justify-center gap-2">
@@ -79,13 +85,18 @@ export default function OnboardingScreenThree() {
         </View>
       </View>
 
-      <View
-        className="relative w-full overflow-hidden rounded-3xl bg-[linear-gradient(to_bottom,#DDEFFF_0%,#F4EFFA_55%,#D8EEDB_100%)]"
+      <LinearGradient
+        colors={["#DDEFFF", "#F4EFFA", "#D8EEDB"]}
+        locations={[0, 0.55, 1]}
         style={{
           borderCurve: "continuous",
+          borderRadius: 24,
           boxShadow: "0 20px 50px -15px rgba(180, 160, 210, 0.5)",
           height: sceneHeight,
           marginTop: sceneMarginTop,
+          overflow: "hidden",
+          position: "relative",
+          width: "100%",
         }}
       >
         <View
@@ -183,7 +194,7 @@ export default function OnboardingScreenThree() {
         >
           🙏
         </Text>
-      </View>
+      </LinearGradient>
 
       <Text
         className="text-center font-bold tracking-tight text-zinc-950"
@@ -216,6 +227,7 @@ export default function OnboardingScreenThree() {
           marginTop: isCompact ? 20 : 24,
         }}
         contentContainerStyle={{
+          alignItems: "center",
           gap: 8,
           paddingBottom: 4,
           paddingHorizontal: 32,
@@ -224,12 +236,14 @@ export default function OnboardingScreenThree() {
         {moods.map((mood) => (
           <View
             key={mood.label}
-            className="shrink-0 flex-row items-center gap-2 rounded-full px-4 py-2"
+            className="shrink-0 flex-row items-center gap-2 px-4"
             style={{
               backgroundColor: mood.background,
               borderColor: mood.selected ? "#ff2056" : "transparent",
+              borderRadius: 24,
               borderWidth: mood.selected ? 2 : 0,
               boxShadow: mood.shadow,
+              height: 56,
             }}
           >
             <Text className="text-lg leading-7">{mood.emoji}</Text>
@@ -269,6 +283,7 @@ export default function OnboardingScreenThree() {
           </Pressable>
         </Link>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </LinearGradient>
   );
 }
