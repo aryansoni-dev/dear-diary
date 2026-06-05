@@ -1,6 +1,6 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   Pressable,
@@ -190,7 +190,7 @@ export default function OnboardingScreenFive() {
             lineHeight: isCompact ? 36 : 40,
           }}
         >
-          {"You're all set, Aryan! 🎉"}
+          {"You're all set! 🎉"}
         </Text>
         <Text
           className="px-2 text-center text-zinc-500"
@@ -255,6 +255,7 @@ export default function OnboardingScreenFive() {
       >
         <Pressable
           className="h-14 w-full items-center justify-center rounded-full bg-[#ff2056]"
+          onPress={() => router.replace("/signup")}
           style={{
             boxShadow: "0 16px 40px -8px rgba(255, 32, 86, 0.55)",
           }}
@@ -264,9 +265,9 @@ export default function OnboardingScreenFive() {
           </Text>
         </Pressable>
 
-        <Pressable className="px-4 py-1">
+        <Pressable className="px-4 py-1" onPress={() => router.replace("/")}>
           <Text className="text-sm font-medium text-zinc-400">
-            Remind me later
+            Maybe later
           </Text>
         </Pressable>
       </View>

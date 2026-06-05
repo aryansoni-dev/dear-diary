@@ -84,6 +84,7 @@ Use this folder structure:
 
 ```
 aapp/
+  (onboarding)/
   (auth)/
   (tabs)/
 components/
@@ -96,7 +97,8 @@ types/
 assets/
 ```
 
-**UI/** is contains the designs for all the screens both in png and exported code.
+**(tabs)/** is for all the main screens (Home, Reflect, Journal)
+**UI/** contains the designs for all the screens both in png and exported code.
 **app/** is for routes and screens only. Screens compose components and
 call hooks or stores. They should not contain large reusable UI blocks
 or business logic.
