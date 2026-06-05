@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link, Stack } from "expo-router";
 import type { Href } from "expo-router";
+import { Link, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
@@ -69,7 +69,7 @@ export default function OnboardingScreenOne() {
         </View>
 
         <View className="items-center gap-4 pt-6">
-          <Link href="/signup" asChild>
+          <Link href="/onboarding-screen-2" asChild>
             <Pressable
               className="h-14 w-full items-center justify-center rounded-full bg-[#ff2056]"
               style={{

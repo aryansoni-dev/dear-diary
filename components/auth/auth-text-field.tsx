@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 
 type AuthTextFieldProps = {
   iconName: React.ComponentProps<typeof Feather>["name"];
@@ -7,7 +7,11 @@ type AuthTextFieldProps = {
   onChangeText: (text: string) => void;
   placeholder: string;
   value: string;
-  keyboardType?: "default" | "email-address";
+  helperText?: string;
+  helperTone?: "error" | "success";
+  keyboardType?: React.ComponentProps<typeof TextInput>["keyboardType"];
+  onRightIconPress?: () => void;
+  rightAccessibilityLabel?: string;
   rightIconName?: React.ComponentProps<typeof Feather>["name"];
   secureTextEntry?: boolean;
 };
@@ -18,7 +22,11 @@ export function AuthTextField({
   onChangeText,
   placeholder,
   value,
+  helperText,
+  helperTone = "error",
   keyboardType = "default",
+  onRightIconPress,
+  rightAccessibilityLabel,
   rightIconName,
   secureTextEntry = false,
 }: AuthTextFieldProps) {
@@ -44,9 +52,25 @@ export function AuthTextField({
           value={value}
         />
         {rightIconName ? (
-          <Feather name={rightIconName} size={14} color="#a1a1aa" />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={rightAccessibilityLabel}
+            className="-mr-2 size-9 items-center justify-center rounded-full"
+            disabled={!onRightIconPress}
+            onPress={onRightIconPress}
+          >
+            <Feather name={rightIconName} size={14} color="#a1a1aa" />
+          </Pressable>
         ) : null}
       </View>
+      {helperText ? (
+        <Text
+          className="text-[11px] font-medium leading-4"
+          style={{ color: helperTone === "success" ? "#059669" : "#ff2056" }}
+        >
+          {helperText}
+        </Text>
+      ) : null}
     </View>
   );
 }

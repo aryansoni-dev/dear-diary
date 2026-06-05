@@ -11,8 +11,12 @@ import {
 
 type VerificationCodeModalProps = {
   code: string;
+  description?: string;
+  iconName?: React.ComponentProps<typeof Feather>["name"];
   onChangeCode: (code: string) => void;
   onClose: () => void;
+  onResendCode?: () => void;
+  title?: string;
   visible: boolean;
 };
 
@@ -20,8 +24,12 @@ const codeSlots = [0, 1, 2, 3, 4, 5];
 
 export function VerificationCodeModal({
   code,
+  description = "You have received an email. Enter the 6-digit verification code to continue.",
+  iconName = "mail",
   onChangeCode,
   onClose,
+  onResendCode,
+  title = "Check your email",
   visible,
 }: VerificationCodeModalProps) {
   const inputRef = useRef<TextInput>(null);
@@ -62,10 +70,10 @@ export function VerificationCodeModal({
           <View className="flex-row items-start justify-between gap-4">
             <View className="flex-1 gap-2">
               <View className="size-11 items-center justify-center rounded-full bg-[#FFDDE8]">
-                <Feather name="mail" size={20} color="#ff2056" />
+                <Feather name={iconName} size={20} color="#ff2056" />
               </View>
               <Text className="text-[24px] font-bold leading-8 text-zinc-950">
-                Check your email
+                {title}
               </Text>
             </View>
 
@@ -80,8 +88,7 @@ export function VerificationCodeModal({
           </View>
 
           <Text className="mt-3 text-[14px] leading-6 text-zinc-500">
-            You have received an email. Enter the 6-digit verification code to
-            continue.
+            {description}
           </Text>
 
           <Pressable
@@ -126,6 +133,18 @@ export function VerificationCodeModal({
               value={code}
             />
           </Pressable>
+
+          {onResendCode ? (
+            <Pressable
+              accessibilityRole="button"
+              className="mt-5 self-center px-3 py-1"
+              onPress={onResendCode}
+            >
+              <Text className="text-[12px] font-bold leading-5 text-[#ff2056]">
+                Send a new code
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </KeyboardAvoidingView>
     </Modal>
