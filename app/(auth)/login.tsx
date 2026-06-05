@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { AuthScreen } from "@/components/auth/auth-screen";
 
 const signupHref = "/signup" as Href;
+const resetPasswordHref = "/reset-passwd" as Href;
 
 export default function LoginScreen() {
   return (
@@ -11,6 +12,7 @@ export default function LoginScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <AuthScreen
         buttonText="Log In"
+        forgotPasswordHref={resetPasswordHref}
         footerLinkHref={signupHref}
         footerLinkText="SignUp"
         footerText="Don't have an account?"

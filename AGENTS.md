@@ -270,3 +270,7 @@ Before every feature:
 - Build clean, simple code.
 
 - Replicate UI exactly when designs are provided.
+
+- Keep implementation simple, readable, and focused.
+
+- Do not install new libraries without approval.

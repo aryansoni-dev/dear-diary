@@ -1,5 +1,4 @@
 import {
-  isClerkAPIResponseError,
   useAuth,
   useSignIn,
   useSignUp,
@@ -9,12 +8,11 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import * as AuthSession from "expo-auth-session";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link, router } from "expo-router";
 import type { Href } from "expo-router";
+import { Link, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
-  Alert,
   Pressable,
   ScrollView,
   Text,
@@ -25,10 +23,20 @@ import {
 import { images } from "@/constants/images";
 
 import { AuthTextField } from "./auth-text-field";
+import {
+  finalizeAuth,
+  getClerkErrorMessage,
+  getEmailFeedback,
+  getPasswordFeedback,
+  homeHref,
+  showAuthError,
+} from "./auth-utils";
 import { VerificationCodeModal } from "./verification-code-modal";
 
 type AuthScreenProps = {
   buttonText: string;
+  forgotPasswordHref?: Href;
+  forgotPasswordText?: string;
   footerLinkHref: Href;
   footerLinkText: string;
   footerText: string;
@@ -37,12 +45,12 @@ type AuthScreenProps = {
   subheading: string;
 };
 
-const homeHref = "/home-tab" as Href;
-const minimumPasswordLength = 12;
 const ssoRedirectUrl = AuthSession.makeRedirectUri({ path: "sso" });
 
 export function AuthScreen({
   buttonText,
+  forgotPasswordHref,
+  forgotPasswordText = "Forgot passwd?",
   footerLinkHref,
   footerLinkText,
   footerText,
@@ -329,7 +337,9 @@ export function AuthScreen({
                 helperTone={passwordFeedback?.tone}
                 onChangeText={setPassword}
                 placeholder="••••••••••••"
-                onRightIconPress={() => setIsPasswordVisible((value) => !value)}
+                onRightIconPress={() =>
+                  setIsPasswordVisible((value) => !value)
+                }
                 rightAccessibilityLabel={
                   isPasswordVisible ? "Hide password" : "Show password"
                 }
@@ -337,6 +347,15 @@ export function AuthScreen({
                 secureTextEntry={!isPasswordVisible}
                 value={password}
               />
+              {isLogin && forgotPasswordHref ? (
+                <Link href={forgotPasswordHref} asChild>
+                  <Pressable className="-mt-1 self-end px-2 py-1">
+                    <Text className="text-[12px] font-bold leading-5 text-[#ff2056]">
+                      {forgotPasswordText}
+                    </Text>
+                  </Pressable>
+                </Link>
+              ) : null}
             </View>
 
             <Pressable
@@ -372,7 +391,7 @@ export function AuthScreen({
                     numberOfLines={1}
                   >
                     {footerText}{" "}
-                    <Text className="font-bold text-zinc-950">
+                    <Text className="font-bold text-[#ff2056]">
                       {footerLinkText}
                     </Text>
                   </Text>
@@ -381,7 +400,7 @@ export function AuthScreen({
             </View>
           </View>
 
-          <View className="gap-5 pt-5">
+          <View className="gap-5 pt-5 flex-1 items-center justify-end">
             <View
               className="h-12 flex-row items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white/90 px-3"
               style={{ borderCurve: "continuous" }}
@@ -418,11 +437,6 @@ export function AuthScreen({
     </LinearGradient>
   );
 }
-
-type FieldFeedback = {
-  message: string;
-  tone: "error" | "success";
-};
 
 type SocialButtonsProps = {
   disabled: boolean;
@@ -477,75 +491,6 @@ function getNameParts(name: string) {
   };
 }
 
-function getEmailFeedback(email: string): FieldFeedback | undefined {
-  if (!email) {
-    return undefined;
-  }
-
-  if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
-    return { message: "Enter a valid email address.", tone: "error" };
-  }
-
-  return { message: "Email looks good.", tone: "success" };
-}
-
-function getPasswordFeedback(
-  password: string,
-  isLogin: boolean,
-): FieldFeedback | undefined {
-  if (!password) {
-    return undefined;
-  }
-
-  if (isLogin) {
-    return undefined;
-  }
-
-  if (password.length < minimumPasswordLength) {
-    return {
-      message: `Password must be at least ${minimumPasswordLength} characters long.`,
-      tone: "error",
-    };
-  }
-
-  const strengthChecks = [
-    /[a-z]/.test(password),
-    /[A-Z]/.test(password),
-    /\d/.test(password),
-    /[^A-Za-z0-9]/.test(password),
-  ];
-  const passedChecks = strengthChecks.filter(Boolean).length;
-
-  if (passedChecks < 3) {
-    return {
-      message: "Not a strong password yet.",
-      tone: "error",
-    };
-  }
-
-  return { message: "Strong password.", tone: "success" };
-}
-
-function getClerkErrorMessage(error: unknown) {
-  if (isClerkAPIResponseError(error)) {
-    return (
-      error.errors[0]?.longMessage ??
-      error.errors[0]?.message ??
-      "Something went wrong. Please try again."
-    );
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Something went wrong. Please try again.";
-}
-
-function showAuthError(message: string) {
-  Alert.alert("Authentication error", message);
-}
-
 function getMissingRequirementsMessage(signUp: {
   missingFields: string[];
 }) {
@@ -557,27 +502,4 @@ function getMissingRequirementsMessage(signUp: {
   }
 
   return "Clerk needs one more account detail before continuing.";
-}
-
-async function finalizeAuth(resource: {
-  finalize: (params: {
-    navigate: (params: {
-      session: { currentTask?: { key?: string } } | null;
-    }) => void;
-  }) => Promise<{ error: Error | null }>;
-}) {
-  const { error } = await resource.finalize({
-    navigate: ({ session }) => {
-      if (session?.currentTask) {
-        showAuthError("Your account needs one more setup step before opening.");
-        return;
-      }
-
-      router.replace(homeHref);
-    },
-  });
-
-  if (error) {
-    showAuthError(getClerkErrorMessage(error));
-  }
 }
