@@ -7,6 +7,7 @@ import { Link, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   Text,
@@ -243,7 +244,7 @@ export function ResetPasswordScreen() {
             />
 
             <Text className="mt-1 text-center text-[29px] font-bold leading-[33px] text-zinc-950">
-              Reset passwd
+              Reset password
             </Text>
             <Text className="h-10 max-w-[340px] text-center text-[14px] leading-5 text-zinc-500">
               Enter your email and we will send a reset code.
@@ -276,7 +277,7 @@ export function ResetPasswordScreen() {
                 <>
                   <AuthTextField
                     iconName="lock"
-                    label="New passwd"
+                    label="New password"
                     helperText={passwordFeedback?.message}
                     helperTone={passwordFeedback?.tone}
                     onChangeText={setNewPassword}
@@ -295,7 +296,7 @@ export function ResetPasswordScreen() {
                   />
                   <AuthTextField
                     iconName="lock"
-                    label="Confirm new passwd"
+                    label="Confirm new password"
                     helperText={confirmPasswordFeedback?.message}
                     helperTone={confirmPasswordFeedback?.tone}
                     onChangeText={setConfirmPassword}
@@ -327,9 +328,14 @@ export function ResetPasswordScreen() {
                 boxShadow: "0 12px 28px -9px rgba(255, 32, 86, 0.7)",
               }}
             >
-              <Text className="text-[14px] font-bold leading-5 text-white">
-                {isPasswordStep ? "Reset Passwd" : "Get code"}
-              </Text>
+              <View className="flex-row items-center justify-center gap-2">
+                <Text className="text-[14px] font-bold leading-5 text-white">
+                  {isPasswordStep ? "Reset Password" : "Get code"}
+                </Text>
+                {isSubmitting ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : null}
+              </View>
             </Pressable>
 
             <View className="mt-8 items-center">
@@ -376,6 +382,7 @@ export function ResetPasswordScreen() {
       <VerificationCodeModal
         code={verificationCode}
         description="Enter the 6-digit password reset code sent to your email."
+        isLoading={isVerifying}
         onChangeCode={handleVerificationChange}
         onClose={() => setIsVerificationVisible(false)}
         onResendCode={handleResendVerificationCode}

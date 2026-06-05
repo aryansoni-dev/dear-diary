@@ -13,6 +13,7 @@ import { Link, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   Text,
@@ -50,7 +51,7 @@ const ssoRedirectUrl = AuthSession.makeRedirectUri({ path: "sso" });
 export function AuthScreen({
   buttonText,
   forgotPasswordHref,
-  forgotPasswordText = "Forgot passwd?",
+  forgotPasswordText = "Forgot password?",
   footerLinkHref,
   footerLinkText,
   footerText,
@@ -367,9 +368,14 @@ export function AuthScreen({
                 boxShadow: "0 12px 28px -9px rgba(255, 32, 86, 0.7)",
               }}
             >
-              <Text className="text-[14px] font-bold leading-5 text-white">
-                {buttonText}
-              </Text>
+              <View className="flex-row items-center justify-center gap-2">
+                <Text className="text-[14px] font-bold leading-5 text-white">
+                  {buttonText}
+                </Text>
+                {isSubmitting ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : null}
+              </View>
             </Pressable>
 
             {!isLogin ? <View nativeID="clerk-captcha" /> : null}
@@ -429,6 +435,7 @@ export function AuthScreen({
 
       <VerificationCodeModal
         code={verificationCode}
+        isLoading={isVerifying}
         onChangeCode={handleVerificationChange}
         onClose={() => setIsVerificationVisible(false)}
         onResendCode={handleResendVerificationCode}
