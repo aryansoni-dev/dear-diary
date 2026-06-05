@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { useEffect, useRef } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Pressable,
@@ -13,6 +14,7 @@ type VerificationCodeModalProps = {
   code: string;
   description?: string;
   iconName?: React.ComponentProps<typeof Feather>["name"];
+  isLoading?: boolean;
   onChangeCode: (code: string) => void;
   onClose: () => void;
   onResendCode?: () => void;
@@ -26,6 +28,7 @@ export function VerificationCodeModal({
   code,
   description = "You have received an email. Enter the 6-digit verification code to continue.",
   iconName = "mail",
+  isLoading = false,
   onChangeCode,
   onClose,
   onResendCode,
@@ -61,12 +64,25 @@ export function VerificationCodeModal({
         }}
       >
         <View
-          className="rounded-[28px] bg-white p-6"
+          className="relative overflow-hidden rounded-[28px] bg-white p-6"
           style={{
             borderCurve: "continuous",
             boxShadow: "0 18px 45px -12px rgba(0, 0, 0, 0.22)",
           }}
         >
+          {isLoading ? (
+            <View
+              className="absolute inset-0 z-10 items-center justify-center"
+              style={{
+                backgroundColor: "rgba(255, 255, 255, 0.72)",
+                borderCurve: "continuous",
+                borderRadius: 28,
+              }}
+            >
+              <ActivityIndicator color="#ff2056" size="large" />
+            </View>
+          ) : null}
+
           <View className="flex-row items-start justify-between gap-4">
             <View className="flex-1 gap-2">
               <View className="size-11 items-center justify-center rounded-full bg-[#FFDDE8]">
