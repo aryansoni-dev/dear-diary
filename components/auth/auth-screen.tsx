@@ -407,7 +407,7 @@ export function AuthScreen({
             >
               <Feather name="lock" size={12} color="#d4d4d8" />
               <Text
-                className="shrink text-center text-[12px] leading-5 text-zinc-400"
+                className="shrink text-center text-base leading-5 text-zinc-400"
                 adjustsFontSizeToFit
                 numberOfLines={1}
               >
