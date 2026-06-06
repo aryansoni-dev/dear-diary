@@ -1,15 +1,25 @@
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import type { Href } from "expo-router";
-import { Link, Stack } from "expo-router";
+import { Link, router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { images } from "@/constants/images";
+import { useOnboardingStore } from "@/store/onboarding-store";
 
 const loginHref = "/login" as Href;
 
 export default function OnboardingScreenOne() {
+  const completeOnboarding = useOnboardingStore(
+    (state) => state.completeOnboarding,
+  );
+
+  function handleExistingAccountPress() {
+    completeOnboarding();
+    router.replace(loginHref);
+  }
+
   return (
     <LinearGradient
       colors={["#FFDDE8", "#FAF7F2", "#FAF7F2"]}
@@ -82,13 +92,11 @@ export default function OnboardingScreenOne() {
             </Pressable>
           </Link>
 
-          <Link href={loginHref} asChild>
-            <Pressable className="px-4 py-1">
-              <Text className="text-[15px] font-medium leading-5 text-zinc-400">
-                I already have an account
-              </Text>
-            </Pressable>
-          </Link>
+          <Pressable className="px-4 py-1" onPress={handleExistingAccountPress}>
+            <Text className="text-[15px] font-medium leading-5 text-zinc-400">
+              I already have an account
+            </Text>
+          </Pressable>
         </View>
       </ScrollView>
     </LinearGradient>
