@@ -1,0 +1,138 @@
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
+import { ChevronRight, Sparkles } from "lucide-react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import {
+  BottomTabBar,
+  bottomTabBarBaseHeight,
+} from "@/components/navigation/bottom-tab-bar";
+import { reflectPrompts, type ReflectPrompt } from "@/data/reflect";
+
+const colors = {
+  body: "#71717B",
+  primary: "#FF2056",
+};
+
+export function ReflectScreen() {
+  const insets = useSafeAreaInsets();
+  const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
+
+  return (
+    <View className="flex-1 bg-white">
+      <StatusBar hidden />
+      <LinearGradient
+        colors={["#F1EAFB", "#FCF6FC", "#FFFFFF"]}
+        locations={[0, 0.76, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{
+          bottom: 0,
+          left: 0,
+          position: "absolute",
+          right: 0,
+          top: 0,
+        }}
+      />
+
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          paddingBottom: bottomNavHeight + 36,
+          paddingHorizontal: 24,
+          paddingTop: Math.max(56, insets.top + 14),
+        }}
+        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="flex-row items-center gap-3">
+          <View
+            className="size-12 items-center justify-center rounded-[20px] bg-white/80"
+            style={{ boxShadow: "0 8px 24px rgba(124, 93, 150, 0.16)" }}
+          >
+            <Text className="text-[25px] leading-5">🌙</Text>
+          </View>
+          <Text className="flex-1 text-[24px] font-bold leading-5 text-[#18181B]">
+            Evening Reflection
+          </Text>
+        </View>
+
+        <Text className="mt-6 text-[17px] leading-5 text-[#71717B]">
+          Slow down and check in with yourself.
+        </Text>
+
+        <View className="mt-8 gap-6">
+          {reflectPrompts.map((prompt) => (
+            <ReflectPromptCard key={prompt.question} prompt={prompt} />
+          ))}
+        </View>
+
+        <View
+          className="mt-9 rounded-[28px] bg-white px-6 py-7"
+          style={{ boxShadow: "0 18px 34px rgba(123, 91, 130, 0.15)" }}
+        >
+          <View className="flex-row items-center gap-5">
+            <View className="size-10 items-center justify-center">
+              <Sparkles size={27} color={colors.primary} strokeWidth={2.2} />
+            </View>
+            <Text className="flex-1 text-[19px] font-bold leading-5 text-[#18181B]">
+              Reflect With DearDiary AI
+            </Text>
+          </View>
+
+          <Text className="mt-12 px-4 text-[17px] italic leading-5 text-zinc-950/65">
+            {"\"I noticed gratitude appeared often this week...\""}
+          </Text>
+
+          <Pressable
+            accessibilityRole="button"
+            className="mt-12 h-[58px] flex-row items-center justify-center gap-3 rounded-[18px] bg-[#FF2056]"
+            style={{ boxShadow: "0 12px 22px rgba(255, 32, 86, 0.28)" }}
+          >
+            <Ionicons name="sparkles-outline" size={22} color="#FFF1F5" />
+            <Text className="text-[17px] font-bold leading-5 text-rose-50">
+              Start Reflection
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+
+      <BottomTabBar activeTab="Reflect" />
+    </View>
+  );
+}
+
+function ReflectPromptCard({ prompt }: { prompt: ReflectPrompt }) {
+  const Icon = prompt.Icon;
+
+  return (
+    <View
+      className="rounded-[28px] px-6 py-7"
+      style={{
+        backgroundColor: prompt.backgroundColor,
+        boxShadow: "0 10px 24px rgba(124, 93, 150, 0.12)",
+      }}
+    >
+      <View className="size-10 items-center justify-center rounded-[18px] bg-white/75">
+        <Icon size={23} color={prompt.iconColor} strokeWidth={2.1} />
+      </View>
+
+      <Text className="mt-8 text-[20px] font-bold leading-5 text-[#18181B]">
+        {prompt.question}
+      </Text>
+
+      <Pressable
+        accessibilityLabel={prompt.question}
+        accessibilityRole="button"
+        className="mt-5 h-[66px] w-full flex-row items-center rounded-[20px] bg-white/60 px-5"
+      >
+        <Text className="flex-1 text-[15px] leading-5 text-[#71717B]">
+          Tap to reflect...
+        </Text>
+        <ChevronRight size={23} color={colors.body} strokeWidth={2} />
+      </Pressable>
+    </View>
+  );
+}

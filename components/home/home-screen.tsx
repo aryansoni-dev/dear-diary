@@ -111,7 +111,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
             </Text>
           </View>
 
-          <Text className="mb-6 text-[24px] font-semibold leading-8 text-[#27272A]">
+          <Text className="mb-6 text-[24px] font-semibold leading-5 text-[#27272A]">
             What made you smile{"\n"}unexpectedly today?
           </Text>
 
