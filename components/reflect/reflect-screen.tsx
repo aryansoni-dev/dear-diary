@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ChevronRight, Sparkles } from "lucide-react-native";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -83,12 +84,13 @@ export function ReflectScreen() {
           </View>
 
           <Text className="mt-12 px-4 text-[17px] italic leading-5 text-zinc-950/65">
-            {"\"I noticed gratitude appeared often this week...\""}
+            {"I noticed gratitude appeared often this week..."}
           </Text>
 
           <Pressable
             accessibilityRole="button"
             className="mt-12 h-[58px] flex-row items-center justify-center gap-3 rounded-[18px] bg-[#FF2056]"
+            onPress={() => router.push("/ai-chat")}
             style={{ boxShadow: "0 12px 22px rgba(255, 32, 86, 0.28)" }}
           >
             <Ionicons name="sparkles-outline" size={22} color="#FFF1F5" />
