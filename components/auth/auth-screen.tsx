@@ -351,7 +351,7 @@ export function AuthScreen({
               {isLogin && forgotPasswordHref ? (
                 <Link href={forgotPasswordHref} asChild>
                   <Pressable className="-mt-1 self-end px-2 py-1">
-                    <Text className="text-[12px] font-bold leading-5 text-[#ff2056]">
+                    <Text className="text-[13px] font-bold leading-5 text-[#ff2056]">
                       {forgotPasswordText}
                     </Text>
                   </Pressable>
@@ -369,7 +369,7 @@ export function AuthScreen({
               }}
             >
               <View className="flex-row items-center justify-center gap-2">
-                <Text className="text-[14px] font-bold leading-5 text-white">
+                <Text className="text-[17px] font-bold leading-5 text-white">
                   {buttonText}
                 </Text>
                 {isSubmitting ? (
@@ -392,7 +392,7 @@ export function AuthScreen({
               <Link href={footerLinkHref} asChild>
                 <Pressable className="px-3 py-1">
                   <Text
-                    className="text-center text-[12px] leading-5 text-zinc-500"
+                    className="text-center text-[13px] leading-5 text-zinc-500"
                     adjustsFontSizeToFit
                     numberOfLines={1}
                   >
@@ -413,7 +413,7 @@ export function AuthScreen({
             >
               <Feather name="lock" size={12} color="#d4d4d8" />
               <Text
-                className="shrink text-center text-base leading-5 text-zinc-400"
+                className="shrink text-center text-[14px] leading-5 text-zinc-400"
                 adjustsFontSizeToFit
                 numberOfLines={1}
               >
@@ -470,7 +470,7 @@ function SocialButtons({
           accessibilityLabel="Google logo"
           style={{ height: 16, width: 16 }}
         />
-        <Text className="text-[13px] font-semibold leading-5 text-zinc-950">
+        <Text className="text-[15px] font-semibold leading-5 text-zinc-950">
           Continue with Google
         </Text>
       </Pressable>
@@ -482,7 +482,7 @@ function SocialButtons({
         onPress={onApplePress}
       >
         <Ionicons name="logo-apple" size={14} color="#18181b" />
-        <Text className="text-[13px] font-semibold leading-5 text-zinc-950">
+        <Text className="text-[15px] font-semibold leading-5 text-zinc-950">
           Continue with Apple
         </Text>
       </Pressable>
