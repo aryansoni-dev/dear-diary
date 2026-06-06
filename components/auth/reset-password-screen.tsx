@@ -329,7 +329,7 @@ export function ResetPasswordScreen() {
               }}
             >
               <View className="flex-row items-center justify-center gap-2">
-                <Text className="text-[14px] font-bold leading-5 text-white">
+                <Text className="text-[17px] font-bold leading-5 text-white">
                   {isPasswordStep ? "Reset Password" : "Get code"}
                 </Text>
                 {isSubmitting ? (
@@ -342,7 +342,7 @@ export function ResetPasswordScreen() {
               <Link href={loginHref} asChild>
                 <Pressable className="px-3 py-1">
                   <Text
-                    className="text-center text-[12px] leading-5 text-zinc-500"
+                    className="text-center text-[13px] leading-5 text-zinc-500"
                     adjustsFontSizeToFit
                     numberOfLines={1}
                   >

@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -17,6 +17,7 @@ const colors = {
 
 export function BottomTabBar({ activeTab }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const tabWidth = `${100 / bottomTabItems.length}%` as `${number}%`;
 
   return (
@@ -30,12 +31,24 @@ export function BottomTabBar({ activeTab }: BottomTabBarProps) {
       <View className="w-full flex-row items-start">
         {bottomTabItems.map((item) => {
           const isActive = activeTab === item.label;
+          const Icon = item.Icon;
 
           return (
             <Pressable
               accessibilityRole="button"
+              accessibilityState={{
+                disabled: !item.href,
+                selected: isActive,
+              }}
               className="items-center gap-1"
               key={item.label}
+              onPress={() => {
+                if (!item.href || isActive) {
+                  return;
+                }
+
+                router.push(item.href);
+              }}
               style={{ width: tabWidth }}
             >
               <View
@@ -44,10 +57,10 @@ export function BottomTabBar({ activeTab }: BottomTabBarProps) {
                   backgroundColor: isActive ? "#FFDDE8" : "transparent",
                 }}
               >
-                <Feather
-                  name={item.icon}
+                <Icon
                   size={23}
                   color={isActive ? colors.primary : colors.muted}
+                  strokeWidth={2}
                 />
               </View>
               <Text

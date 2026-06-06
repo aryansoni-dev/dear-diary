@@ -274,3 +274,5 @@ Before every feature:
 - Keep implementation simple, readable, and focused.
 
 - Do not install new libraries without approval.
+
+- Don't change the design of the Nav, only add the routing functionality.

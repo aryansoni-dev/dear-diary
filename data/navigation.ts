@@ -1,15 +1,23 @@
-import type { ComponentProps } from "react";
-import { Feather } from "@expo/vector-icons";
+import type { Href } from "expo-router";
+import {
+  BarChart3,
+  Clock3,
+  Sparkles,
+  Sun,
+  User,
+  type LucideIcon,
+} from "lucide-react-native";
 
 export type BottomTabItem = {
-  icon: ComponentProps<typeof Feather>["name"];
+  href?: Href;
+  Icon: LucideIcon;
   label: "Today" | "Reflect" | "History" | "Insights" | "Profile";
 };
 
 export const bottomTabItems: BottomTabItem[] = [
-  { icon: "book-open", label: "Today" },
-  { icon: "edit-3", label: "Reflect" },
-  { icon: "clock", label: "History" },
-  { icon: "bar-chart-2", label: "Insights" },
-  { icon: "user", label: "Profile" },
+  { href: "/home-tab", Icon: Sun, label: "Today" },
+  { Icon: Sparkles, label: "Reflect" },
+  { Icon: Clock3, label: "History" },
+  { Icon: BarChart3, label: "Insights" },
+  { href: "/profile-tab", Icon: User, label: "Profile" },
 ];
