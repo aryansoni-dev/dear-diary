@@ -268,7 +268,7 @@ export default function OnboardingScreenThree() {
               boxShadow: "0 12px 30px -8px rgba(255, 32, 86, 0.5)",
             }}
           >
-            <Text className="text-base font-semibold leading-6 text-white">
+            <Text className="text-[17px] font-semibold leading-6 text-white">
               Next →
             </Text>
             {/* <Feather name="arrow-right" size={22} color="#ffffff" /> */}
@@ -277,7 +277,7 @@ export default function OnboardingScreenThree() {
 
         <Link href="/onboarding-screen-2" asChild>
           <Pressable className="px-4 py-1">
-            <Text className="text-sm font-medium leading-5 text-zinc-400">
+            <Text className="text-[15px] font-medium leading-5 text-zinc-400">
               Back
             </Text>
           </Pressable>

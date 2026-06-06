@@ -76,7 +76,7 @@ export default function OnboardingScreenOne() {
                 boxShadow: "0 12px 30px -8px rgba(255, 32, 86, 0.5)",
               }}
             >
-              <Text className="text-base font-bold leading-6 text-rose-50">
+              <Text className="text-[17px] font-bold leading-6 text-rose-50">
                 Get Started
               </Text>
             </Pressable>
@@ -84,7 +84,7 @@ export default function OnboardingScreenOne() {
 
           <Link href={loginHref} asChild>
             <Pressable className="px-4 py-1">
-              <Text className="text-sm font-medium leading-5 text-zinc-400">
+              <Text className="text-[15px] font-medium leading-5 text-zinc-400">
                 I already have an account
               </Text>
             </Pressable>

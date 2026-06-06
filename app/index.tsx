@@ -1,5 +1,5 @@
-import { Feather, Ionicons } from "@expo/vector-icons";
 import { images } from "@/constants/images";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, Stack } from "expo-router";
@@ -125,7 +125,7 @@ export default function Index() {
                   height: isCompact ? 48 : 56,
                 }}
               >
-                <Text className="text-base font-bold text-white">Continue</Text>
+                <Text className="text-[17px] font-bold text-white">Continue</Text>
                 {/* <Feather name="arrow-right" size={20} color="#ffffff" /> */}
               </Pressable>
             </Link>

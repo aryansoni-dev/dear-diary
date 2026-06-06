@@ -266,7 +266,7 @@ export default function OnboardingScreenFive() {
         </Pressable>
 
         <Pressable className="px-4 py-1" onPress={() => router.replace("/")}>
-          <Text className="text-sm font-medium text-zinc-400">
+          <Text className="text-[15px] font-medium text-zinc-400">
             Maybe later
           </Text>
         </Pressable>
