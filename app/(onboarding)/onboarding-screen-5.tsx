@@ -10,6 +10,8 @@ import {
   View,
 } from "react-native";
 
+import { useOnboardingStore } from "@/store/onboarding-store";
+
 const featureCards = [
   {
     icon: "book-open",
@@ -33,12 +35,25 @@ const featureCards = [
 
 export default function OnboardingScreenFive() {
   const { height } = useWindowDimensions();
+  const completeOnboarding = useOnboardingStore(
+    (state) => state.completeOnboarding,
+  );
   const isCompact = height < 760;
 
   const heroHeight = isCompact ? 260 : 332;
   const outerSize = isCompact ? 156 : 176;
   const innerSize = isCompact ? 112 : 128;
   const featureIconSize = isCompact ? 50 : 56;
+
+  function handleStartWritingPress() {
+    completeOnboarding();
+    router.replace("/signup");
+  }
+
+  function handleMaybeLaterPress() {
+    completeOnboarding();
+    router.replace("/login");
+  }
 
   return (
     <LinearGradient
@@ -255,7 +270,7 @@ export default function OnboardingScreenFive() {
       >
         <Pressable
           className="h-14 w-full items-center justify-center rounded-full bg-[#ff2056]"
-          onPress={() => router.replace("/signup")}
+          onPress={handleStartWritingPress}
           style={{
             boxShadow: "0 16px 40px -8px rgba(255, 32, 86, 0.55)",
           }}
@@ -265,8 +280,8 @@ export default function OnboardingScreenFive() {
           </Text>
         </Pressable>
 
-        <Pressable className="px-4 py-1" onPress={() => router.replace("/")}>
-          <Text className="text-sm font-medium text-zinc-400">
+        <Pressable className="px-4 py-1" onPress={handleMaybeLaterPress}>
+          <Text className="text-[15px] font-medium text-zinc-400">
             Maybe later
           </Text>
         </Pressable>

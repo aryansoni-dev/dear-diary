@@ -57,12 +57,12 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
       >
         <View className="mb-6 flex-row items-center justify-between">
           <View className="gap-1">
-            <Text className="text-[14px] font-medium leading-5 text-[#71717B]">
+            <Text className="text-[15px] font-medium leading-5 text-[#71717B]">
               Friday, June 14
             </Text>
-            <Text className="text-[31px] font-semibold leading-[38px] tracking-normal text-[#27272A]">
+            <Text className="text-[28px] font-semibold leading-[38px] tracking-normal text-[#27272A]">
               Good Morning,{"\n"}
-              {displayName}☀️
+              {displayName}
             </Text>
           </View>
 
@@ -81,7 +81,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
 
         <View
           className="mb-7 flex-row items-center gap-4 rounded-[20px] bg-[#FFDDE8] px-6 py-5"
-          style={{ boxShadow: "0 6px 20px rgba(0, 0, 0, 0.05)" }}
+          style={{ boxShadow: "0 6px 20px rgba(0, 0, 0, 0.08)" }}
         >
           <Text className="text-[31px] leading-9">🔥</Text>
           <View>
@@ -166,7 +166,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
           </Text>
           <View
             className="rounded-[24px] bg-[#D8EEDB] px-7 py-7"
-            style={{ boxShadow: "0 6px 20px rgba(0, 0, 0, 0.05)" }}
+            style={{ boxShadow: "0 6px 20px rgba(0, 0, 0, 0.08)" }}
           >
             <View className="mb-4 flex-row items-center gap-4">
               <View className="size-12 items-center justify-center rounded-full bg-white/70">
@@ -208,7 +208,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
               key={entry.title}
               style={{
                 backgroundColor: entry.backgroundColor,
-                boxShadow: "0 6px 20px rgba(0, 0, 0, 0.04)",
+                boxShadow: "0 6px 20px rgba(0, 0, 0, 0.08)",
               }}
             >
               <View className="mb-4 flex-row items-center justify-between">
