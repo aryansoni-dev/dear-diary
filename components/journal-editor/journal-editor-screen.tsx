@@ -20,7 +20,7 @@ import {
 } from "@/components/navigation/bottom-tab-bar";
 import { journalEditorMoods } from "@/data/journal-editor";
 import { useJournalStore } from "@/store/journal-store";
-import type { MoodId } from "@/types/journal";
+import type { EntryType, MoodId } from "@/types/journal";
 
 const colors = {
   heading: "#09090B",
@@ -29,6 +29,16 @@ const colors = {
   placeholder: "#8B8B93",
 };
 
+const defaultPrompt = "What made you smile unexpectedly today?";
+const entryTypes: EntryType[] = [
+  "free_write",
+  "daily_prompt",
+  "morning_intention",
+  "evening_reflection",
+  "gratitude",
+  "ai_reflection",
+];
+
 type JournalEditorScreenProps = {
   entryId?: string;
 };
@@ -36,7 +46,15 @@ type JournalEditorScreenProps = {
 export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { source } = useLocalSearchParams<{ source?: string }>();
+  const {
+    prompt: promptParam,
+    source,
+    type: typeParam,
+  } = useLocalSearchParams<{
+    prompt?: string;
+    source?: string;
+    type?: string;
+  }>();
   const entries = useJournalStore((state) => state.entries);
   const addEntry = useJournalStore((state) => state.addEntry);
   const updateEntry = useJournalStore((state) => state.updateEntry);
@@ -50,6 +68,13 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const bottomChromeHeight = bottomNavHeight;
   const activeTab = source === "history" ? "History" : "Today";
   const entry = entries.find((journalEntry) => journalEntry.id === entryId);
+  const requestedEntryType = isEntryType(typeParam) ? typeParam : "daily_prompt";
+  const activeEntryType = entry?.type ?? requestedEntryType;
+  const activePrompt = (entry?.prompt ?? promptParam?.trim()) || defaultPrompt;
+  const promptLabel =
+    activeEntryType === "morning_intention"
+      ? "Morning Intention"
+      : "Today's Reflection Prompt";
   const isEditing = Boolean(entryId);
   const isMissingEntry = hasHydrated && isEditing && !entry;
   const canSave = title.trim().length > 0 || content.trim().length > 0;
@@ -107,9 +132,9 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
     const savedEntry = {
       content: content.trim(),
       mood: selectedMood,
-      prompt: "What made you smile unexpectedly today?",
-      title: title.trim() || "Untitled Entry",
-      type: "daily_prompt" as const,
+      prompt: activePrompt,
+      title: title.trim() || getDefaultTitle(activeEntryType),
+      type: activeEntryType,
     };
 
     if (entryId) {
@@ -258,12 +283,12 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
                 <Sparkles color={colors.primary} size={22} strokeWidth={2.2} />
               </View>
               <Text className="flex-1 text-[11px] font-semibold uppercase leading-5 tracking-[2.4px] text-[#FF2056]">
-                {"Today's Reflection Prompt"}
+                {promptLabel}
               </Text>
             </View>
 
             <Text className="text-[23px] font-bold leading-5 text-zinc-950">
-              What made you smile unexpectedly today?
+              {activePrompt}
             </Text>
           </LinearGradient>
         </View>
@@ -351,4 +376,16 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       <BottomTabBar activeTab={activeTab} />
     </KeyboardAvoidingView>
   );
+}
+
+function isEntryType(value: string | undefined): value is EntryType {
+  return entryTypes.includes(value as EntryType);
+}
+
+function getDefaultTitle(type: EntryType) {
+  if (type === "morning_intention") {
+    return "Morning Intention";
+  }
+
+  return "Untitled Entry";
 }

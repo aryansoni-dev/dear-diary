@@ -34,6 +34,16 @@ const journalEditorHref = {
 } as Href;
 
 const journalHistoryHref = "/journal-history" as Href;
+const morningIntentionPrompt =
+  "What is the one thing you'd like to focus on today?";
+const morningIntentionHref = {
+  pathname: "/journal/new",
+  params: {
+    prompt: morningIntentionPrompt,
+    source: "home",
+    type: "morning_intention",
+  },
+} as Href;
 
 type HomeRecentEntry = {
   backgroundColor: string;
@@ -70,9 +80,14 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
   const greeting = useMemo(() => getGreeting(), []);
   const todayLabel = useMemo(() => formatTodayDate(), []);
   const reflectionStreak = useMemo(() => getReflectionStreak(entries), [entries]);
+  const morningIntention = useMemo(
+    () => getTodayMorningIntention(entries),
+    [entries],
+  );
   const recentJournalEntries = useMemo(
     () =>
       [...entries]
+        .filter((entry) => entry.type !== "morning_intention")
         .sort(
           (entryA, entryB) =>
             new Date(entryB.createdAt).getTime() -
@@ -87,6 +102,15 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
     reflectionStreak > 0
       ? "Keep the momentum going"
       : "Start with today's reflection";
+  const intentionTitle = morningIntention ? "Today's focus" : "Set your focus";
+  const intentionSubtitle = morningIntention
+    ? "Keep going... You can do it!"
+    : morningIntentionPrompt;
+  const intentionBody = !hasHydrated
+    ? "Loading intention..."
+    : morningIntention
+      ? getEntryPreview(morningIntention)
+      : "Tap to write your intention...";
 
   return (
     <View className="flex-1 bg-white">
@@ -234,18 +258,37 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
                 <Feather name="target" size={19} color="#0F9F7A" />
               </View>
               <Text className="text-[19px] font-semibold leading-7 text-[#303039]">
-                Set your focus
+                {intentionTitle}
               </Text>
             </View>
             <Text className="mb-5 max-w-[286px] text-[17px] leading-6 text-zinc-950/60">
-              {"What is one thing you'd like to focus on today?"}
+              {intentionSubtitle}
             </Text>
             <Pressable
               accessibilityRole="button"
+              accessibilityState={{ disabled: !hasHydrated }}
               className="min-h-[58px] justify-center rounded-[17px] bg-white/60 px-5"
+              onPress={() => {
+                if (!hasHydrated) {
+                  return;
+                }
+
+                if (morningIntention) {
+                  router.push({
+                    pathname: "/journal/[id]",
+                    params: { id: morningIntention.id, source: "home" },
+                  });
+                  return;
+                }
+
+                router.push(morningIntentionHref);
+              }}
             >
-              <Text className="text-[16px] leading-6 text-[#71717B]">
-                Tap to write your intention...
+              <Text
+                className="text-[16px] leading-6 text-[#71717B]"
+                numberOfLines={3}
+              >
+                {intentionBody}
               </Text>
             </Pressable>
           </View>
@@ -260,7 +303,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
             hitSlop={12}
             onPress={() => router.push(journalHistoryHref)}
           >
-            <Text className="text-[16px] font-medium leading-6 text-[#FF2056]">
+            <Text className="text-[16px] font-medium leading-5 text-[#FF2056]">
               See all
             </Text>
           </Pressable>
@@ -301,11 +344,11 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
                   </Text>
                   <Text className="text-[31px] leading-5">{entry.emoji}</Text>
                 </View>
-                <Text className="mb-1 text-[19px] font-semibold leading-7 text-[#303039]">
+                <Text className="mb-1 text-[19px] font-semibold leading-8 text-[#303039]">
                   {entry.title}
                 </Text>
                 <Text
-                  className="text-[17px] leading-6 text-zinc-950/60"
+                  className="text-[17px] leading-5 text-zinc-950/60"
                   numberOfLines={3}
                 >
                   {entry.excerpt}
@@ -345,7 +388,7 @@ function RecentEntriesEmptyState({
       <Text className="mb-1 text-[19px] font-semibold leading-7 text-[#303039]">
         {title}
       </Text>
-      <Text className="text-[17px] leading-6 text-zinc-950/60">{body}</Text>
+      <Text className="text-[17px] leading-5 text-zinc-950/60">{body}</Text>
     </View>
   );
 }
@@ -362,6 +405,26 @@ function toHomeRecentEntry(entry: StoredJournalEntry): HomeRecentEntry {
     id: entry.id,
     title: entry.title,
   };
+}
+
+function getTodayMorningIntention(entries: StoredJournalEntry[]) {
+  const today = new Date();
+
+  return [...entries]
+    .sort(
+      (entryA, entryB) =>
+        new Date(entryB.createdAt).getTime() -
+        new Date(entryA.createdAt).getTime(),
+    )
+    .find(
+      (entry) =>
+        entry.type === "morning_intention" &&
+        isSameDay(new Date(entry.createdAt), today),
+    );
+}
+
+function getEntryPreview(entry: StoredJournalEntry) {
+  return entry.content.trim() || entry.title || "Open your morning intention...";
 }
 
 function getGreeting() {
