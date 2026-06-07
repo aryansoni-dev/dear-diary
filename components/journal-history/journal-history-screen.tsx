@@ -22,7 +22,10 @@ const colors = {
   primary: "#FF2056",
 };
 
-const journalEditorHref = "/journal-editor" as Href;
+const journalEditorHref = {
+  pathname: "/journal-editor",
+  params: { source: "history" },
+} as Href;
 
 export function JournalHistoryScreen() {
   const insets = useSafeAreaInsets();

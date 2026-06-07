@@ -18,6 +18,6 @@ export const bottomTabItems: BottomTabItem[] = [
   { href: "/home-tab", Icon: Sun, label: "Today" },
   { href: "/reflect-tab", Icon: Sparkles, label: "Reflect" },
   { href: "/journal-history", Icon: Clock3, label: "History" },
-  { Icon: BarChart3, label: "Insights" },
+  { href: "/insights-tab", Icon: BarChart3, label: "Insights" },
   { href: "/profile-tab", Icon: User, label: "Profile" },
 ];

@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
   Check,
@@ -40,9 +40,11 @@ const editorToolbarHeight = 84;
 export function JournalEditorScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { source } = useLocalSearchParams<{ source?: string }>();
   const [selectedMood, setSelectedMood] = useState("Happy");
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const bottomChromeHeight = bottomNavHeight + editorToolbarHeight;
+  const activeTab = source === "history" ? "History" : "Today";
 
   return (
     <KeyboardAvoidingView
@@ -217,7 +219,7 @@ export function JournalEditorScreen() {
         </View>
       </View>
 
-      <BottomTabBar activeTab="Insights" />
+      <BottomTabBar activeTab={activeTab} />
     </KeyboardAvoidingView>
   );
 }
