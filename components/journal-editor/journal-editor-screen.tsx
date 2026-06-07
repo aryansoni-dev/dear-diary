@@ -1,17 +1,10 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { Check, ChevronLeft, Sparkles, Trash2 } from "lucide-react-native";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Check,
-  ChevronLeft,
-  Image as ImageIcon,
-  Mic,
-  Sparkles,
-  Tag,
-  type LucideIcon,
-} from "lucide-react-native";
-import { useState } from "react";
-import {
+  Alert,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
@@ -26,25 +19,151 @@ import {
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
 import { journalEditorMoods } from "@/data/journal-editor";
+import { useJournalStore } from "@/store/journal-store";
+import type { MoodId } from "@/types/journal";
 
 const colors = {
-  body: "#71717B",
   heading: "#09090B",
   primary: "#FF2056",
   mutedChip: "#F4F4F5",
   placeholder: "#8B8B93",
 };
 
-const editorToolbarHeight = 84;
+type JournalEditorScreenProps = {
+  entryId?: string;
+};
 
-export function JournalEditorScreen() {
+export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { source } = useLocalSearchParams<{ source?: string }>();
-  const [selectedMood, setSelectedMood] = useState("Happy");
+  const entries = useJournalStore((state) => state.entries);
+  const addEntry = useJournalStore((state) => state.addEntry);
+  const updateEntry = useJournalStore((state) => state.updateEntry);
+  const deleteEntry = useJournalStore((state) => state.deleteEntry);
+  const hasHydrated = useJournalStore((state) => state.hasHydrated);
+  const [content, setContent] = useState("");
+  const [selectedMood, setSelectedMood] = useState<MoodId | null>("happy");
+  const [title, setTitle] = useState("");
+  const [wasSaved, setWasSaved] = useState(false);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
-  const bottomChromeHeight = bottomNavHeight + editorToolbarHeight;
+  const bottomChromeHeight = bottomNavHeight;
   const activeTab = source === "history" ? "History" : "Today";
+  const entry = entries.find((journalEntry) => journalEntry.id === entryId);
+  const isEditing = Boolean(entryId);
+  const isMissingEntry = hasHydrated && isEditing && !entry;
+  const canSave = title.trim().length > 0 || content.trim().length > 0;
+  const dateLabel = useMemo(() => {
+    const date = entry?.createdAt ? new Date(entry.createdAt) : new Date();
+
+    return new Intl.DateTimeFormat("en-US", {
+      day: "numeric",
+      month: "short",
+      weekday: "short",
+    }).format(date);
+  }, [entry?.createdAt]);
+
+  useEffect(() => {
+    if (!entry) {
+      return;
+    }
+
+    setContent(entry.content);
+    setSelectedMood(entry.mood);
+    setTitle(entry.title);
+  }, [entry]);
+
+  function handleGoBack() {
+    router.back();
+  }
+
+  function handleDelete() {
+    if (!entryId) {
+      return;
+    }
+
+    Alert.alert(
+      "Delete entry?",
+      "This journal entry will be removed from this device.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          onPress: () => {
+            deleteEntry(entryId);
+            router.replace("/journal-history");
+          },
+          style: "destructive",
+          text: "Delete",
+        },
+      ],
+    );
+  }
+
+  function handleSave() {
+    if (!canSave) {
+      return;
+    }
+
+    const savedEntry = {
+      content: content.trim(),
+      mood: selectedMood,
+      prompt: "What made you smile unexpectedly today?",
+      title: title.trim() || "Untitled Entry",
+      type: "daily_prompt" as const,
+    };
+
+    if (entryId) {
+      updateEntry(entryId, savedEntry);
+      setWasSaved(true);
+      return;
+    }
+
+    const newEntry = addEntry(savedEntry);
+    router.replace({
+      pathname: "/journal/[id]",
+      params: { id: newEntry.id, source: source ?? "home" },
+    });
+  }
+
+  if (!hasHydrated) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white px-8">
+        <StatusBar hidden />
+        <Text className="text-center text-[17px] font-medium leading-6 text-zinc-500">
+          Loading your journal...
+        </Text>
+      </View>
+    );
+  }
+
+  if (isMissingEntry) {
+    return (
+      <View className="flex-1 bg-white">
+        <StatusBar hidden />
+        <View
+          className="flex-1 items-center justify-center px-8"
+          style={{ paddingBottom: bottomNavHeight }}
+        >
+          <Text className="text-center text-[24px] font-bold leading-8 text-zinc-950">
+            Entry not found
+          </Text>
+          <Text className="mt-3 text-center text-[16px] leading-6 text-zinc-500">
+            This journal entry may have been deleted.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            className="mt-6 h-12 items-center justify-center rounded-full bg-[#FF2056] px-6"
+            onPress={() => router.replace("/journal-history")}
+          >
+            <Text className="text-[16px] font-semibold leading-6 text-white">
+              Back to History
+            </Text>
+          </Pressable>
+        </View>
+        <BottomTabBar activeTab="History" />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -70,7 +189,7 @@ export function JournalEditorScreen() {
             accessibilityLabel="Go back"
             accessibilityRole="button"
             className="size-[54px] items-center justify-center rounded-full bg-zinc-100"
-            onPress={() => router.back()}
+            onPress={handleGoBack}
             style={{ boxShadow: "0 2px 7px rgba(39, 39, 42, 0.16)" }}
           >
             <ChevronLeft color={colors.heading} size={25} strokeWidth={3} />
@@ -78,23 +197,50 @@ export function JournalEditorScreen() {
 
           <View className="items-center">
             <Text className="text-[11px] font-semibold uppercase leading-5 tracking-[3.2px] text-[#71717B]">
-              Today
+              {isEditing ? "Editing" : "Today"}
             </Text>
             <Text className="text-[19px] font-bold leading-7 text-zinc-950">
-              Mon, Jun 16
+              {dateLabel}
             </Text>
           </View>
 
-          <Pressable
-            accessibilityRole="button"
-            className="h-[54px] flex-row items-center justify-center gap-2 rounded-full bg-[#FF2056] px-7"
-            style={{ boxShadow: "0 4px 12px rgba(255, 32, 86, 0.28)" }}
-          >
-            <Check color="white" size={22} strokeWidth={2.6} />
-            <Text className="text-[17px] font-semibold leading-6 text-white">
-              Save
-            </Text>
-          </Pressable>
+          <View className="flex-row items-center gap-2">
+            {isEditing ? (
+              <Pressable
+                accessibilityLabel="Delete journal entry"
+                accessibilityRole="button"
+                className="size-[54px] items-center justify-center rounded-full bg-zinc-100"
+                onPress={handleDelete}
+              >
+                <Trash2 color={colors.primary} size={22} strokeWidth={2.4} />
+              </Pressable>
+            ) : null}
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !canSave }}
+              className="h-[54px] flex-row items-center justify-center gap-2 rounded-full px-7"
+              onPress={handleSave}
+              style={{
+                backgroundColor: canSave ? colors.primary : "#F4F4F5",
+                boxShadow: canSave
+                  ? "0 4px 12px rgba(255, 32, 86, 0.28)"
+                  : undefined,
+              }}
+            >
+              <Check
+                color={canSave ? "white" : colors.placeholder}
+                size={22}
+                strokeWidth={2.6}
+              />
+              <Text
+                className="text-[17px] font-semibold leading-6"
+                style={{ color: canSave ? "white" : colors.placeholder }}
+              >
+                {wasSaved ? "Saved" : "Save"}
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         <View
@@ -137,14 +283,17 @@ export function JournalEditorScreen() {
             showsHorizontalScrollIndicator={false}
           >
             {journalEditorMoods.map((mood) => {
-              const isSelected = selectedMood === mood.label;
+              const isSelected = selectedMood === mood.id;
 
               return (
                 <Pressable
                   accessibilityRole="button"
                   className="h-[52px] shrink-0 flex-row items-center justify-center gap-2 rounded-full px-5"
                   key={mood.label}
-                  onPress={() => setSelectedMood(mood.label)}
+                  onPress={() => {
+                    setSelectedMood(mood.id);
+                    setWasSaved(false);
+                  }}
                   style={{
                     backgroundColor: isSelected
                       ? colors.primary
@@ -174,71 +323,32 @@ export function JournalEditorScreen() {
           <TextInput
             accessibilityLabel="Journal title"
             className="min-h-[58px] text-[30px] font-bold leading-10 text-zinc-950"
+            onChangeText={(value) => {
+              setTitle(value);
+              setWasSaved(false);
+            }}
             placeholder="What's on your mind?"
             placeholderTextColor={colors.placeholder}
+            value={title}
           />
           <View className="h-px w-full bg-zinc-200" />
           <TextInput
             accessibilityLabel="Journal entry"
             className="min-h-[280px] pt-6 text-[20px] leading-8 text-zinc-950"
             multiline
+            onChangeText={(value) => {
+              setContent(value);
+              setWasSaved(false);
+            }}
             placeholder="Write freely... this is your safe space 🌿"
             placeholderTextColor={colors.placeholder}
             textAlignVertical="top"
+            value={content}
           />
         </View>
       </ScrollView>
 
-      {/* <View
-        className="absolute right-6 rounded-full bg-[#FF2056] py-3.5 pl-5 pr-6"
-        pointerEvents="box-none"
-        style={{
-          bottom: bottomNavHeight + 24,
-          boxShadow: "0 8px 24px rgba(255, 32, 86, 0.3)",
-        }}
-      >
-        <Pressable
-          accessibilityRole="button"
-          className="flex-row items-center gap-2"
-        >
-          <Sparkles color="white" size={21} strokeWidth={2.2} />
-          <Text className="text-[14px] font-semibold leading-5 text-white">
-            Reflect With AI
-          </Text>
-        </Pressable>
-      </View> */}
-
-      <View
-        className="absolute inset-x-0 border-t border-zinc-200 bg-zinc-100/70 px-4 py-3"
-        style={{ bottom: bottomNavHeight, height: editorToolbarHeight }}
-      >
-        <View className="flex-row items-center justify-around">
-          <EditorToolbarButton Icon={Mic} label="Voice" />
-          <EditorToolbarButton Icon={ImageIcon} label="Photo" />
-          <EditorToolbarButton Icon={Tag} label="Tags" />
-        </View>
-      </View>
-
       <BottomTabBar activeTab={activeTab} />
     </KeyboardAvoidingView>
-  );
-}
-
-type EditorToolbarButtonProps = {
-  Icon: LucideIcon;
-  label: string;
-};
-
-function EditorToolbarButton({ Icon, label }: EditorToolbarButtonProps) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      className="h-[60px] w-24 items-center justify-center gap-1"
-    >
-      <Icon color={colors.body} size={26} strokeWidth={2.2} />
-      <Text className="text-[12px] font-medium leading-4 text-[#71717B]">
-        {label}
-      </Text>
-    </Pressable>
   );
 }
