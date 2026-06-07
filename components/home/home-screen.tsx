@@ -1,6 +1,7 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -22,8 +23,11 @@ const colors = {
   primary: "#FF2056",
 };
 
+const journalEditorHref = "/journal-editor" as Href;
+
 export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [selectedMood, setSelectedMood] = useState("Happy");
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const displayName = firstName?.trim() || "Aryan";
@@ -118,6 +122,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
           <Pressable
             accessibilityRole="button"
             className="h-[58px] items-center justify-center rounded-[17px] bg-[#FF2056]"
+            onPress={() => router.push(journalEditorHref)}
           >
             <Text className="text-[19px] font-semibold leading-6 text-white">
               Start Writing ✨

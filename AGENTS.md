@@ -174,6 +174,8 @@ Use StyleSheet or inline styles for:
 - Shadows (different per platform)
   Everywhere else, use NativeWind.
 
+- Only use inline css styling when truly necessary, otherwise use native-wind classes.
+
 ---
 
 ## Image Rule
