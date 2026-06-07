@@ -24,7 +24,7 @@ const colors = {
 };
 
 const journalEditorHref = {
-  pathname: "/journal-editor",
+  pathname: "/journal/new",
   params: { source: "home" },
 } as Href;
 
