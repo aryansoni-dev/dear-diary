@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -12,7 +12,12 @@ import {
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
 import { images } from "@/constants/images";
-import { moodOptions, recentEntries } from "@/data/home";
+import { moodOptions } from "@/data/home";
+import { useJournalStore } from "@/store/journal-store";
+import type {
+  MoodId,
+  JournalEntry as StoredJournalEntry,
+} from "@/types/journal";
 
 type HomeScreenProps = {
   avatarUrl?: string;
@@ -28,12 +33,84 @@ const journalEditorHref = {
   params: { source: "home" },
 } as Href;
 
+const journalHistoryHref = "/journal-history" as Href;
+const morningIntentionPrompt =
+  "What is the one thing you'd like to focus on today?";
+const morningIntentionHref = {
+  pathname: "/journal/new",
+  params: {
+    prompt: morningIntentionPrompt,
+    source: "home",
+    type: "morning_intention",
+  },
+} as Href;
+
+type HomeRecentEntry = {
+  backgroundColor: string;
+  date: string;
+  emoji: string;
+  excerpt: string;
+  id: string;
+  title: string;
+};
+
+const moodVisuals: Record<MoodId, { backgroundColor: string; emoji: string }> =
+  {
+    anxious: { backgroundColor: "#F4EFFA", emoji: "😰" },
+    calm: { backgroundColor: "#D8EEDB", emoji: "😌" },
+    grateful: { backgroundColor: "#DDEFFF", emoji: "🙏" },
+    happy: { backgroundColor: "#FFDDE8", emoji: "😊" },
+    motivated: { backgroundColor: "#FFE8D8", emoji: "🔥" },
+    sad: { backgroundColor: "#DDEFFF", emoji: "😔" },
+  };
+
+const fallbackMoodVisual = {
+  backgroundColor: "#F4F4F5",
+  emoji: "✍️",
+};
+
 export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const entries = useJournalStore((state) => state.entries);
+  const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const [selectedMood, setSelectedMood] = useState("Happy");
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const displayName = firstName?.trim() || "Aryan";
+  const greeting = useMemo(() => getGreeting(), []);
+  const todayLabel = useMemo(() => formatTodayDate(), []);
+  const reflectionStreak = useMemo(() => getReflectionStreak(entries), [entries]);
+  const morningIntention = useMemo(
+    () => getTodayMorningIntention(entries),
+    [entries],
+  );
+  const recentJournalEntries = useMemo(
+    () =>
+      [...entries]
+        .filter((entry) => entry.type !== "morning_intention")
+        .sort(
+          (entryA, entryB) =>
+            new Date(entryB.createdAt).getTime() -
+            new Date(entryA.createdAt).getTime(),
+        )
+        .slice(0, 3)
+        .map(toHomeRecentEntry),
+    [entries],
+  );
+  const streakUnit = reflectionStreak === 1 ? "Day" : "Days";
+  const streakSubtitle =
+    reflectionStreak > 0
+      ? "Keep the momentum going"
+      : "Start with today's reflection";
+  const intentionTitle = morningIntention ? "Today's focus" : "Set your focus";
+  const intentionSubtitle = morningIntention
+    ? "Keep going... You can do it!"
+    : morningIntentionPrompt;
+  const intentionBody = !hasHydrated
+    ? "Loading intention..."
+    : morningIntention
+      ? getEntryPreview(morningIntention)
+      : "Tap to write your intention...";
 
   return (
     <View className="flex-1 bg-white">
@@ -65,10 +142,10 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
         <View className="mb-6 flex-row items-center justify-between">
           <View className="gap-1">
             <Text className="text-[15px] font-medium leading-5 text-[#71717B]">
-              Friday, June 14
+              {todayLabel}
             </Text>
             <Text className="text-[28px] font-semibold leading-[38px] tracking-normal text-[#27272A]">
-              Good Morning,{"\n"}
+              {greeting},{"\n"}
               {displayName}
             </Text>
           </View>
@@ -93,10 +170,10 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
           <Text className="text-[31px] leading-9">🔥</Text>
           <View>
             <Text className="text-[17px] font-semibold leading-6 text-[#303039]">
-              7 Day Reflection Streak
+              {reflectionStreak} {streakUnit} Reflection Streak
             </Text>
             <Text className="text-[14px] font-medium leading-5 text-[#71717B]">
-              Keep the momentum going
+              {streakSubtitle}
             </Text>
           </View>
         </View>
@@ -181,18 +258,37 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
                 <Feather name="target" size={19} color="#0F9F7A" />
               </View>
               <Text className="text-[19px] font-semibold leading-7 text-[#303039]">
-                Set your focus
+                {intentionTitle}
               </Text>
             </View>
             <Text className="mb-5 max-w-[286px] text-[17px] leading-6 text-zinc-950/60">
-              {"What is one thing you'd like to focus on today?"}
+              {intentionSubtitle}
             </Text>
             <Pressable
               accessibilityRole="button"
+              accessibilityState={{ disabled: !hasHydrated }}
               className="min-h-[58px] justify-center rounded-[17px] bg-white/60 px-5"
+              onPress={() => {
+                if (!hasHydrated) {
+                  return;
+                }
+
+                if (morningIntention) {
+                  router.push({
+                    pathname: "/journal/[id]",
+                    params: { id: morningIntention.id, source: "home" },
+                  });
+                  return;
+                }
+
+                router.push(morningIntentionHref);
+              }}
             >
-              <Text className="text-[16px] leading-6 text-[#71717B]">
-                Tap to write your intention...
+              <Text
+                className="text-[16px] leading-6 text-[#71717B]"
+                numberOfLines={3}
+              >
+                {intentionBody}
               </Text>
             </Pressable>
           </View>
@@ -202,41 +298,225 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
           <Text className="text-[24px] font-semibold leading-8 text-[#27272A]">
             Recent Entries
           </Text>
-          <Pressable accessibilityRole="button" hitSlop={12}>
-            <Text className="text-[16px] font-medium leading-6 text-[#FF2056]">
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={() => router.push(journalHistoryHref)}
+          >
+            <Text className="text-[16px] font-medium leading-5 text-[#FF2056]">
               See all
             </Text>
           </Pressable>
         </View>
 
         <View className="gap-5">
-          {recentEntries.map((entry) => (
-            <View
-              className="rounded-[24px] px-7 py-6"
-              key={entry.title}
-              style={{
-                backgroundColor: entry.backgroundColor,
-                boxShadow: "0 6px 20px rgba(0, 0, 0, 0.08)",
-              }}
-            >
-              <View className="mb-4 flex-row items-center justify-between">
-                <Text className="text-[14px] font-medium leading-5 text-[#71717B]">
-                  {entry.date}
+          {!hasHydrated ? (
+            <RecentEntriesEmptyState
+              body="Loading your saved reflections..."
+              title="Loading entries"
+            />
+          ) : recentJournalEntries.length === 0 ? (
+            <RecentEntriesEmptyState
+              body="Start with today's prompt to build your first reflection."
+              title="No entries yet"
+            />
+          ) : (
+            recentJournalEntries.map((entry) => (
+              <Pressable
+                accessibilityLabel={`Open ${entry.title}`}
+                accessibilityRole="button"
+                className="rounded-[24px] px-7 py-6"
+                key={entry.id}
+                onPress={() =>
+                  router.push({
+                    pathname: "/journal/[id]",
+                    params: { id: entry.id, source: "home" },
+                  })
+                }
+                style={{
+                  backgroundColor: entry.backgroundColor,
+                  boxShadow: "0 6px 20px rgba(0, 0, 0, 0.08)",
+                }}
+              >
+                <View className="mb-4 flex-row items-center justify-between">
+                  <Text className="text-[14px] font-medium leading-5 text-[#71717B]">
+                    {entry.date}
+                  </Text>
+                  <Text className="text-[31px] leading-5">{entry.emoji}</Text>
+                </View>
+                <Text className="mb-1 text-[19px] font-semibold leading-8 text-[#303039]">
+                  {entry.title}
                 </Text>
-                <Text className="text-[31px] leading-9">{entry.emoji}</Text>
-              </View>
-              <Text className="mb-1 text-[19px] font-semibold leading-7 text-[#303039]">
-                {entry.title}
-              </Text>
-              <Text className="text-[17px] leading-6 text-zinc-950/60">
-                {entry.excerpt}
-              </Text>
-            </View>
-          ))}
+                <Text
+                  className="text-[17px] leading-5 text-zinc-950/60"
+                  numberOfLines={3}
+                >
+                  {entry.excerpt}
+                </Text>
+              </Pressable>
+            ))
+          )}
         </View>
       </ScrollView>
 
       <BottomTabBar activeTab="Today" />
     </View>
+  );
+}
+
+function RecentEntriesEmptyState({
+  body,
+  title,
+}: {
+  body: string;
+  title: string;
+}) {
+  return (
+    <View
+      className="rounded-[24px] px-7 py-6"
+      style={{
+        backgroundColor: "#F4EFFA",
+        boxShadow: "0 6px 20px rgba(0, 0, 0, 0.08)",
+      }}
+    >
+      <View className="mb-4 flex-row items-center justify-between">
+        <Text className="text-[14px] font-medium leading-5 text-[#71717B]">
+          Today
+        </Text>
+        <Text className="text-[31px] leading-9">✍️</Text>
+      </View>
+      <Text className="mb-1 text-[19px] font-semibold leading-7 text-[#303039]">
+        {title}
+      </Text>
+      <Text className="text-[17px] leading-5 text-zinc-950/60">{body}</Text>
+    </View>
+  );
+}
+
+function toHomeRecentEntry(entry: StoredJournalEntry): HomeRecentEntry {
+  const visual = entry.mood ? moodVisuals[entry.mood] : fallbackMoodVisual;
+  const content = entry.content.trim();
+
+  return {
+    backgroundColor: visual.backgroundColor,
+    date: formatRecentEntryDate(entry.createdAt),
+    emoji: visual.emoji,
+    excerpt: content || entry.prompt || "No body text yet.",
+    id: entry.id,
+    title: entry.title,
+  };
+}
+
+function getTodayMorningIntention(entries: StoredJournalEntry[]) {
+  const today = new Date();
+
+  return [...entries]
+    .sort(
+      (entryA, entryB) =>
+        new Date(entryB.createdAt).getTime() -
+        new Date(entryA.createdAt).getTime(),
+    )
+    .find(
+      (entry) =>
+        entry.type === "morning_intention" &&
+        isSameDay(new Date(entry.createdAt), today),
+    );
+}
+
+function getEntryPreview(entry: StoredJournalEntry) {
+  return entry.content.trim() || entry.title || "Open your morning intention...";
+}
+
+function getGreeting() {
+  const hour = new Date().getHours();
+
+  if (hour < 12) {
+    return "Good Morning";
+  }
+
+  if (hour < 17) {
+    return "Good Afternoon";
+  }
+
+  return "Good Evening";
+}
+
+function formatTodayDate() {
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "long",
+    weekday: "long",
+  }).format(new Date());
+}
+
+function formatRecentEntryDate(value: string) {
+  const date = new Date(value);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (isSameDay(date, today)) {
+    return "Today";
+  }
+
+  if (isSameDay(date, yesterday)) {
+    return "Yesterday";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+  }).format(date);
+}
+
+function getReflectionStreak(entries: StoredJournalEntry[]) {
+  if (entries.length === 0) {
+    return 0;
+  }
+
+  const entryDays = new Set(
+    entries.map((entry) => getLocalDateKey(new Date(entry.createdAt))),
+  );
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  let cursor = startOfLocalDay(today);
+
+  if (!entryDays.has(getLocalDateKey(cursor))) {
+    if (!entryDays.has(getLocalDateKey(yesterday))) {
+      return 0;
+    }
+
+    cursor = startOfLocalDay(yesterday);
+  }
+
+  let streak = 0;
+
+  while (entryDays.has(getLocalDateKey(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+}
+
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function startOfLocalDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function isSameDay(firstDate: Date, secondDate: Date) {
+  return (
+    firstDate.getFullYear() === secondDate.getFullYear() &&
+    firstDate.getMonth() === secondDate.getMonth() &&
+    firstDate.getDate() === secondDate.getDate()
   );
 }
