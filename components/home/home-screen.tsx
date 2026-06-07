@@ -23,7 +23,10 @@ const colors = {
   primary: "#FF2056",
 };
 
-const journalEditorHref = "/journal-editor" as Href;
+const journalEditorHref = {
+  pathname: "/journal-editor",
+  params: { source: "home" },
+} as Href;
 
 export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
