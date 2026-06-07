@@ -1,4 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Plus, Search } from "lucide-react-native";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
@@ -21,8 +22,11 @@ const colors = {
   primary: "#FF2056",
 };
 
+const journalEditorHref = "/journal-editor" as Href;
+
 export function JournalHistoryScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
 
   return (
@@ -66,6 +70,7 @@ export function JournalHistoryScreen() {
               accessibilityLabel="Create journal entry"
               accessibilityRole="button"
               className="size-11 items-center justify-center rounded-full bg-white"
+              onPress={() => router.push(journalEditorHref)}
               style={{ boxShadow: "0 2px 7px rgba(39, 39, 42, 0.18)" }}
             >
               <Plus size={23} color={colors.primary} strokeWidth={2} />
