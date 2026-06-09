@@ -4,11 +4,18 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 export type ReminderKey = "morning" | "evening";
 
+const defaultNotificationPreferences = {
+  eveningReminderTime: "20:00",
+  isEnabled: false,
+  morningReminderTime: "08:00",
+};
+
 type NotificationPreferencesState = {
   eveningReminderTime: string;
   hasHydrated: boolean;
   isEnabled: boolean;
   morningReminderTime: string;
+  resetNotificationPreferences: () => void;
   setHasHydrated: (hasHydrated: boolean) => void;
   setIsEnabled: (isEnabled: boolean) => void;
   setReminderTime: (key: ReminderKey, time: string) => void;
@@ -18,10 +25,12 @@ export const useNotificationPreferencesStore =
   create<NotificationPreferencesState>()(
     persist(
       (set) => ({
-        eveningReminderTime: "20:00",
+        eveningReminderTime: defaultNotificationPreferences.eveningReminderTime,
         hasHydrated: false,
-        isEnabled: false,
-        morningReminderTime: "08:00",
+        isEnabled: defaultNotificationPreferences.isEnabled,
+        morningReminderTime: defaultNotificationPreferences.morningReminderTime,
+        resetNotificationPreferences: () =>
+          set(defaultNotificationPreferences),
         setHasHydrated: (hasHydrated) => set({ hasHydrated }),
         setIsEnabled: (isEnabled) => set({ isEnabled }),
         setReminderTime: (key, time) => {

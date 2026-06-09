@@ -26,6 +26,7 @@ import {
   type ProfileMenuItem,
   type ProfileStat,
 } from "@/data/profile";
+import { clearAllLocalData } from "@/lib/local-data";
 import { useJournalStore } from "@/store/journal-store";
 import type { JournalEntry, MoodId } from "@/types/journal";
 
@@ -60,6 +61,8 @@ export function ProfileScreen() {
   const { user } = useUser();
   const entries = useJournalStore((state) => state.entries);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
+  const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
+  const [isClearingData, setIsClearingData] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const displayName = getDisplayName({
@@ -83,11 +86,13 @@ export function ProfileScreen() {
     }
 
     setIsSigningOut(true);
+    setActiveUserId(null);
 
     try {
       await signOut();
       router.replace("/login");
     } catch (error) {
+      setActiveUserId(user?.id ?? null);
       const message =
         error instanceof Error
           ? error.message
@@ -96,6 +101,40 @@ export function ProfileScreen() {
     } finally {
       setIsSigningOut(false);
     }
+  }
+
+  function handleClearAllData() {
+    if (isClearingData) {
+      return;
+    }
+
+    Alert.alert(
+      "Clear all local data?",
+      "This removes all journal entries and app preferences stored on this device.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          onPress: async () => {
+            setIsClearingData(true);
+
+            try {
+              await clearAllLocalData();
+              Alert.alert("Local data cleared", "This device has been reset.");
+            } catch (error) {
+              const message =
+                error instanceof Error
+                  ? error.message
+                  : "We could not clear local data. Please try again.";
+              Alert.alert("Clear data failed", message);
+            } finally {
+              setIsClearingData(false);
+            }
+          },
+          style: "destructive",
+          text: "Clear Data",
+        },
+      ],
+    );
   }
 
   function handleBackPress() {
@@ -278,6 +317,22 @@ export function ProfileScreen() {
         />
 
         <View className="items-center pt-9">
+          <Pressable
+            accessibilityRole="button"
+            className="mb-4 min-h-10 flex-row items-center justify-center gap-2 rounded-full border border-[#FF2056] px-5 py-2"
+            disabled={isClearingData}
+            onPress={handleClearAllData}
+          >
+            {isClearingData ? (
+              <ActivityIndicator color={colors.primary} size="small" />
+            ) : (
+              <Feather name="trash-2" size={17} color={colors.primary} />
+            )}
+            <Text className="text-[15px] font-semibold leading-5 text-[#FF2056]">
+              Clear All Data
+            </Text>
+          </Pressable>
+
           <Pressable
             accessibilityRole="button"
             className="min-h-10 flex-row items-center justify-center gap-2 px-5"

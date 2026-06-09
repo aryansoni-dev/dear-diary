@@ -17,10 +17,10 @@ import {
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
 import {
-  type InsightCard,
-  type InsightStat,
   insightCardStyles,
   insightStatStyles,
+  type InsightCard,
+  type InsightStat,
   type MoodJourneyPoint,
 } from "@/data/insights";
 import { useJournalStore } from "@/store/journal-store";
@@ -231,7 +231,7 @@ function getLocalInsights(
     "Top Emotion": hasHydrated
       ? topMood
         ? moodLabels[topMood]
-        : "Not enough data"
+        : "No data"
       : "Loading...",
   };
 
