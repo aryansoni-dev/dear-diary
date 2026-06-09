@@ -60,6 +60,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const updateEntry = useJournalStore((state) => state.updateEntry);
   const deleteEntry = useJournalStore((state) => state.deleteEntry);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
+  const activeUserId = useJournalStore((state) => state.activeUserId);
   const [content, setContent] = useState("");
   const [selectedMood, setSelectedMood] = useState<MoodId | null>("happy");
   const [title, setTitle] = useState("");
@@ -126,6 +127,14 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
 
   function handleSave() {
     if (!canSave) {
+      return;
+    }
+
+    if (!activeUserId) {
+      Alert.alert(
+        "Sign in required",
+        "Please sign in again before saving a journal entry.",
+      );
       return;
     }
 

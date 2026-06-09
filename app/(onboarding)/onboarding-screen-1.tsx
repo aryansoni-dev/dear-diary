@@ -73,7 +73,7 @@ export default function OnboardingScreenOne() {
             Your space to reflect.
           </Text>
           <Text className="mt-1 text-center text-[42px] leading-[50px]">🌸</Text>
-          <Text className="mt-6 text-center text-[17px] leading-5 text-zinc-500">
+          <Text className="mt-6 w-full px-2 text-center text-[17px] leading-7 text-zinc-500">
             Reflect, understand, and grow.
           </Text>
         </View>

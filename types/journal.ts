@@ -16,7 +16,7 @@ export type EntryType =
 
 export type JournalEntry = {
   id: string;
-  userId?: string;
+  userId: string;
   title: string;
   content: string;
   mood: MoodId | null;
