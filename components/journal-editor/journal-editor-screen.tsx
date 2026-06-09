@@ -133,7 +133,11 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       content: content.trim(),
       mood: selectedMood,
       prompt: activePrompt,
-      title: title.trim() || getDefaultTitle(activeEntryType),
+      title: getSavedTitle({
+        prompt: activePrompt,
+        title: title.trim(),
+        type: activeEntryType,
+      }),
       type: activeEntryType,
     };
 
@@ -380,6 +384,31 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
 
 function isEntryType(value: string | undefined): value is EntryType {
   return entryTypes.includes(value as EntryType);
+}
+
+function getSavedTitle({
+  prompt,
+  title,
+  type,
+}: {
+  prompt: string;
+  title: string;
+  type: EntryType;
+}) {
+  if (usesPromptAsTitle(type)) {
+    return prompt;
+  }
+
+  return title || getDefaultTitle(type);
+}
+
+function usesPromptAsTitle(type: EntryType) {
+  return (
+    type === "daily_prompt" ||
+    type === "evening_reflection" ||
+    type === "gratitude" ||
+    type === "ai_reflection"
+  );
 }
 
 function getDefaultTitle(type: EntryType) {

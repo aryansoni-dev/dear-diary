@@ -1,6 +1,7 @@
 import { LinearGradient as ExpoLinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { Sparkles } from "lucide-react-native";
+import { useMemo } from "react";
 import { ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, {
@@ -16,12 +17,14 @@ import {
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
 import {
-  insightCards,
-  insightStats,
-  moodJourney,
   type InsightCard,
+  type InsightStat,
+  insightCardStyles,
+  insightStatStyles,
   type MoodJourneyPoint,
 } from "@/data/insights";
+import { useJournalStore } from "@/store/journal-store";
+import type { JournalEntry, MoodId } from "@/types/journal";
 
 const primaryColor = "#FF2056";
 
@@ -31,6 +34,64 @@ const chartBottomPadding = 52;
 const moodMax = 5;
 const moodMin = 1;
 
+const fallbackMoodScore = 3;
+const fallbackMoodEmoji = "😐";
+
+const moodScores: Record<MoodId, number> = {
+  anxious: 2,
+  calm: 3,
+  grateful: 4,
+  happy: 5,
+  motivated: 5,
+  sad: 1,
+};
+
+const moodEmoji: Record<MoodId, string> = {
+  anxious: "😰",
+  calm: "😌",
+  grateful: "🙏",
+  happy: "😊",
+  motivated: "🔥",
+  sad: "😔",
+};
+
+const moodLabels: Record<MoodId, string> = {
+  anxious: "Anxious",
+  calm: "Calm",
+  grateful: "Grateful",
+  happy: "Happy",
+  motivated: "Motivated",
+  sad: "Sad",
+};
+
+const stopWords = [
+  "the",
+  "and",
+  "for",
+  "you",
+  "your",
+  "with",
+  "that",
+  "this",
+  "was",
+  "are",
+  "but",
+  "have",
+  "had",
+  "today",
+  "feel",
+  "felt",
+  "from",
+  "just",
+  "about",
+  "what",
+  "when",
+  "where",
+  "into",
+] as const;
+
+const stopWordSet = new Set<string>(stopWords);
+
 type ChartPoint = MoodJourneyPoint & {
   x: number;
   y: number;
@@ -38,7 +99,13 @@ type ChartPoint = MoodJourneyPoint & {
 
 export function InsightsScreen() {
   const insets = useSafeAreaInsets();
+  const entries = useJournalStore((state) => state.entries);
+  const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
+  const insights = useMemo(
+    () => getLocalInsights(entries, hasHydrated),
+    [entries, hasHydrated],
+  );
 
   return (
     <View className="flex-1 bg-[#FAF7F2]">
@@ -108,11 +175,11 @@ export function InsightsScreen() {
             </View>
           </View>
 
-          <MoodJourneyChart data={moodJourney} />
+          <MoodJourneyChart data={insights.moodJourney} />
         </View>
 
         <View className="mt-6 flex-row gap-4">
-          {insightStats.map((stat) => (
+          {insights.stats.map((stat) => (
             <View
               className="h-[132px] flex-1 items-center justify-center rounded-[28px] px-2"
               key={stat.label}
@@ -133,7 +200,7 @@ export function InsightsScreen() {
         </View>
 
         <View className="mt-7 gap-4">
-          {insightCards.map((card) => (
+          {insights.cards.map((card) => (
             <InsightMessageCard card={card} key={card.title} />
           ))}
         </View>
@@ -141,6 +208,258 @@ export function InsightsScreen() {
 
       <BottomTabBar activeTab="Insights" />
     </View>
+  );
+}
+
+type LocalInsights = {
+  cards: InsightCard[];
+  moodJourney: MoodJourneyPoint[];
+  stats: InsightStat[];
+};
+
+function getLocalInsights(
+  entries: JournalEntry[],
+  hasHydrated: boolean,
+): LocalInsights {
+  const topMood = getTopMood(entries);
+  const streak = hasHydrated ? getReflectionStreak(entries) : 0;
+  const statValues = {
+    "Current Streak": hasHydrated
+      ? `${streak} ${streak === 1 ? "Day" : "Days"}`
+      : "…",
+    Entries: hasHydrated ? String(entries.length) : "…",
+    "Top Emotion": hasHydrated
+      ? topMood
+        ? moodLabels[topMood]
+        : "Not enough data"
+      : "Loading...",
+  };
+
+  return {
+    cards: insightCardStyles.map((card) => ({
+      ...card,
+      body: getInsightCardBody(card.title, entries, hasHydrated, topMood),
+    })),
+    moodJourney: getWeeklyMoodJourney(entries),
+    stats: insightStatStyles.map((stat) => ({
+      ...stat,
+      value: statValues[stat.label as keyof typeof statValues],
+    })),
+  };
+}
+
+function getInsightCardBody(
+  title: InsightCard["title"],
+  entries: JournalEntry[],
+  hasHydrated: boolean,
+  topMood: MoodId | null,
+) {
+  if (!hasHydrated) {
+    return "Loading your local insights...";
+  }
+
+  if (title === "DearDiary AI Says") {
+    return getLocalAiInsight(entries, topMood);
+  }
+
+  if (title === "Pattern Found") {
+    return getPatternInsight(entries);
+  }
+
+  return getRecurringTopicInsight(entries);
+}
+
+function getWeeklyMoodJourney(entries: JournalEntry[]) {
+  const today = startOfLocalDay(new Date());
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (6 - index));
+    const entry = getLatestMoodEntryForDate(entries, date);
+    const mood = entry?.mood ?? null;
+
+    return {
+      day: new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date),
+      emoji: mood ? moodEmoji[mood] : fallbackMoodEmoji,
+      mood: mood ? moodScores[mood] : fallbackMoodScore,
+    };
+  });
+}
+
+function getLatestMoodEntryForDate(entries: JournalEntry[], date: Date) {
+  return entries
+    .filter((entry) => entry.mood && isSameDay(new Date(entry.createdAt), date))
+    .sort(
+      (entryA, entryB) =>
+        new Date(entryB.createdAt).getTime() -
+        new Date(entryA.createdAt).getTime(),
+    )[0];
+}
+
+function getTopMood(entries: JournalEntry[]) {
+  const moodCounts = entries.reduce<Partial<Record<MoodId, number>>>(
+    (counts, entry) => {
+      if (!entry.mood) {
+        return counts;
+      }
+
+      counts[entry.mood] = (counts[entry.mood] ?? 0) + 1;
+      return counts;
+    },
+    {},
+  );
+
+  return Object.entries(moodCounts).reduce<MoodId | null>(
+    (currentMood, [mood, count]) => {
+      if (!currentMood) {
+        return mood as MoodId;
+      }
+
+      return count > (moodCounts[currentMood] ?? 0)
+        ? (mood as MoodId)
+        : currentMood;
+    },
+    null,
+  );
+}
+
+function getLocalAiInsight(entries: JournalEntry[], topMood: MoodId | null) {
+  if (entries.length === 0) {
+    return "Write a few reflections to unlock deeper insights.";
+  }
+
+  if (hasGratitudeEntry(entries)) {
+    return "Gratitude has appeared in your reflections recently.";
+  }
+
+  if (topMood) {
+    return `You've been noticing ${moodLabels[topMood].toLowerCase()} often in your recent reflections.`;
+  }
+
+  return "Write a few more reflections to unlock deeper insights.";
+}
+
+function hasGratitudeEntry(entries: JournalEntry[]) {
+  return entries.some((entry) => {
+    const searchableText = `${entry.title} ${entry.content} ${entry.prompt ?? ""}`;
+
+    return (
+      entry.type === "gratitude" ||
+      /\b(gratitude|grateful|thankful)\b/i.test(searchableText)
+    );
+  });
+}
+
+function getPatternInsight(entries: JournalEntry[]) {
+  if (entries.length < 3) {
+    return "Patterns will appear as you write more reflections.";
+  }
+
+  const calmEntries = entries.filter((entry) => entry.mood === "calm").length;
+  const moodEntries = entries.filter((entry) => entry.mood).length;
+  const entriesBeforeTen = entries.filter(
+    (entry) => new Date(entry.createdAt).getHours() < 22,
+  ).length;
+
+  if (moodEntries > 0 && calmEntries >= Math.ceil(moodEntries / 2)) {
+    return "Calm appears often in your reflections.";
+  }
+
+  if (entriesBeforeTen > entries.length / 2) {
+    return "You seem more consistent when you write before 10 PM.";
+  }
+
+  return "You are building a steady reflection habit.";
+}
+
+function getRecurringTopicInsight(entries: JournalEntry[]) {
+  const recurringTopic = getRecurringTopic(entries);
+
+  if (!recurringTopic) {
+    return "Recurring topics will appear as you write more.";
+  }
+
+  return `${recurringTopic} appeared often in your entries.`;
+}
+
+function getRecurringTopic(entries: JournalEntry[]) {
+  const wordCounts = entries.reduce<Record<string, number>>((counts, entry) => {
+    const words = entry.content.toLowerCase().match(/[a-z']+/g) ?? [];
+
+    words.forEach((word) => {
+      if (word.length < 4 || stopWordSet.has(word)) {
+        return;
+      }
+
+      counts[word] = (counts[word] ?? 0) + 1;
+    });
+
+    return counts;
+  }, {});
+
+  const [word, count] =
+    Object.entries(wordCounts).sort((topicA, topicB) => {
+      const countDifference = topicB[1] - topicA[1];
+
+      if (countDifference !== 0) {
+        return countDifference;
+      }
+
+      return topicA[0].localeCompare(topicB[0]);
+    })[0] ?? [];
+
+  return count && count > 1 ? word : null;
+}
+
+function getReflectionStreak(entries: JournalEntry[]) {
+  if (entries.length === 0) {
+    return 0;
+  }
+
+  const entryDays = new Set(
+    entries.map((entry) => getLocalDateKey(new Date(entry.createdAt))),
+  );
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  let cursor = startOfLocalDay(today);
+
+  if (!entryDays.has(getLocalDateKey(cursor))) {
+    if (!entryDays.has(getLocalDateKey(yesterday))) {
+      return 0;
+    }
+
+    cursor = startOfLocalDay(yesterday);
+  }
+
+  let streak = 0;
+
+  while (entryDays.has(getLocalDateKey(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+}
+
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function startOfLocalDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function isSameDay(firstDate: Date, secondDate: Date) {
+  return (
+    firstDate.getFullYear() === secondDate.getFullYear() &&
+    firstDate.getMonth() === secondDate.getMonth() &&
+    firstDate.getDate() === secondDate.getDate()
   );
 }
 

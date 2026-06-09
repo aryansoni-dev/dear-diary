@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ChevronRight, Sparkles } from "lucide-react-native";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -11,6 +11,8 @@ import {
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
 import { reflectPrompts, type ReflectPrompt } from "@/data/reflect";
+import { useJournalStore } from "@/store/journal-store";
+import type { JournalEntry } from "@/types/journal";
 
 const colors = {
   body: "#71717B",
@@ -19,7 +21,33 @@ const colors = {
 
 export function ReflectScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const entries = useJournalStore((state) => state.entries);
+  const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
+
+  function handlePromptPress(prompt: ReflectPrompt) {
+    const existingEntry = hasHydrated
+      ? getTodayEntryWithPrompt(entries, prompt.prompt)
+      : undefined;
+
+    if (existingEntry) {
+      router.push({
+        pathname: "/journal/[id]",
+        params: { id: existingEntry.id, source: "reflect" },
+      });
+      return;
+    }
+
+    router.push({
+      pathname: "/journal/new",
+      params: {
+        prompt: prompt.prompt,
+        source: "reflect",
+        type: prompt.type,
+      },
+    });
+  }
 
   return (
     <View className="flex-1 bg-white">
@@ -66,7 +94,12 @@ export function ReflectScreen() {
 
         <View className="mt-8 gap-6">
           {reflectPrompts.map((prompt) => (
-            <ReflectPromptCard key={prompt.question} prompt={prompt} />
+            <ReflectPromptCard
+              key={prompt.title}
+              entry={getTodayEntryWithPrompt(entries, prompt.prompt)}
+              onPress={() => handlePromptPress(prompt)}
+              prompt={prompt}
+            />
           ))}
         </View>
 
@@ -106,12 +139,22 @@ export function ReflectScreen() {
   );
 }
 
-function ReflectPromptCard({ prompt }: { prompt: ReflectPrompt }) {
+type ReflectPromptCardProps = {
+  entry?: JournalEntry;
+  onPress: () => void;
+  prompt: ReflectPrompt;
+};
+
+function ReflectPromptCard({ entry, onPress, prompt }: ReflectPromptCardProps) {
   const Icon = prompt.Icon;
+  const previewText = entry ? getEntryPreview(entry) : "Tap to reflect...";
 
   return (
-    <View
+    <Pressable
+      accessibilityLabel={prompt.title}
+      accessibilityRole="button"
       className="rounded-[28px] px-6 py-7"
+      onPress={onPress}
       style={{
         backgroundColor: prompt.backgroundColor,
         boxShadow: "0 10px 24px rgba(124, 93, 150, 0.12)",
@@ -122,19 +165,43 @@ function ReflectPromptCard({ prompt }: { prompt: ReflectPrompt }) {
       </View>
 
       <Text className="mt-8 text-[20px] font-bold leading-5 text-[#18181B]">
-        {prompt.question}
+        {prompt.title}
       </Text>
 
-      <Pressable
-        accessibilityLabel={prompt.question}
-        accessibilityRole="button"
+      <View
         className="mt-5 h-[66px] w-full flex-row items-center rounded-[20px] bg-white/60 px-5"
       >
-        <Text className="flex-1 text-[15px] leading-5 text-[#71717B]">
-          Tap to reflect...
+        <Text
+          className="flex-1 text-[15px] leading-5 text-[#71717B]"
+          numberOfLines={2}
+        >
+          {previewText}
         </Text>
         <ChevronRight size={23} color={colors.body} strokeWidth={2} />
-      </Pressable>
-    </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function getEntryPreview(entry: JournalEntry) {
+  return entry.content.trim() || entry.title.trim() || "Tap to continue...";
+}
+
+function getTodayEntryWithPrompt(entries: JournalEntry[], prompt: string) {
+  const today = new Date();
+  const normalizedPrompt = prompt.trim();
+
+  return entries.find(
+    (entry) =>
+      entry.prompt?.trim() === normalizedPrompt &&
+      isSameDay(new Date(entry.createdAt), today),
+  );
+}
+
+function isSameDay(firstDate: Date, secondDate: Date) {
+  return (
+    firstDate.getFullYear() === secondDate.getFullYear() &&
+    firstDate.getMonth() === secondDate.getMonth() &&
+    firstDate.getDate() === secondDate.getDate()
   );
 }
