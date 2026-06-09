@@ -146,4 +146,10 @@ export const accountItems: ProfileMenuItem[] = [
     iconColor: "#51515B",
     label: "Export Journal",
   },
+  {
+    backgroundColor: "#FFE1EE",
+    icon: "trash-2",
+    iconColor: "#FF2056",
+    label: "Clear My Journal Data",
+  },
 ];

@@ -28,9 +28,14 @@ const colors = {
   primary: "#FF2056",
 };
 
+const aiReflectionPrompt = "What made you smile unexpectedly today?";
 const journalEditorHref = {
   pathname: "/journal/new",
-  params: { source: "home" },
+  params: {
+    prompt: aiReflectionPrompt,
+    source: "home",
+    type: "ai_reflection",
+  },
 } as Href;
 
 const journalHistoryHref = "/journal-history" as Href;
@@ -196,7 +201,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
           </View>
 
           <Text className="mb-6 text-[24px] font-semibold leading-5 text-[#27272A]">
-            What made you smile{"\n"}unexpectedly today?
+            {aiReflectionPrompt.replace(" unexpectedly", "\nunexpectedly")}
           </Text>
 
           <Pressable
@@ -344,11 +349,11 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
                   </Text>
                   <Text className="text-[31px] leading-5">{entry.emoji}</Text>
                 </View>
-                <Text className="mb-1 text-[19px] font-semibold leading-8 text-[#303039]">
+                <Text className="mb-1 text-[19px] font-semibold leading-5 text-[#303039]">
                   {entry.title}
                 </Text>
                 <Text
-                  className="text-[17px] leading-5 text-zinc-950/60"
+                  className="text-[17px] mt-3 leading-5 text-zinc-950/60"
                   numberOfLines={3}
                 >
                   {entry.excerpt}

@@ -2,9 +2,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Check, ChevronLeft, Sparkles, Trash2 } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
@@ -29,7 +30,6 @@ const colors = {
   placeholder: "#8B8B93",
 };
 
-const defaultPrompt = "What made you smile unexpectedly today?";
 const entryTypes: EntryType[] = [
   "free_write",
   "daily_prompt",
@@ -46,6 +46,7 @@ type JournalEditorScreenProps = {
 export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const scrollViewRef = useRef<ScrollView | null>(null);
   const {
     prompt: promptParam,
     source,
@@ -65,17 +66,28 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const [selectedMood, setSelectedMood] = useState<MoodId | null>("happy");
   const [title, setTitle] = useState("");
   const [wasSaved, setWasSaved] = useState(false);
+  const [isWritingFocused, setIsWritingFocused] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const bottomChromeHeight = bottomNavHeight;
+  const isAndroid = process.env.EXPO_OS === "android";
+  const isKeyboardOpen = keyboardHeight > 0;
+  const writingAreaBottomPadding =
+    isAndroid && isKeyboardOpen ? keyboardHeight + 96 : bottomChromeHeight + 48;
   const activeTab = source === "history" ? "History" : "Today";
   const entry = entries.find((journalEntry) => journalEntry.id === entryId);
-  const requestedEntryType = isEntryType(typeParam) ? typeParam : "daily_prompt";
+  const routePrompt = promptParam?.trim() || undefined;
+  const requestedEntryType = isEntryType(typeParam)
+    ? typeParam
+    : routePrompt
+      ? "daily_prompt"
+      : "free_write";
   const activeEntryType = entry?.type ?? requestedEntryType;
-  const activePrompt = (entry?.prompt ?? promptParam?.trim()) || defaultPrompt;
+  const activePrompt = entry?.prompt ?? routePrompt;
   const promptLabel =
     activeEntryType === "morning_intention"
       ? "Morning Intention"
-      : "Today's Reflection Prompt";
+      : "Reflection Prompt";
   const isEditing = Boolean(entryId);
   const isMissingEntry = hasHydrated && isEditing && !entry;
   const canSave = title.trim().length > 0 || content.trim().length > 0;
@@ -98,6 +110,39 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
     setSelectedMood(entry.mood);
     setTitle(entry.title);
   }, [entry]);
+
+  useEffect(() => {
+    if (entry || !routePrompt) {
+      return;
+    }
+
+    setTitle((currentTitle) => currentTitle || routePrompt);
+  }, [entry, routePrompt]);
+
+  useEffect(() => {
+    const keyboardShowEvent =
+      process.env.EXPO_OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const keyboardHideEvent =
+      process.env.EXPO_OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSubscription = Keyboard.addListener(keyboardShowEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+      scrollToWritingArea();
+    });
+    const hideSubscription = Keyboard.addListener(keyboardHideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
+  function scrollToWritingArea() {
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    });
+  }
 
   function handleGoBack() {
     router.back();
@@ -138,16 +183,16 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       return;
     }
 
+    const trimmedPrompt = activePrompt?.trim();
     const savedEntry = {
       content: content.trim(),
       mood: selectedMood,
-      prompt: activePrompt,
       title: getSavedTitle({
-        prompt: activePrompt,
         title: title.trim(),
         type: activeEntryType,
       }),
       type: activeEntryType,
+      ...(trimmedPrompt ? { prompt: trimmedPrompt } : {}),
     };
 
     if (entryId) {
@@ -211,10 +256,11 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       <StatusBar hidden />
 
       <ScrollView
+        ref={scrollViewRef}
         className="flex-1"
         contentContainerStyle={{
           minHeight: 874,
-          paddingBottom: bottomChromeHeight + 48,
+          paddingBottom: writingAreaBottomPadding,
           paddingHorizontal: 24,
           paddingTop: Math.max(58, insets.top + 20),
         }}
@@ -281,32 +327,38 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
           </View>
         </View>
 
-        <View
-          className="mb-9 overflow-hidden rounded-[28px]"
-          style={{ boxShadow: "0 6px 14px rgba(39, 39, 42, 0.13)" }}
-        >
-          <LinearGradient
-            colors={["#F8E3FA", "#FFE2EA"]}
-            end={{ x: 1, y: 1 }}
-            start={{ x: 0, y: 0 }}
-            style={{ paddingHorizontal: 24, paddingVertical: 24 }}
+        {activePrompt ? (
+          <View
+            className="mb-9 overflow-hidden rounded-[28px]"
+            style={{ boxShadow: "0 6px 14px rgba(39, 39, 42, 0.13)" }}
           >
-            <View className="mb-5 flex-row items-center gap-4">
-              <View className="size-10 items-center justify-center rounded-full bg-white/60">
-                <Sparkles color={colors.primary} size={22} strokeWidth={2.2} />
+            <LinearGradient
+              colors={["#F8E3FA", "#FFE2EA"]}
+              end={{ x: 1, y: 1 }}
+              start={{ x: 0, y: 0 }}
+              style={{ paddingHorizontal: 24, paddingVertical: 24 }}
+            >
+              <View className="mb-5 flex-row items-center gap-4">
+                <View className="size-10 items-center justify-center rounded-full bg-white/60">
+                  <Sparkles
+                    color={colors.primary}
+                    size={22}
+                    strokeWidth={2.2}
+                  />
+                </View>
+                <Text className="flex-1 text-[11px] font-semibold uppercase leading-5 tracking-[2.4px] text-[#FF2056]">
+                  {promptLabel}
+                </Text>
               </View>
-              <Text className="flex-1 text-[11px] font-semibold uppercase leading-5 tracking-[2.4px] text-[#FF2056]">
-                {promptLabel}
+
+              <Text className="text-[23px] font-bold leading-5 text-zinc-950">
+                {activePrompt}
               </Text>
-            </View>
+            </LinearGradient>
+          </View>
+        ) : null}
 
-            <Text className="text-[23px] font-bold leading-5 text-zinc-950">
-              {activePrompt}
-            </Text>
-          </LinearGradient>
-        </View>
-
-        <View className="mb-8">
+        <View className="mb-5">
           <Text className="mb-3 text-[11px] font-semibold uppercase leading-5 tracking-[3.2px] text-[#71717B]">
             How are you feeling?
           </Text>
@@ -360,7 +412,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
         <View className="flex-1">
           <TextInput
             accessibilityLabel="Journal title"
-            className="min-h-[58px] text-[30px] font-bold leading-10 text-zinc-950"
+            className="min-h-[58px] text-[30px] font-bold leading-8 text-zinc-950"
             onChangeText={(value) => {
               setTitle(value);
               setWasSaved(false);
@@ -372,14 +424,26 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
           <View className="h-px w-full bg-zinc-200" />
           <TextInput
             accessibilityLabel="Journal entry"
-            className="min-h-[280px] pt-6 text-[20px] leading-8 text-zinc-950"
+            className="pt-6 text-[20px] leading-6 text-zinc-950"
             multiline
+            onBlur={() => setIsWritingFocused(false)}
             onChangeText={(value) => {
               setContent(value);
               setWasSaved(false);
             }}
+            onContentSizeChange={() => {
+              if (isWritingFocused) {
+                scrollToWritingArea();
+              }
+            }}
+            onFocus={() => {
+              setIsWritingFocused(true);
+              scrollToWritingArea();
+            }}
             placeholder="Write freely... this is your safe space 🌿"
             placeholderTextColor={colors.placeholder}
+            scrollEnabled={false}
+            style={{ minHeight: isKeyboardOpen ? 380 : 280 }}
             textAlignVertical="top"
             value={content}
           />
@@ -396,28 +460,13 @@ function isEntryType(value: string | undefined): value is EntryType {
 }
 
 function getSavedTitle({
-  prompt,
   title,
   type,
 }: {
-  prompt: string;
   title: string;
   type: EntryType;
 }) {
-  if (usesPromptAsTitle(type)) {
-    return prompt;
-  }
-
   return title || getDefaultTitle(type);
-}
-
-function usesPromptAsTitle(type: EntryType) {
-  return (
-    type === "daily_prompt" ||
-    type === "evening_reflection" ||
-    type === "gratitude" ||
-    type === "ai_reflection"
-  );
 }
 
 function getDefaultTitle(type: EntryType) {

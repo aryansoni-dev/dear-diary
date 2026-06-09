@@ -36,7 +36,8 @@ type JournalState = {
   activeUserId: string | null;
   addEntry: (entry: JournalEntryInput) => JournalEntry;
   allEntries: JournalEntry[];
-  clearAllEntries: () => void;
+  clearCurrentUserEntries: () => void;
+  clearEntriesForUser: (userId: string) => void;
   deleteEntry: (id: string) => void;
   entries: JournalEntry[];
   getEntryById: (id: string) => JournalEntry | undefined;
@@ -138,10 +139,32 @@ export const useJournalStore = create<JournalState>()(
         return newEntry;
       },
       allEntries: [],
-      clearAllEntries: () =>
-        set({
-          allEntries: [],
-          entries: [],
+      clearCurrentUserEntries: () =>
+        set((state) => {
+          if (!state.activeUserId) {
+            return { entries: [] };
+          }
+
+          return {
+            allEntries: state.allEntries.filter(
+              (entry) => entry.userId !== state.activeUserId,
+            ),
+            entries: [],
+          };
+        }),
+      clearEntriesForUser: (userId) =>
+        set((state) => {
+          const allEntries = state.allEntries.filter(
+            (entry) => entry.userId !== userId,
+          );
+
+          return {
+            allEntries,
+            entries:
+              state.activeUserId === userId
+                ? []
+                : getEntriesForUser(allEntries, state.activeUserId),
+          };
         }),
       deleteEntry: (id) => {
         set((state) => ({
