@@ -26,7 +26,7 @@ import {
   type ProfileMenuItem,
   type ProfileStat,
 } from "@/data/profile";
-import { clearAllLocalData } from "@/lib/local-data";
+import { clearEntriesForUser } from "@/lib/local-data";
 import { useJournalStore } from "@/store/journal-store";
 import type { JournalEntry, MoodId } from "@/types/journal";
 
@@ -103,14 +103,24 @@ export function ProfileScreen() {
     }
   }
 
-  function handleClearAllData() {
+  function handleClearCurrentUserData() {
     if (isClearingData) {
       return;
     }
 
+    const userId = user?.id;
+
+    if (!userId) {
+      Alert.alert(
+        "Sign in required",
+        "Please sign in before clearing journal data.",
+      );
+      return;
+    }
+
     Alert.alert(
-      "Clear all local data?",
-      "This removes all journal entries and app preferences stored on this device.",
+      "Clear journal data?",
+      "This will delete your local journal entries on this device. This cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -118,8 +128,11 @@ export function ProfileScreen() {
             setIsClearingData(true);
 
             try {
-              await clearAllLocalData();
-              Alert.alert("Local data cleared", "This device has been reset.");
+              await clearEntriesForUser(userId);
+              Alert.alert(
+                "Journal data cleared",
+                "Your local journal entries were deleted from this device.",
+              );
             } catch (error) {
               const message =
                 error instanceof Error
@@ -131,7 +144,7 @@ export function ProfileScreen() {
             }
           },
           style: "destructive",
-          text: "Clear Data",
+          text: "Clear Journal Data",
         },
       ],
     );
@@ -312,27 +325,18 @@ export function ProfileScreen() {
         />
         <MenuSection
           items={accountItems}
-          onItemPress={(item) => showComingSoon(item.label)}
+          onItemPress={(item) => {
+            if (item.label === "Clear My Journal Data") {
+              handleClearCurrentUserData();
+              return;
+            }
+
+            showComingSoon(item.label);
+          }}
           title="Account"
         />
 
         <View className="items-center pt-9">
-          <Pressable
-            accessibilityRole="button"
-            className="mb-4 min-h-10 flex-row items-center justify-center gap-2 rounded-full border border-[#FF2056] px-5 py-2"
-            disabled={isClearingData}
-            onPress={handleClearAllData}
-          >
-            {isClearingData ? (
-              <ActivityIndicator color={colors.primary} size="small" />
-            ) : (
-              <Feather name="trash-2" size={17} color={colors.primary} />
-            )}
-            <Text className="text-[15px] font-semibold leading-5 text-[#FF2056]">
-              Clear All Data
-            </Text>
-          </Pressable>
-
           <Pressable
             accessibilityRole="button"
             className="min-h-10 flex-row items-center justify-center gap-2 px-5"

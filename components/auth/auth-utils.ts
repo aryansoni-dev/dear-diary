@@ -48,11 +48,11 @@ export function getPasswordFeedback(
     /\d/.test(password),
     /[^A-Za-z0-9]/.test(password),
   ];
-  const passedChecks = strengthChecks.filter(Boolean).length;
 
-  if (passedChecks < 3) {
+  if (!strengthChecks.every(Boolean)) {
     return {
-      message: "Not a strong password yet.",
+      message:
+        "Password must include uppercase, lowercase, number, and special symbol.",
       tone: "error",
     };
   }
