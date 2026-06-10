@@ -1,7 +1,7 @@
 import { useAuth, useUser } from "@clerk/expo";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, type Href } from "expo-router";
+import { Link, router, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import {
@@ -18,16 +18,18 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { achievementDefinitions } from "@/data/achievements";
 import {
   accountItems,
   preferenceItems,
-  type ProfileAchievement,
   type ProfileInsight,
   type ProfileMenuItem,
   type ProfileStat,
 } from "@/data/profile";
+import { getAchievements, getWordCount } from "@/lib/achievements";
 import { clearEntriesForUser } from "@/lib/local-data";
 import { useJournalStore } from "@/store/journal-store";
+import type { AchievementCategory } from "@/types/achievement";
 import type { JournalEntry, MoodId } from "@/types/journal";
 
 const colors = {
@@ -36,6 +38,7 @@ const colors = {
 };
 
 const profileNotificationsHref = "/profile-notifications" as Href;
+const achievementsHref = "/achievements" as Href;
 
 const moodLabels: Record<MoodId, string> = {
   anxious: "Anxious",
@@ -282,20 +285,41 @@ export function ProfileScreen() {
         </View>
 
         <View className="pt-10">
-          <SectionTitle>Achievements</SectionTitle>
+          <View className="flex-row items-end justify-between gap-4">
+            <View>
+              <SectionTitle>Achievements</SectionTitle>
+              <Text className="mt-1 text-[14px] font-medium leading-5 text-[#71717B]">
+                {hasHydrated
+                  ? `${profileSummary.unlockedAchievementCount} / ${profileSummary.totalAchievementCount} unlocked`
+                  : "Loading achievements..."}
+              </Text>
+            </View>
+
+            <Link href={achievementsHref} asChild>
+              <Pressable accessibilityRole="button" className="px-2 py-1">
+                <Text className="text-[16px] font-bold leading-5 text-[#FF2056]">
+                  See all
+                </Text>
+              </Pressable>
+            </Link>
+          </View>
+
           <View className="mt-5 gap-3.5">
-            {profileSummary.achievements.map((achievement) => (
+            {profileSummary.achievementPreview.length > 0 ? (
+              profileSummary.achievementPreview.map((achievement) => (
               <View
                 className="min-h-[95px] flex-row items-center gap-4 rounded-[24px] px-5 py-4"
-                key={achievement.title}
+                key={achievement.id}
                 style={{
-                  backgroundColor: achievement.backgroundColor,
+                  backgroundColor: getAchievementBackgroundColor(
+                    achievement.category,
+                  ),
                   boxShadow: "0 2px 5px rgba(39, 39, 42, 0.11)",
                 }}
               >
                 <View className="size-14 items-center justify-center rounded-[17px] bg-white/75">
                   <Text className="text-[27px] leading-8">
-                    {achievement.emoji}
+                    {achievement.icon}
                   </Text>
                 </View>
                 <View className="flex-1">
@@ -303,11 +327,29 @@ export function ProfileScreen() {
                     {achievement.title}
                   </Text>
                   <Text className="mt-1 text-[13px] leading-5 text-[#71717B]">
-                    {achievement.subtitle}
+                    {achievement.description}
                   </Text>
                 </View>
               </View>
-            ))}
+              ))
+            ) : (
+              <View
+                className="min-h-[95px] flex-row items-center gap-4 rounded-[24px] bg-[#F4F4F5] px-5 py-4"
+                style={{ boxShadow: "0 2px 5px rgba(39, 39, 42, 0.11)" }}
+              >
+                <View className="size-14 items-center justify-center rounded-[17px] bg-white/75">
+                  <Text className="text-[27px] leading-8">🌱</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-[16px] font-semibold leading-5 text-[#27272A]">
+                    First Reflection
+                  </Text>
+                  <Text className="mt-1 text-[13px] leading-5 text-[#71717B]">
+                    Your first achievement is waiting for your next entry.
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
@@ -473,14 +515,20 @@ function getDisplayName({
 function getProfileSummary(entries: JournalEntry[], hasHydrated: boolean) {
   if (!hasHydrated) {
     return {
-      achievements: getLoadingAchievements(),
+      achievementPreview: [],
       insights: getLoadingInsights(),
       stats: getLoadingStats(),
+      totalAchievementCount: achievementDefinitions.length,
+      unlockedAchievementCount: 0,
     };
   }
 
   const entryCount = entries.length;
   const streak = getReflectionStreak(entries);
+  const achievements = getAchievements(entries, streak);
+  const unlockedAchievements = achievements.filter(
+    (achievement) => achievement.unlocked,
+  );
   const uniqueMoodCount = new Set(
     entries.flatMap((entry) => (entry.mood ? [entry.mood] : [])),
   ).size;
@@ -488,7 +536,7 @@ function getProfileSummary(entries: JournalEntry[], hasHydrated: boolean) {
   const averageReflectionMinutes = getAverageReflectionMinutes(entries);
 
   return {
-    achievements: getProfileAchievements(entryCount, streak),
+    achievementPreview: unlockedAchievements.slice(-3).reverse(),
     insights: [
       {
         emoji: mostCommonMood ? moodEmoji[mostCommonMood] : "😌",
@@ -524,6 +572,8 @@ function getProfileSummary(entries: JournalEntry[], hasHydrated: boolean) {
         value: String(uniqueMoodCount),
       },
     ],
+    totalAchievementCount: achievements.length,
+    unlockedAchievementCount: unlockedAchievements.length,
   };
 }
 
@@ -563,75 +613,6 @@ function getLoadingInsights(): ProfileInsight[] {
       value: "Loading...",
     },
   ];
-}
-
-function getLoadingAchievements(): ProfileAchievement[] {
-  return [
-    {
-      backgroundColor: "#D8F3E2",
-      emoji: "🌱",
-      subtitle: "Loading your reflection journey",
-      title: "First Week",
-    },
-    {
-      backgroundColor: "#FFE1EE",
-      emoji: "🔥",
-      subtitle: "Loading your current momentum",
-      title: "Reflection Streak",
-    },
-    {
-      backgroundColor: "#F0DDFB",
-      emoji: "📝",
-      subtitle: "Loading your saved entries",
-      title: "Entries Written",
-    },
-  ];
-}
-
-function getProfileAchievements(
-  entryCount: number,
-  streak: number,
-): ProfileAchievement[] {
-  const nextEntryMilestone = getNextEntryMilestone(entryCount);
-  const hasFirstWeek = streak >= 7;
-
-  return [
-    {
-      backgroundColor: "#D8F3E2",
-      emoji: "🌱",
-      subtitle: hasFirstWeek
-        ? "You showed up 7 days in a row"
-        : `${Math.min(streak, 6)}/7 days completed`,
-      title: hasFirstWeek ? "First Week Completed" : "First Week In Progress",
-    },
-    {
-      backgroundColor: "#FFE1EE",
-      emoji: "🔥",
-      subtitle:
-        streak > 0
-          ? "Keep the momentum going"
-          : "Write today to begin a streak",
-      title: `${streak} Day Streak`,
-    },
-    {
-      backgroundColor: "#F0DDFB",
-      emoji: "📝",
-      subtitle:
-        entryCount >= nextEntryMilestone
-          ? "Your reflection journey grows"
-          : `${entryCount}/${nextEntryMilestone} entries completed`,
-      title: `${entryCount} ${entryCount === 1 ? "Entry" : "Entries"} Written`,
-    },
-  ];
-}
-
-function getNextEntryMilestone(entryCount: number) {
-  const milestones = [1, 5, 10, 25, 50, 100];
-
-  return (
-    milestones.find((milestone) => entryCount < milestone) ??
-    Math.ceil((entryCount + 1) / 50) * 50
-  );
 }
 
 function getJournalingSinceLabel(entries: JournalEntry[], hasHydrated: boolean) {
@@ -699,12 +680,6 @@ function getAverageReflectionMinutes(entries: JournalEntry[]) {
   return Math.max(1, Math.round(averageWords / 35));
 }
 
-function getWordCount(value: string) {
-  const words = value.trim().match(/\S+/g);
-
-  return words?.length ?? 0;
-}
-
 function getReflectionStreak(entries: JournalEntry[]) {
   if (entries.length === 0) {
     return 0;
@@ -747,4 +722,21 @@ function getLocalDateKey(date: Date) {
 
 function startOfLocalDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function getAchievementBackgroundColor(category: AchievementCategory) {
+  switch (category) {
+    case "depth":
+      return "#D8F0FE";
+    case "intention":
+      return "#FFF0D8";
+    case "journaling":
+      return "#F0DDFB";
+    case "mood":
+      return "#D8F3E2";
+    case "reflection":
+      return "#FFE1EE";
+    case "streak":
+      return "#FFDDE8";
+  }
 }
