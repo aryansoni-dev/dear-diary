@@ -9,7 +9,14 @@ import { Modal, Pressable, Text, View } from "react-native";
 
 export type AppDialogVariant = "default" | "success" | "destructive";
 
+export type AppDialogAction = {
+  onPress?: () => void;
+  text: string;
+  variant?: "primary" | "secondary" | "destructive";
+};
+
 export type AppDialogOptions = {
+  actions?: AppDialogAction[];
   cancelText?: string;
   confirmText?: string;
   icon?: string;
@@ -17,6 +24,7 @@ export type AppDialogOptions = {
   onCancel?: () => void;
   onConfirm?: () => void;
   showCancel?: boolean;
+  subtitle?: string;
   title: string;
   variant?: AppDialogVariant;
 };
@@ -95,6 +103,13 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
     onConfirm?.();
   }
 
+  function handleActionPress(action: AppDialogAction) {
+    hideDialog();
+    action.onPress?.();
+  }
+
+  const actions = dialog?.actions ?? [];
+
   return (
     <AppDialogContext.Provider value={value}>
       {children}
@@ -123,7 +138,7 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
                 style={{ backgroundColor: theme.iconBackgroundColor }}
               >
                 <Text
-                  className="text-center text-[27px] font-bold leading-8"
+                  className="text-center text-[25px] font-bold leading-8"
                   style={{ color: theme.iconColor }}
                 >
                   {dialog?.icon ?? theme.icon}
@@ -134,6 +149,11 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
                 <Text className="text-center text-[22px] font-bold leading-7 text-[#27272A]">
                   {dialog?.title}
                 </Text>
+                {dialog?.subtitle ? (
+                  <Text className="text-center text-[17px] font-semibold leading-6 text-[#27272A]">
+                    {dialog.subtitle}
+                  </Text>
+                ) : null}
                 <Text className="text-center text-[15px] leading-6 text-[#71717B]">
                   {dialog?.message}
                 </Text>
@@ -141,16 +161,37 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
             </View>
 
             <View className="mt-6 gap-3">
-              <Pressable
-                accessibilityRole="button"
-                className="h-[52px] items-center justify-center rounded-full"
-                onPress={handleConfirm}
-                style={{ backgroundColor: theme.confirmColor }}
-              >
-                <Text className="text-[16px] font-bold leading-5 text-white">
-                  {dialog?.confirmText ?? "Continue"}
-                </Text>
-              </Pressable>
+              {actions.length > 0 ? (
+                actions.map((action) => (
+                  <Pressable
+                    accessibilityRole="button"
+                    className="h-[52px] items-center justify-center rounded-full"
+                    key={action.text}
+                    onPress={() => handleActionPress(action)}
+                    style={{
+                      backgroundColor: getActionBackgroundColor(action, theme),
+                    }}
+                  >
+                    <Text
+                      className="text-[16px] font-bold leading-5"
+                      style={{ color: getActionTextColor(action) }}
+                    >
+                      {action.text}
+                    </Text>
+                  </Pressable>
+                ))
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  className="h-[52px] items-center justify-center rounded-full"
+                  onPress={handleConfirm}
+                  style={{ backgroundColor: theme.confirmColor }}
+                >
+                  <Text className="text-[16px] font-bold leading-5 text-white">
+                    {dialog?.confirmText ?? "Continue"}
+                  </Text>
+                </Pressable>
+              )}
 
               {dialog?.showCancel ? (
                 <Pressable
@@ -169,4 +210,23 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
       </Modal>
     </AppDialogContext.Provider>
   );
+}
+
+function getActionBackgroundColor(
+  action: AppDialogAction,
+  theme: DialogTheme,
+) {
+  switch (action.variant) {
+    case "destructive":
+      return "#EF4444";
+    case "secondary":
+      return "#F4F4F5";
+    case "primary":
+    default:
+      return theme.confirmColor;
+  }
+}
+
+function getActionTextColor(action: AppDialogAction) {
+  return action.variant === "secondary" ? "#51515B" : "#FFFFFF";
 }

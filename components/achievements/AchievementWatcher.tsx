@@ -102,9 +102,10 @@ export function AchievementWatcher() {
     showDialog({
       confirmText: "Lovely",
       icon: firstAchievement.icon,
-      message: `${firstAchievement.title}\n${firstAchievement.description}`,
+      message: firstAchievement.description,
       onCancel: handleAchievementSeen,
       onConfirm: handleAchievementSeen,
+      subtitle: firstAchievement.title,
       title: "Achievement Unlocked",
       variant: "success",
     });

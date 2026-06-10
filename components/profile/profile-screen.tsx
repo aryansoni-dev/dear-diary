@@ -27,7 +27,13 @@ import {
   type ProfileStat,
 } from "@/data/profile";
 import { getAchievements, getWordCount } from "@/lib/achievements";
+import {
+  exportJournalAsJson,
+  exportJournalAsMarkdown,
+  JournalExportError,
+} from "@/lib/exportJournal";
 import { clearEntriesForUser } from "@/lib/local-data";
+import { useAppDialog } from "@/hooks/useAppDialog";
 import { useJournalStore } from "@/store/journal-store";
 import type { AchievementCategory } from "@/types/achievement";
 import type { JournalEntry, MoodId } from "@/types/journal";
@@ -62,10 +68,12 @@ export function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { signOut } = useAuth();
   const { user } = useUser();
+  const { showDialog } = useAppDialog();
   const entries = useJournalStore((state) => state.entries);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
   const [isClearingData, setIsClearingData] = useState(false);
+  const [isExportingJournal, setIsExportingJournal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const displayName = getDisplayName({
@@ -82,6 +90,13 @@ export function ProfileScreen() {
     () => getProfileSummary(entries, hasHydrated),
     [entries, hasHydrated],
   );
+  const currentUserEntries = useMemo(() => {
+    if (!user?.id) {
+      return [];
+    }
+
+    return entries.filter((entry) => entry.userId === user.id);
+  }, [entries, user?.id]);
 
   async function handleSignOut() {
     if (isSigningOut) {
@@ -151,6 +166,110 @@ export function ProfileScreen() {
         },
       ],
     );
+  }
+
+  function handleExportJournalPress() {
+    if (isExportingJournal) {
+      return;
+    }
+
+    if (!user?.id) {
+      showDialog({
+        confirmText: "OK",
+        message: "Please sign in before exporting your journal.",
+        title: "Sign in required",
+      });
+      return;
+    }
+
+    if (!hasHydrated) {
+      showDialog({
+        confirmText: "OK",
+        message: "Your journal is still loading. Please try again in a moment.",
+        title: "Journal loading",
+      });
+      return;
+    }
+
+    if (currentUserEntries.length === 0) {
+      showDialog({
+        confirmText: "OK",
+        icon: "📝",
+        message: "No entries to export.",
+        title: "No entries to export",
+      });
+      return;
+    }
+
+    showDialog({
+      actions: [
+        {
+          onPress: () => {
+            void handleExportJournal("markdown");
+          },
+          text: "Export as Markdown",
+          variant: "primary",
+        },
+        {
+          onPress: () => {
+            void handleExportJournal("json");
+          },
+          text: "Export as JSON",
+          variant: "secondary",
+        },
+      ],
+      cancelText: "Cancel",
+      icon: "↓",
+      message: "Choose how you want to export your local journal entries.",
+      showCancel: true,
+      title: "Export Journal",
+    });
+  }
+
+  async function handleExportJournal(format: "json" | "markdown") {
+    if (isExportingJournal) {
+      return;
+    }
+
+    setIsExportingJournal(true);
+
+    try {
+      if (format === "markdown") {
+        await exportJournalAsMarkdown(currentUserEntries);
+        return;
+      }
+
+      await exportJournalAsJson(currentUserEntries);
+    } catch (error) {
+      if (!(error instanceof JournalExportError)) {
+        console.warn("Journal export failed", error);
+      }
+
+      showExportErrorDialog(error);
+    } finally {
+      setIsExportingJournal(false);
+    }
+  }
+
+  function showExportErrorDialog(error: unknown) {
+    if (
+      error instanceof JournalExportError &&
+      error.code === "sharing-unavailable"
+    ) {
+      showDialog({
+        confirmText: "OK",
+        message: "Sharing is not available on this device.",
+        title: "Sharing unavailable",
+      });
+      return;
+    }
+
+    showDialog({
+      confirmText: "OK",
+      message: "We couldn't create your journal export. Please try again.",
+      title: "Export failed",
+      variant: "destructive",
+    });
   }
 
   function handleBackPress() {
@@ -368,6 +487,11 @@ export function ProfileScreen() {
         <MenuSection
           items={accountItems}
           onItemPress={(item) => {
+            if (item.label === "Export Journal") {
+              handleExportJournalPress();
+              return;
+            }
+
             if (item.label === "Clear My Journal Data") {
               handleClearCurrentUserData();
               return;
