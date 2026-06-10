@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "dear-diary",
-    "slug": "dear-diary",
+    "name": "DearDiary",
+    "slug": "DearDiary",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -13,7 +13,7 @@
     },
     "android": {
       "icon": "./assets/images/icon.png",
-      "package": "com.deardiary.app",
+      "package": "com.aryan.deardiary",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#FFDDE8",

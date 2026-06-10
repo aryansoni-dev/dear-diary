@@ -46,6 +46,8 @@ type AuthScreenProps = {
   subheading: string;
 };
 
+type VerificationFlow = "signup" | "login-email-code" | null;
+
 const ssoRedirectUrl = AuthSession.makeRedirectUri({ path: "sso" });
 
 export function AuthScreen({
@@ -71,6 +73,8 @@ export function AuthScreen({
   const [password, setPassword] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [isVerificationVisible, setIsVerificationVisible] = useState(false);
+  const [verificationFlow, setVerificationFlow] =
+    useState<VerificationFlow>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -138,6 +142,14 @@ export function AuthScreen({
           return;
         }
 
+        if (
+          signIn.status === "needs_client_trust" ||
+          signIn.status === "needs_second_factor"
+        ) {
+          await sendLoginVerificationCode();
+          return;
+        }
+
         showAuthError("This account needs another verification step.");
       } catch (error) {
         showAuthError(getClerkErrorMessage(error));
@@ -173,6 +185,7 @@ export function AuthScreen({
       }
 
       setVerificationCode("");
+      setVerificationFlow("signup");
       setIsVerificationVisible(true);
     } catch (error) {
       showAuthError(getClerkErrorMessage(error));
@@ -192,6 +205,11 @@ export function AuthScreen({
 
   async function handleVerifyCode(code: string) {
     if (isVerifying) {
+      return;
+    }
+
+    if (verificationFlow === "login-email-code") {
+      await handleVerifyLoginCode(code);
       return;
     }
 
@@ -220,6 +238,11 @@ export function AuthScreen({
   }
 
   async function handleResendVerificationCode() {
+    if (verificationFlow === "login-email-code") {
+      await sendLoginVerificationCode();
+      return;
+    }
+
     try {
       const { error } = await signUp.verifications.sendEmailCode();
 
@@ -231,6 +254,60 @@ export function AuthScreen({
       setVerificationCode("");
     } catch (error) {
       showAuthError(getClerkErrorMessage(error));
+    }
+  }
+
+  async function sendLoginVerificationCode() {
+    const supportsEmailCode = signIn.supportedSecondFactors.some(
+      (factor) => factor.strategy === "email_code",
+    );
+
+    if (!supportsEmailCode) {
+      showAuthError(
+        "This account needs a verification method that is not available here yet.",
+      );
+      return;
+    }
+
+    try {
+      const { error } = await signIn.mfa.sendEmailCode();
+
+      if (error) {
+        showAuthError(getClerkErrorMessage(error));
+        return;
+      }
+
+      setVerificationCode("");
+      setVerificationFlow("login-email-code");
+      setIsVerificationVisible(true);
+    } catch (error) {
+      showAuthError(getClerkErrorMessage(error));
+    }
+  }
+
+  async function handleVerifyLoginCode(code: string) {
+    setIsVerifying(true);
+
+    try {
+      const { error } = await signIn.mfa.verifyEmailCode({ code });
+
+      if (error) {
+        showAuthError(getClerkErrorMessage(error));
+        return;
+      }
+
+      if (signIn.status === "complete") {
+        await finalizeAuth(signIn);
+        setIsVerificationVisible(false);
+        setVerificationFlow(null);
+        return;
+      }
+
+      showAuthError("This account needs another verification step.");
+    } catch (error) {
+      showAuthError(getClerkErrorMessage(error));
+    } finally {
+      setIsVerifying(false);
     }
   }
 
@@ -435,9 +512,17 @@ export function AuthScreen({
 
       <VerificationCodeModal
         code={verificationCode}
+        description={
+          verificationFlow === "login-email-code"
+            ? "Enter the 6-digit sign-in verification code sent to your email."
+            : undefined
+        }
         isLoading={isVerifying}
         onChangeCode={handleVerificationChange}
-        onClose={() => setIsVerificationVisible(false)}
+        onClose={() => {
+          setIsVerificationVisible(false);
+          setVerificationFlow(null);
+        }}
         onResendCode={handleResendVerificationCode}
         visible={isVerificationVisible}
       />
