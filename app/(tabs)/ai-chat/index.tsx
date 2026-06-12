@@ -9,7 +9,11 @@ export default function AiChatTabScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <AiChatScreen avatarUrl={user?.imageUrl} firstName={user?.firstName} />
+      <AiChatScreen
+        avatarUrl={user?.imageUrl}
+        firstName={user?.firstName}
+        userId={user?.id}
+      />
     </>
   );
 }
