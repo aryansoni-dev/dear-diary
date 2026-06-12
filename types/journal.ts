@@ -14,6 +14,8 @@ export type EntryType =
   | "gratitude"
   | "ai_reflection";
 
+export type JournalSyncStatus = "synced" | "pending" | "failed";
+
 export type JournalEntry = {
   id: string;
   userId: string;
@@ -24,4 +26,6 @@ export type JournalEntry = {
   prompt?: string;
   createdAt: string;
   updatedAt: string;
+  syncStatus?: JournalSyncStatus;
+  deletedAt?: string | null;
 };

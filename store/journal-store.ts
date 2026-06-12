@@ -2,9 +2,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import type { EntryType, JournalEntry, MoodId } from "@/types/journal";
+import type {
+  EntryType,
+  JournalEntry,
+  JournalSyncStatus,
+  MoodId,
+} from "@/types/journal";
 
-const journalStorageVersion = 1;
+const journalStorageVersion = 2;
 const entryTypes: EntryType[] = [
   "free_write",
   "daily_prompt",
@@ -42,6 +47,9 @@ type JournalState = {
   entries: JournalEntry[];
   getEntryById: (id: string) => JournalEntry | undefined;
   hasHydrated: boolean;
+  markEntriesPendingSync: (entryIds: string[]) => void;
+  markEntriesSynced: (entryIds: string[]) => void;
+  markEntriesSyncFailed: (entryIds: string[]) => void;
   setActiveUserId: (userId: string | null) => void;
   setHasHydrated: (hasHydrated: boolean) => void;
   updateEntry: (id: string, entry: JournalEntryUpdate) => void;
@@ -56,7 +64,9 @@ function getEntriesForUser(entries: JournalEntry[], userId: string | null) {
     return [];
   }
 
-  return entries.filter((entry) => entry.userId === userId);
+  return entries.filter(
+    (entry) => entry.userId === userId && !entry.deletedAt,
+  );
 }
 
 function migrateJournalState(persistedState: unknown) {
@@ -82,6 +92,8 @@ function isJournalEntry(entry: unknown): entry is JournalEntry {
   }
 
   const prompt = entry.prompt;
+  const deletedAt = entry.deletedAt;
+  const syncStatus = entry.syncStatus;
 
   return (
     typeof entry.id === "string" &&
@@ -94,7 +106,11 @@ function isJournalEntry(entry: unknown): entry is JournalEntry {
     isEntryType(entry.type) &&
     (prompt === undefined || typeof prompt === "string") &&
     typeof entry.createdAt === "string" &&
-    typeof entry.updatedAt === "string"
+    typeof entry.updatedAt === "string" &&
+    (deletedAt === undefined ||
+      deletedAt === null ||
+      typeof deletedAt === "string") &&
+    (syncStatus === undefined || isJournalSyncStatus(syncStatus))
   );
 }
 
@@ -108,6 +124,25 @@ function isEntryType(value: string): value is EntryType {
 
 function isMoodId(value: string): value is MoodId {
   return moodIds.includes(value as MoodId);
+}
+
+function isJournalSyncStatus(value: unknown): value is JournalSyncStatus {
+  return value === "failed" || value === "pending" || value === "synced";
+}
+
+function setSyncStatusForEntries(
+  entries: JournalEntry[],
+  entryIds: string[],
+  activeUserId: string | null,
+  syncStatus: JournalSyncStatus,
+) {
+  const entryIdSet = new Set(entryIds);
+
+  return entries.map((entry) =>
+    entry.userId === activeUserId && entryIdSet.has(entry.id)
+      ? { ...entry, syncStatus }
+      : entry,
+  );
 }
 
 export const useJournalStore = create<JournalState>()(
@@ -126,6 +161,8 @@ export const useJournalStore = create<JournalState>()(
           ...entry,
           createdAt: now,
           id: createEntryId(),
+          deletedAt: null,
+          syncStatus: "pending",
           type: entry.type ?? "free_write",
           updatedAt: now,
           userId,
@@ -167,10 +204,18 @@ export const useJournalStore = create<JournalState>()(
           };
         }),
       deleteEntry: (id) => {
+        const now = new Date().toISOString();
+
         set((state) => ({
-          allEntries: state.allEntries.filter(
-            (entry) =>
-              entry.id !== id || entry.userId !== state.activeUserId,
+          allEntries: state.allEntries.map((entry) =>
+            entry.id === id && entry.userId === state.activeUserId
+              ? {
+                  ...entry,
+                  deletedAt: now,
+                  syncStatus: "pending",
+                  updatedAt: now,
+                }
+              : entry,
           ),
           entries: state.entries.filter((entry) => entry.id !== id),
         }));
@@ -178,6 +223,51 @@ export const useJournalStore = create<JournalState>()(
       entries: [],
       getEntryById: (id) => get().entries.find((entry) => entry.id === id),
       hasHydrated: false,
+      markEntriesPendingSync: (entryIds) =>
+        set((state) => ({
+          allEntries: setSyncStatusForEntries(
+            state.allEntries,
+            entryIds,
+            state.activeUserId,
+            "pending",
+          ),
+          entries: setSyncStatusForEntries(
+            state.entries,
+            entryIds,
+            state.activeUserId,
+            "pending",
+          ),
+        })),
+      markEntriesSynced: (entryIds) =>
+        set((state) => ({
+          allEntries: setSyncStatusForEntries(
+            state.allEntries,
+            entryIds,
+            state.activeUserId,
+            "synced",
+          ),
+          entries: setSyncStatusForEntries(
+            state.entries,
+            entryIds,
+            state.activeUserId,
+            "synced",
+          ),
+        })),
+      markEntriesSyncFailed: (entryIds) =>
+        set((state) => ({
+          allEntries: setSyncStatusForEntries(
+            state.allEntries,
+            entryIds,
+            state.activeUserId,
+            "failed",
+          ),
+          entries: setSyncStatusForEntries(
+            state.entries,
+            entryIds,
+            state.activeUserId,
+            "failed",
+          ),
+        })),
       setActiveUserId: (userId) =>
         set((state) => ({
           activeUserId: userId,
@@ -194,6 +284,7 @@ export const useJournalStore = create<JournalState>()(
               ? {
                   ...currentEntry,
                   ...entry,
+                  syncStatus: "pending",
                   updatedAt: now,
                 }
               : currentEntry,
@@ -203,6 +294,7 @@ export const useJournalStore = create<JournalState>()(
               ? {
                   ...currentEntry,
                   ...entry,
+                  syncStatus: "pending",
                   updatedAt: now,
                 }
               : currentEntry,

@@ -32,8 +32,11 @@ import {
   exportJournalAsMarkdown,
   JournalExportError,
 } from "@/lib/exportJournal";
-import { clearEntriesForUser } from "@/lib/local-data";
 import { useAppDialog } from "@/hooks/useAppDialog";
+import { clearEntriesForUser } from "@/lib/local-data";
+import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
+import { pushJournalEntriesToCloud } from "@/lib/sync/journalSync";
+import { syncProfileToCloud } from "@/lib/sync/profileSync";
 import { useJournalStore } from "@/store/journal-store";
 import type { AchievementCategory } from "@/types/achievement";
 import type { JournalEntry, MoodId } from "@/types/journal";
@@ -66,15 +69,26 @@ const moodEmoji: Record<MoodId, string> = {
 
 export function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { signOut } = useAuth();
+  const { getToken, signOut } = useAuth();
   const { user } = useUser();
   const { showDialog } = useAppDialog();
   const entries = useJournalStore((state) => state.entries);
+  const allEntries = useJournalStore((state) => state.allEntries);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
+  const markEntriesPendingSync = useJournalStore(
+    (state) => state.markEntriesPendingSync,
+  );
+  const markEntriesSynced = useJournalStore(
+    (state) => state.markEntriesSynced,
+  );
+  const markEntriesSyncFailed = useJournalStore(
+    (state) => state.markEntriesSyncFailed,
+  );
   const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
   const [isClearingData, setIsClearingData] = useState(false);
   const [isExportingJournal, setIsExportingJournal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const displayName = getDisplayName({
     emailAddress: user?.primaryEmailAddress?.emailAddress,
@@ -97,6 +111,13 @@ export function ProfileScreen() {
 
     return entries.filter((entry) => entry.userId === user.id);
   }, [entries, user?.id]);
+  const currentUserSyncEntries = useMemo(() => {
+    if (!user?.id) {
+      return [];
+    }
+
+    return allEntries.filter((entry) => entry.userId === user.id);
+  }, [allEntries, user?.id]);
 
   async function handleSignOut() {
     if (isSigningOut) {
@@ -105,6 +126,7 @@ export function ProfileScreen() {
 
     setIsSigningOut(true);
     setActiveUserId(null);
+    setSupabaseAccessTokenProvider(null);
 
     try {
       await signOut();
@@ -118,6 +140,93 @@ export function ProfileScreen() {
       Alert.alert("Sign out failed", message);
     } finally {
       setIsSigningOut(false);
+    }
+  }
+
+  async function handleBackupAndSync() {
+    if (isSyncing) {
+      return;
+    }
+
+    const userId = user?.id;
+
+    if (!userId) {
+      showDialog({
+        confirmText: "OK",
+        message: "Please sign in before backing up your journal.",
+        title: "Sign in required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!hasHydrated) {
+      showDialog({
+        confirmText: "OK",
+        message: "Your journal is still loading. Please try again in a moment.",
+        title: "Journal loading",
+      });
+      return;
+    }
+
+    const entryIds = currentUserSyncEntries.map((entry) => entry.id);
+    setIsSyncing(true);
+    setSupabaseAccessTokenProvider(() => getToken());
+    markEntriesPendingSync(entryIds);
+
+    try {
+      await syncProfileToCloud({
+        avatarUrl: user.imageUrl,
+        email: user.primaryEmailAddress?.emailAddress,
+        fullName: user.fullName,
+        userId,
+      });
+
+      if (currentUserSyncEntries.length === 0) {
+        showDialog({
+          confirmText: "OK",
+          message: "You don't have any journal entries yet.",
+          title: "Nothing to sync",
+        });
+        return;
+      }
+
+      const result = await pushJournalEntriesToCloud({
+        entries: currentUserSyncEntries,
+        userId,
+      });
+
+      markEntriesSynced(result.syncedEntryIds);
+      markEntriesSyncFailed(result.failedEntryIds);
+
+      if (result.failedEntryIds.length > 0) {
+        showDialog({
+          confirmText: "OK",
+          message:
+            "We couldn't back up your journal right now. Please try again.",
+          title: "Sync failed",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      showDialog({
+        confirmText: "Done",
+        message: "Your journal entries have been backed up.",
+        title: "Sync complete",
+        variant: "success",
+      });
+    } catch (error) {
+      console.warn("Journal sync failed", error);
+      markEntriesSyncFailed(entryIds);
+      showDialog({
+        confirmText: "OK",
+        message: "We couldn't back up your journal right now. Please try again.",
+        title: "Sync failed",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
     }
   }
 
@@ -487,6 +596,11 @@ export function ProfileScreen() {
         <MenuSection
           items={accountItems}
           onItemPress={(item) => {
+            if (item.label === "Backup & Sync") {
+              void handleBackupAndSync();
+              return;
+            }
+
             if (item.label === "Export Journal") {
               handleExportJournalPress();
               return;
