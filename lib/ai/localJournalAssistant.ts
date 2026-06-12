@@ -77,7 +77,8 @@ export const generateLocalJournalResponse = (params: {
   response: string;
   relatedEntryIds: string[];
 } => {
-  const sortedEntries = getEntriesNewestFirst(params.entries);
+  const visibleEntries = params.entries.filter((entry) => !entry.deletedAt);
+  const sortedEntries = getEntriesNewestFirst(visibleEntries);
   const normalizedMessage = params.message.toLowerCase();
 
   if (sortedEntries.length === 0) {

@@ -36,23 +36,24 @@ export async function pushJournalEntriesToCloud({
 
   try {
     const client = getAuthenticatedSupabaseClient();
-    const { error } = await client.from("journal_entries").upsert(
-      currentUserEntries.map((entry) => ({
-        content: entry.content,
-        created_at: entry.createdAt,
-        deleted_at: entry.deletedAt ?? null,
-        id: entry.id,
-        mood: entry.mood,
-        prompt: entry.prompt ?? null,
-        title: entry.title,
-        type: entry.type,
-        updated_at: entry.updatedAt,
-        user_id: entry.userId,
-      })),
-      { onConflict: "id" },
-    );
+    const cloudEntries = currentUserEntries.map((entry) => ({
+      content: entry.content,
+      created_at: entry.createdAt,
+      deleted_at: entry.deletedAt ?? null,
+      id: entry.id,
+      mood: entry.mood,
+      prompt: entry.prompt ?? null,
+      title: entry.title,
+      type: entry.type,
+      updated_at: entry.updatedAt,
+      user_id: entry.userId,
+    }));
+    const { error } = await client.rpc("merge_journal_entries", {
+      entries: cloudEntries,
+    });
 
     if (error) {
+      console.warn("Journal sync RPC failed", error);
       return {
         failedEntryIds: entryIds,
         syncedEntryIds: [],
@@ -63,7 +64,8 @@ export async function pushJournalEntriesToCloud({
       failedEntryIds: [],
       syncedEntryIds: entryIds,
     };
-  } catch {
+  } catch (error) {
+    console.warn("Journal sync RPC failed", error);
     return {
       failedEntryIds: entryIds,
       syncedEntryIds: [],

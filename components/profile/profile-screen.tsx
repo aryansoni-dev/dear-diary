@@ -172,7 +172,7 @@ export function ProfileScreen() {
     const entryIds = currentUserSyncEntries.map((entry) => entry.id);
     setIsSyncing(true);
     setSupabaseAccessTokenProvider(() => getToken());
-    markEntriesPendingSync(entryIds);
+    markEntriesPendingSync(userId, entryIds);
 
     try {
       await syncProfileToCloud({
@@ -196,8 +196,8 @@ export function ProfileScreen() {
         userId,
       });
 
-      markEntriesSynced(result.syncedEntryIds);
-      markEntriesSyncFailed(result.failedEntryIds);
+      markEntriesSynced(userId, result.syncedEntryIds);
+      markEntriesSyncFailed(userId, result.failedEntryIds);
 
       if (result.failedEntryIds.length > 0) {
         showDialog({
@@ -218,7 +218,7 @@ export function ProfileScreen() {
       });
     } catch (error) {
       console.warn("Journal sync failed", error);
-      markEntriesSyncFailed(entryIds);
+      markEntriesSyncFailed(userId, entryIds);
       showDialog({
         confirmText: "OK",
         message: "We couldn't back up your journal right now. Please try again.",
