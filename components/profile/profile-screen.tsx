@@ -35,7 +35,10 @@ import {
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { clearEntriesForUser } from "@/lib/local-data";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
-import { pushJournalEntriesToCloud } from "@/lib/sync/journalSync";
+import {
+  pullJournalEntriesFromCloud,
+  pushJournalEntriesToCloud,
+} from "@/lib/sync/journalSync";
 import { syncProfileToCloud } from "@/lib/sync/profileSync";
 import { useJournalStore } from "@/store/journal-store";
 import type { AchievementCategory } from "@/types/achievement";
@@ -83,6 +86,9 @@ export function ProfileScreen() {
   );
   const markEntriesSyncFailed = useJournalStore(
     (state) => state.markEntriesSyncFailed,
+  );
+  const mergeRemoteEntries = useJournalStore(
+    (state) => state.mergeRemoteEntries,
   );
   const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
   const [isClearingData, setIsClearingData] = useState(false);
@@ -143,7 +149,7 @@ export function ProfileScreen() {
     }
   }
 
-  async function handleBackupAndSync() {
+  async function handleBackupToCloud() {
     if (isSyncing) {
       return;
     }
@@ -204,7 +210,7 @@ export function ProfileScreen() {
           confirmText: "OK",
           message:
             "We couldn't back up your journal right now. Please try again.",
-          title: "Sync failed",
+          title: "Backup failed",
           variant: "destructive",
         });
         return;
@@ -213,16 +219,90 @@ export function ProfileScreen() {
       showDialog({
         confirmText: "Done",
         message: "Your journal entries have been backed up.",
-        title: "Sync complete",
+        title: "Backup complete",
         variant: "success",
       });
     } catch (error) {
-      console.warn("Journal sync failed", error);
+      if (__DEV__) {
+        console.warn("Journal backup failed", error);
+      }
+
       markEntriesSyncFailed(userId, entryIds);
       showDialog({
         confirmText: "OK",
         message: "We couldn't back up your journal right now. Please try again.",
-        title: "Sync failed",
+        title: "Backup failed",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
+  async function handleRestoreFromCloud() {
+    if (isSyncing) {
+      return;
+    }
+
+    const userId = user?.id;
+
+    if (!userId) {
+      showDialog({
+        confirmText: "OK",
+        message: "You need to be signed in to restore your journal.",
+        title: "Please sign in",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!hasHydrated) {
+      showDialog({
+        confirmText: "OK",
+        message: "Your journal is still loading. Please try again in a moment.",
+        title: "Journal loading",
+      });
+      return;
+    }
+
+    setIsSyncing(true);
+    setSupabaseAccessTokenProvider(() => getToken());
+
+    try {
+      const { entries: remoteEntries } = await pullJournalEntriesFromCloud({
+        userId,
+      });
+      const result = mergeRemoteEntries(userId, remoteEntries);
+
+      if (result.addedCount === 0 && result.updatedCount === 0) {
+        showDialog({
+          confirmText: "OK",
+          message: "Your local journal is already up to date.",
+          title: "Already up to date",
+          variant: "success",
+        });
+        return;
+      }
+
+      showDialog({
+        confirmText: "Done",
+        message: getRestoreResultMessage(
+          result.addedCount,
+          result.updatedCount,
+        ),
+        title: "Restore complete",
+        variant: "success",
+      });
+    } catch (error) {
+      if (__DEV__) {
+        console.warn("Journal restore failed", error);
+      }
+
+      showDialog({
+        confirmText: "OK",
+        message:
+          "We couldn't restore your journal right now. Please try again.",
+        title: "Restore failed",
         variant: "destructive",
       });
     } finally {
@@ -596,8 +676,13 @@ export function ProfileScreen() {
         <MenuSection
           items={accountItems}
           onItemPress={(item) => {
-            if (item.label === "Backup & Sync") {
-              void handleBackupAndSync();
+            if (item.label === "Backup to Cloud") {
+              void handleBackupToCloud();
+              return;
+            }
+
+            if (item.label === "Restore from Cloud") {
+              void handleRestoreFromCloud();
               return;
             }
 
@@ -728,6 +813,13 @@ function MenuIcon({ item }: { item: ProfileMenuItem }) {
 
 function showComingSoon(label: string) {
   Alert.alert(label, "Coming soon");
+}
+
+function getRestoreResultMessage(addedCount: number, updatedCount: number) {
+  const addedLabel = addedCount === 1 ? "entry" : "entries";
+  const updatedLabel = updatedCount === 1 ? "entry" : "entries";
+
+  return `Added ${addedCount} ${addedLabel}, updated ${updatedCount} ${updatedLabel}.`;
 }
 
 function getDisplayName({
