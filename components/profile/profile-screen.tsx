@@ -25,22 +25,20 @@ import {
   type ProfileMenuItem,
   type ProfileStat,
 } from "@/data/profile";
+import { useAppDialog } from "@/hooks/useAppDialog";
 import { getAchievements, getWordCount } from "@/lib/achievements";
 import {
   exportJournalAsJson,
   exportJournalAsMarkdown,
   JournalExportError,
 } from "@/lib/exportJournal";
-import { useAppDialog } from "@/hooks/useAppDialog";
 import { clearEntriesForUser } from "@/lib/local-data";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
-import {
-  pullJournalEntriesFromCloud,
-  pushJournalEntriesToCloud,
-} from "@/lib/sync/journalSync";
+import { syncAchievementStatesTwoWay } from "@/lib/sync/achievementSync";
 import { syncJournalEntriesTwoWay } from "@/lib/sync/journalTwoWaySync";
 import { syncProfileToCloud } from "@/lib/sync/profileSync";
 import { useJournalStore } from "@/store/journal-store";
+import { useAchievementStore } from "@/store/useAchievementStore";
 import type { AchievementCategory } from "@/types/achievement";
 import type { JournalEntry, MoodId } from "@/types/journal";
 
@@ -51,12 +49,7 @@ const colors = {
 
 const profileNotificationsHref = "/profile-notifications" as Href;
 const achievementsHref = "/achievements" as Href;
-const cloudSyncItemLabels = [
-  "Backup & Sync Now",
-  "Backup to Cloud",
-  "Restore from Cloud",
-];
-type CloudSyncAction = "backup" | "restore" | "sync";
+const cloudSyncItemLabel = "Backup & Sync Data";
 
 const moodLabels: Record<MoodId, string> = {
   anxious: "Anxious",
@@ -97,11 +90,19 @@ export function ProfileScreen() {
     (state) => state.mergeRemoteEntries,
   );
   const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
+  const achievementHasHydrated = useAchievementStore(
+    (state) => state.hasHydrated,
+  );
+  const mergeNotifiedAchievementIds = useAchievementStore(
+    (state) => state.mergeNotifiedAchievementIds,
+  );
+  const setAchievementSyncUserId = useAchievementStore(
+    (state) => state.setAchievementSyncUserId,
+  );
   const [isClearingData, setIsClearingData] = useState(false);
   const [isExportingJournal, setIsExportingJournal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [cloudSyncAction, setCloudSyncAction] =
-    useState<CloudSyncAction | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const displayName = getDisplayName({
     emailAddress: user?.primaryEmailAddress?.emailAddress,
@@ -161,98 +162,8 @@ export function ProfileScreen() {
     }
   }
 
-  async function handleBackupToCloud() {
-    if (cloudSyncAction) {
-      return;
-    }
-
-    const userId = user?.id;
-
-    if (!userId) {
-      showDialog({
-        confirmText: "OK",
-        message: "Please sign in before backing up your journal.",
-        title: "Sign in required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!hasHydrated) {
-      showDialog({
-        confirmText: "OK",
-        message: "Your journal is still loading. Please try again in a moment.",
-        title: "Journal loading",
-      });
-      return;
-    }
-
-    const entryIds = currentUserSyncEntries.map((entry) => entry.id);
-    setCloudSyncAction("backup");
-    setSupabaseAccessTokenProvider(() => getToken());
-    markEntriesPendingSync(userId, entryIds);
-
-    try {
-      await syncProfileToCloud({
-        avatarUrl: user.imageUrl,
-        email: user.primaryEmailAddress?.emailAddress,
-        fullName: user.fullName,
-        userId,
-      });
-
-      if (currentUserSyncEntries.length === 0) {
-        showDialog({
-          confirmText: "OK",
-          message: "You don't have any journal entries yet.",
-          title: "Nothing to sync",
-        });
-        return;
-      }
-
-      const result = await pushJournalEntriesToCloud({
-        entries: currentUserSyncEntries,
-        userId,
-      });
-
-      markEntriesSynced(userId, result.syncedEntryIds);
-      markEntriesSyncFailed(userId, result.failedEntryIds);
-
-      if (result.failedEntryIds.length > 0) {
-        showDialog({
-          confirmText: "OK",
-          message:
-            "We couldn't back up your journal right now. Please try again.",
-          title: "Backup failed",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      showDialog({
-        confirmText: "Done",
-        message: "Your journal entries have been backed up.",
-        title: "Backup complete",
-        variant: "success",
-      });
-    } catch (error) {
-      if (__DEV__) {
-        console.warn("Journal backup failed", error);
-      }
-
-      markEntriesSyncFailed(userId, entryIds);
-      showDialog({
-        confirmText: "OK",
-        message: "We couldn't back up your journal right now. Please try again.",
-        title: "Backup failed",
-        variant: "destructive",
-      });
-    } finally {
-      setCloudSyncAction(null);
-    }
-  }
-
   async function handleSyncNow() {
-    if (cloudSyncAction) {
+    if (isSyncing) {
       return;
     }
 
@@ -268,11 +179,11 @@ export function ProfileScreen() {
       return;
     }
 
-    if (!hasHydrated) {
+    if (!hasHydrated || !achievementHasHydrated) {
       showDialog({
         confirmText: "OK",
-        message: "Your journal is still loading. Please try again in a moment.",
-        title: "Journal loading",
+        message: "Your data is still loading. Please try again in a moment.",
+        title: "Data loading",
       });
       return;
     }
@@ -281,7 +192,8 @@ export function ProfileScreen() {
       .filter((entry) => entry.syncStatus !== "synced")
       .map((entry) => entry.id);
 
-    setCloudSyncAction("sync");
+    setIsSyncing(true);
+    setAchievementSyncUserId(userId);
     setSupabaseAccessTokenProvider(() => getToken());
     markEntriesPendingSync(userId, pendingEntryIds);
 
@@ -318,6 +230,42 @@ export function ProfileScreen() {
       );
       const restoredCount =
         mergeResult.addedCount + mergeResult.updatedCount;
+      let achievementSyncFailed = false;
+
+      try {
+        const syncedUserEntries = useJournalStore
+          .getState()
+          .entries.filter(
+            (entry) => entry.userId === userId && !entry.deletedAt,
+          );
+        const unlockedAchievementIds = getAchievements(
+          syncedUserEntries,
+          getReflectionStreak(syncedUserEntries),
+        )
+          .filter((achievement) => achievement.unlocked)
+          .map((achievement) => achievement.id);
+        const notifiedAchievementIds =
+          useAchievementStore.getState().achievementNotificationsByUserId[
+            userId
+          ]?.notifiedAchievementIds ?? [];
+        const achievementSyncResult = await syncAchievementStatesTwoWay({
+          notifiedAchievementIds,
+          unlockedAchievementIds,
+          userId,
+        });
+
+        mergeNotifiedAchievementIds(
+          userId,
+          achievementSyncResult.pulledNotifiedIds,
+        );
+        achievementSyncFailed = achievementSyncResult.failedCount > 0;
+      } catch (error) {
+        achievementSyncFailed = true;
+
+        if (__DEV__) {
+          console.warn("Achievement sync failed", error);
+        }
+      }
 
       if (syncResult.pushFailedCount > 0) {
         showDialog({
@@ -330,10 +278,21 @@ export function ProfileScreen() {
         return;
       }
 
+      if (achievementSyncFailed) {
+        showDialog({
+          confirmText: "OK",
+          message:
+            "Your journal is up to date, but achievements could not be synced right now.",
+          title: "Journal synced",
+          variant: "destructive",
+        });
+        return;
+      }
+
       if (syncResult.pushedCount === 0 && restoredCount === 0) {
         showDialog({
           confirmText: "OK",
-          message: "Your journal is already synced.",
+          message: "Your journal and achievements are already synced.",
           title: "Already up to date",
           variant: "success",
         });
@@ -343,7 +302,7 @@ export function ProfileScreen() {
       showDialog({
         confirmText: "Done",
         message: getSyncResultMessage(syncResult.pushedCount, restoredCount),
-        subtitle: "Your journal is up to date.",
+        subtitle: "Your journal and achievements are up to date.",
         title: "Sync complete",
         variant: "success",
       });
@@ -361,78 +320,8 @@ export function ProfileScreen() {
         variant: "destructive",
       });
     } finally {
-      setCloudSyncAction(null);
-    }
-  }
-
-  async function handleRestoreFromCloud() {
-    if (cloudSyncAction) {
-      return;
-    }
-
-    const userId = user?.id;
-
-    if (!userId) {
-      showDialog({
-        confirmText: "OK",
-        message: "You need to be signed in to restore your journal.",
-        title: "Please sign in",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!hasHydrated) {
-      showDialog({
-        confirmText: "OK",
-        message: "Your journal is still loading. Please try again in a moment.",
-        title: "Journal loading",
-      });
-      return;
-    }
-
-    setCloudSyncAction("restore");
-    setSupabaseAccessTokenProvider(() => getToken());
-
-    try {
-      const { entries: remoteEntries } = await pullJournalEntriesFromCloud({
-        userId,
-      });
-      const result = mergeRemoteEntries(userId, remoteEntries);
-
-      if (result.addedCount === 0 && result.updatedCount === 0) {
-        showDialog({
-          confirmText: "OK",
-          message: "Your local journal is already up to date.",
-          title: "Already up to date",
-          variant: "success",
-        });
-        return;
-      }
-
-      showDialog({
-        confirmText: "Done",
-        message: getRestoreResultMessage(
-          result.addedCount,
-          result.updatedCount,
-        ),
-        title: "Restore complete",
-        variant: "success",
-      });
-    } catch (error) {
-      if (__DEV__) {
-        console.warn("Journal restore failed", error);
-      }
-
-      showDialog({
-        confirmText: "OK",
-        message:
-          "We couldn't restore your journal right now. Please try again.",
-        title: "Restore failed",
-        variant: "destructive",
-      });
-    } finally {
-      setCloudSyncAction(null);
+      setAchievementSyncUserId(null);
+      setIsSyncing(false);
     }
   }
 
@@ -825,32 +714,12 @@ export function ProfileScreen() {
           title="Preferences"
         />
         <MenuSection
-          disabledItemLabels={
-            cloudSyncAction ? cloudSyncItemLabels : undefined
-          }
+          disabledItemLabels={isSyncing ? [cloudSyncItemLabel] : undefined}
           items={accountItems}
-          loadingItemLabel={
-            cloudSyncAction === "sync"
-              ? "Backup & Sync Now"
-              : cloudSyncAction === "backup"
-                ? "Backup to Cloud"
-                : cloudSyncAction === "restore"
-                  ? "Restore from Cloud"
-                  : undefined
-          }
+          loadingItemLabel={isSyncing ? cloudSyncItemLabel : undefined}
           onItemPress={(item) => {
-            if (item.label === "Backup & Sync Now") {
+            if (item.label === cloudSyncItemLabel) {
               void handleSyncNow();
-              return;
-            }
-
-            if (item.label === "Backup to Cloud") {
-              void handleBackupToCloud();
-              return;
-            }
-
-            if (item.label === "Restore from Cloud") {
-              void handleRestoreFromCloud();
               return;
             }
 
@@ -993,13 +862,6 @@ function MenuIcon({ item }: { item: ProfileMenuItem }) {
   return <Feather name={item.icon} size={21} color={item.iconColor} />;
 }
 
-function getRestoreResultMessage(addedCount: number, updatedCount: number) {
-  const addedLabel = addedCount === 1 ? "entry" : "entries";
-  const updatedLabel = updatedCount === 1 ? "entry" : "entries";
-
-  return `Added ${addedCount} ${addedLabel}, updated ${updatedCount} ${updatedLabel}.`;
-}
-
 function getSyncResultMessage(pushedCount: number, restoredCount: number) {
   const backedUpLabel = pushedCount === 1 ? "entry" : "entries";
   const restoredLabel = restoredCount === 1 ? "update" : "updates";
@@ -1008,15 +870,11 @@ function getSyncResultMessage(pushedCount: number, restoredCount: number) {
 }
 
 function getCloudSyncLoadingLabel(label: string) {
-  if (label === "Backup & Sync Now") {
+  if (label === cloudSyncItemLabel) {
     return "Syncing...";
   }
 
-  if (label === "Backup to Cloud") {
-    return "Backing up...";
-  }
-
-  return "Restoring...";
+  return label;
 }
 
 function getDisplayName({

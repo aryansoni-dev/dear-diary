@@ -14,13 +14,16 @@ type AchievementNotificationState = {
     string,
     UserAchievementNotifications
   >;
+  achievementSyncUserId: string | null;
   hasHydrated: boolean;
   initializeAchievementNotifications: (
     userId: string,
     unlockedIds: string[],
   ) => void;
   markAchievementAsNotified: (userId: string, id: string) => void;
+  mergeNotifiedAchievementIds: (userId: string, ids: string[]) => void;
   resetAchievementNotifications: (userId: string) => void;
+  setAchievementSyncUserId: (userId: string | null) => void;
   setHasHydrated: (value: boolean) => void;
 };
 
@@ -28,6 +31,7 @@ export const useAchievementStore = create<AchievementNotificationState>()(
   persist(
     (set) => ({
       achievementNotificationsByUserId: {},
+      achievementSyncUserId: null,
       hasHydrated: false,
       initializeAchievementNotifications: (userId, unlockedIds) =>
         set((state) => {
@@ -73,6 +77,31 @@ export const useAchievementStore = create<AchievementNotificationState>()(
             },
           };
         }),
+      mergeNotifiedAchievementIds: (userId, ids) =>
+        set((state) => {
+          if (ids.length === 0) {
+            return state;
+          }
+
+          const currentNotifications =
+            state.achievementNotificationsByUserId[userId];
+          const notifiedAchievementIds = Array.from(
+            new Set([
+              ...(currentNotifications?.notifiedAchievementIds ?? []),
+              ...ids,
+            ]),
+          );
+
+          return {
+            achievementNotificationsByUserId: {
+              ...state.achievementNotificationsByUserId,
+              [userId]: {
+                hasInitialized: true,
+                notifiedAchievementIds,
+              },
+            },
+          };
+        }),
       resetAchievementNotifications: (userId) =>
         set((state) => {
           if (!state.achievementNotificationsByUserId[userId]) {
@@ -86,27 +115,25 @@ export const useAchievementStore = create<AchievementNotificationState>()(
 
           return { achievementNotificationsByUserId };
         }),
+      setAchievementSyncUserId: (userId) =>
+        set({ achievementSyncUserId: userId }),
       setHasHydrated: (value) => set({ hasHydrated: value }),
     }),
     {
       name: "deardiary-achievement-store-v1",
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        achievementNotificationsByUserId:
+          getSanitizedAchievementNotifications(persistedState),
+      }),
       migrate: (persistedState, version) => {
-        if (
-          version > achievementStorageVersion ||
-          !isRecord(persistedState) ||
-          !isRecord(persistedState.achievementNotificationsByUserId)
-        ) {
+        if (version > achievementStorageVersion) {
           return { achievementNotificationsByUserId: {} };
         }
 
         return {
-          achievementNotificationsByUserId: Object.fromEntries(
-            Object.entries(
-              persistedState.achievementNotificationsByUserId,
-            ).filter((entry): entry is [string, UserAchievementNotifications] =>
-              isUserAchievementNotifications(entry[1]),
-            ),
-          ),
+          achievementNotificationsByUserId:
+            getSanitizedAchievementNotifications(persistedState),
         };
       },
       onRehydrateStorage: (state) => () => {
@@ -122,8 +149,29 @@ export const useAchievementStore = create<AchievementNotificationState>()(
   ),
 );
 
+function getSanitizedAchievementNotifications(
+  persistedState: unknown,
+): Record<string, UserAchievementNotifications> {
+  if (
+    !isRecord(persistedState) ||
+    !isRecord(persistedState.achievementNotificationsByUserId)
+  ) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(
+      persistedState.achievementNotificationsByUserId,
+    ).filter((entry): entry is [string, UserAchievementNotifications] =>
+      isUserAchievementNotifications(entry[1]),
+    ),
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return (
+    typeof value === "object" && value !== null && !Array.isArray(value)
+  );
 }
 
 function isUserAchievementNotifications(

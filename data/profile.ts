@@ -1,5 +1,10 @@
-import type { ComponentProps } from "react";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import type { ComponentProps } from "react";
+
+const accountMenuColors = {
+  pinkBackground: "#FFE1EE",
+  redIcon: "#FF2056",
+} as const;
 
 export type ProfileStat = {
   backgroundColor: string;
@@ -127,22 +132,10 @@ export const preferenceItems: ProfileMenuItem[] = [
 
 export const accountItems: ProfileMenuItem[] = [
   {
-    backgroundColor: "#FFE1EE",
-    icon: "refresh-cw",
-    iconColor: "#FF2056",
-    label: "Backup & Sync Now",
-  },
-  {
     backgroundColor: "#D8F3E2",
-    icon: "upload-cloud",
+    icon: "refresh-cw",
     iconColor: "#51515B",
-    label: "Backup to Cloud",
-  },
-  {
-    backgroundColor: "#F0DDFB",
-    icon: "download-cloud",
-    iconColor: "#51515B",
-    label: "Restore from Cloud",
+    label: "Backup & Sync Data",
   },
   {
     backgroundColor: "#FFE1EE",

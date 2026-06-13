@@ -20,6 +20,9 @@ export function AchievementWatcher({ userId }: AchievementWatcherProps) {
   const achievementHasHydrated = useAchievementStore(
     (state) => state.hasHydrated,
   );
+  const achievementSyncUserId = useAchievementStore(
+    (state) => state.achievementSyncUserId,
+  );
   const achievementNotifications = useAchievementStore(
     (state) => state.achievementNotificationsByUserId[userId],
   );
@@ -54,6 +57,7 @@ export function AchievementWatcher({ userId }: AchievementWatcherProps) {
     if (
       !journalHasHydrated ||
       !achievementHasHydrated ||
+      achievementSyncUserId === userId ||
       activeUserId !== userId
     ) {
       return;
@@ -112,6 +116,7 @@ export function AchievementWatcher({ userId }: AchievementWatcherProps) {
   }, [
     achievementNotifications,
     achievementHasHydrated,
+    achievementSyncUserId,
     achievements,
     activeUserId,
     initializeAchievementNotifications,
