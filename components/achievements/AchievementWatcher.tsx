@@ -6,33 +6,26 @@ import { useAchievementStore } from "@/store/useAchievementStore";
 import { useJournalStore } from "@/store/journal-store";
 import type { JournalEntry } from "@/types/journal";
 
-export function AchievementWatcher() {
+type AchievementWatcherProps = {
+  userId: string;
+};
+
+export function AchievementWatcher({ userId }: AchievementWatcherProps) {
   const { showDialog } = useAppDialog();
+  const activeUserId = useJournalStore((state) => state.activeUserId);
   const entries = useJournalStore((state) => state.entries);
   const journalHasHydrated = useJournalStore((state) => state.hasHydrated);
   const achievementHasHydrated = useAchievementStore(
     (state) => state.hasHydrated,
   );
-  const hasInitializedAchievementNotifications = useAchievementStore(
-    (state) => state.hasInitializedAchievementNotifications,
+  const achievementNotifications = useAchievementStore(
+    (state) => state.achievementNotificationsByUserId[userId],
   );
-  const notifiedAchievementIds = useAchievementStore(
-    (state) => state.notifiedAchievementIds,
+  const initializeAchievementNotifications = useAchievementStore(
+    (state) => state.initializeAchievementNotifications,
   );
   const markAchievementAsNotified = useAchievementStore(
     (state) => state.markAchievementAsNotified,
-  );
-  const markAchievementsAsNotified = useAchievementStore(
-    (state) => state.markAchievementsAsNotified,
-  );
-  const resetAchievementNotifications = useAchievementStore(
-    (state) => state.resetAchievementNotifications,
-  );
-  const setAchievementNotificationsInitialized = useAchievementStore(
-    (state) => state.setAchievementNotificationsInitialized,
-  );
-  const syncNotifiedAchievementIds = useAchievementStore(
-    (state) => state.syncNotifiedAchievementIds,
   );
   const currentStreak = useMemo(() => getReflectionStreak(entries), [entries]);
   const achievements = useMemo(
@@ -44,7 +37,11 @@ export function AchievementWatcher() {
   >(null);
 
   useEffect(() => {
-    if (!journalHasHydrated || !achievementHasHydrated) {
+    if (
+      !journalHasHydrated ||
+      !achievementHasHydrated ||
+      activeUserId !== userId
+    ) {
       return;
     }
 
@@ -52,29 +49,9 @@ export function AchievementWatcher() {
       (achievement) => achievement.unlocked,
     );
     const unlockedIds = unlockedAchievements.map((achievement) => achievement.id);
-    const unlockedIdSet = new Set(unlockedIds);
 
-    if (entries.length === 0) {
-      if (notifiedAchievementIds.length > 0) {
-        resetAchievementNotifications();
-        return;
-      }
-
-      if (!hasInitializedAchievementNotifications) {
-        setAchievementNotificationsInitialized(true);
-      }
-
-      return;
-    }
-
-    if (notifiedAchievementIds.some((id) => !unlockedIdSet.has(id))) {
-      syncNotifiedAchievementIds(unlockedIds);
-      return;
-    }
-
-    if (!hasInitializedAchievementNotifications) {
-      markAchievementsAsNotified(unlockedIds);
-      setAchievementNotificationsInitialized(true);
+    if (!achievementNotifications?.hasInitialized) {
+      initializeAchievementNotifications(userId, unlockedIds);
       return;
     }
 
@@ -82,7 +59,9 @@ export function AchievementWatcher() {
       return;
     }
 
-    const notifiedIds = new Set(notifiedAchievementIds);
+    const notifiedIds = new Set(
+      achievementNotifications.notifiedAchievementIds,
+    );
     const newlyUnlockedAchievements = unlockedAchievements.filter(
       (achievement) => !notifiedIds.has(achievement.id),
     );
@@ -93,9 +72,9 @@ export function AchievementWatcher() {
 
     const firstAchievement = newlyUnlockedAchievements[0];
     setVisibleAchievementId(firstAchievement.id);
+    markAchievementAsNotified(userId, firstAchievement.id);
 
     function handleAchievementSeen() {
-      markAchievementAsNotified(firstAchievement.id);
       setVisibleAchievementId(null);
     }
 
@@ -110,18 +89,15 @@ export function AchievementWatcher() {
       variant: "success",
     });
   }, [
+    achievementNotifications,
     achievementHasHydrated,
     achievements,
-    hasInitializedAchievementNotifications,
+    activeUserId,
+    initializeAchievementNotifications,
     journalHasHydrated,
     markAchievementAsNotified,
-    markAchievementsAsNotified,
-    notifiedAchievementIds,
-    entries.length,
-    resetAchievementNotifications,
-    setAchievementNotificationsInitialized,
     showDialog,
-    syncNotifiedAchievementIds,
+    userId,
     visibleAchievementId,
   ]);
 

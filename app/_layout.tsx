@@ -47,7 +47,7 @@ function AppStack() {
         <Stack.Screen name="achievements" options={{ headerShown: false }} />
         <Stack.Screen name="journal" options={{ headerShown: false }} />
       </Stack>
-      {isLoaded && userId ? <AchievementWatcher /> : null}
+      {isLoaded && userId ? <AchievementWatcher userId={userId} /> : null}
     </>
   );
 }
