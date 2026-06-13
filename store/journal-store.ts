@@ -47,9 +47,9 @@ type JournalState = {
   entries: JournalEntry[];
   getEntryById: (id: string) => JournalEntry | undefined;
   hasHydrated: boolean;
-  markEntriesPendingSync: (entryIds: string[]) => void;
-  markEntriesSynced: (entryIds: string[]) => void;
-  markEntriesSyncFailed: (entryIds: string[]) => void;
+  markEntriesPendingSync: (userId: string, entryIds: string[]) => void;
+  markEntriesSynced: (userId: string, entryIds: string[]) => void;
+  markEntriesSyncFailed: (userId: string, entryIds: string[]) => void;
   setActiveUserId: (userId: string | null) => void;
   setHasHydrated: (hasHydrated: boolean) => void;
   updateEntry: (id: string, entry: JournalEntryUpdate) => void;
@@ -133,13 +133,13 @@ function isJournalSyncStatus(value: unknown): value is JournalSyncStatus {
 function setSyncStatusForEntries(
   entries: JournalEntry[],
   entryIds: string[],
-  activeUserId: string | null,
+  userId: string,
   syncStatus: JournalSyncStatus,
 ) {
   const entryIdSet = new Set(entryIds);
 
   return entries.map((entry) =>
-    entry.userId === activeUserId && entryIdSet.has(entry.id)
+    entry.userId === userId && entryIdSet.has(entry.id)
       ? { ...entry, syncStatus }
       : entry,
   );
@@ -223,48 +223,48 @@ export const useJournalStore = create<JournalState>()(
       entries: [],
       getEntryById: (id) => get().entries.find((entry) => entry.id === id),
       hasHydrated: false,
-      markEntriesPendingSync: (entryIds) =>
+      markEntriesPendingSync: (userId, entryIds) =>
         set((state) => ({
           allEntries: setSyncStatusForEntries(
             state.allEntries,
             entryIds,
-            state.activeUserId,
+            userId,
             "pending",
           ),
           entries: setSyncStatusForEntries(
             state.entries,
             entryIds,
-            state.activeUserId,
+            userId,
             "pending",
           ),
         })),
-      markEntriesSynced: (entryIds) =>
+      markEntriesSynced: (userId, entryIds) =>
         set((state) => ({
           allEntries: setSyncStatusForEntries(
             state.allEntries,
             entryIds,
-            state.activeUserId,
+            userId,
             "synced",
           ),
           entries: setSyncStatusForEntries(
             state.entries,
             entryIds,
-            state.activeUserId,
+            userId,
             "synced",
           ),
         })),
-      markEntriesSyncFailed: (entryIds) =>
+      markEntriesSyncFailed: (userId, entryIds) =>
         set((state) => ({
           allEntries: setSyncStatusForEntries(
             state.allEntries,
             entryIds,
-            state.activeUserId,
+            userId,
             "failed",
           ),
           entries: setSyncStatusForEntries(
             state.entries,
             entryIds,
-            state.activeUserId,
+            userId,
             "failed",
           ),
         })),

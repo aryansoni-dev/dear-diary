@@ -275,8 +275,7 @@ function getWeeklyMoodJourney(entries: JournalEntry[]) {
   return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(today);
     date.setDate(today.getDate() - (6 - index));
-    const entry = getLatestMoodEntryForDate(entries, date);
-    const mood = entry?.mood ?? null;
+    const mood = getMostFrequentMoodForDate(entries, date);
 
     return {
       day: new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date),
@@ -286,14 +285,12 @@ function getWeeklyMoodJourney(entries: JournalEntry[]) {
   });
 }
 
-function getLatestMoodEntryForDate(entries: JournalEntry[], date: Date) {
-  return entries
-    .filter((entry) => entry.mood && isSameDay(new Date(entry.createdAt), date))
-    .sort(
-      (entryA, entryB) =>
-        new Date(entryB.createdAt).getTime() -
-        new Date(entryA.createdAt).getTime(),
-    )[0];
+function getMostFrequentMoodForDate(entries: JournalEntry[], date: Date) {
+  const entriesForDate = entries.filter(
+    (entry) => entry.mood && isSameDay(new Date(entry.createdAt), date),
+  );
+
+  return getTopMood(entriesForDate);
 }
 
 function getTopMood(entries: JournalEntry[]) {
