@@ -31,6 +31,7 @@ type ProfileMenuItemBase = {
   backgroundColor: string;
   iconColor: string;
   label: string;
+  subtitle?: string;
 };
 
 type FeatherMenuItem = ProfileMenuItemBase & {

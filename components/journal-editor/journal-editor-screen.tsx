@@ -20,6 +20,7 @@ import {
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
 import { journalEditorMoods } from "@/data/journal-editor";
+import { useAutoSync } from "@/hooks/useAutoSync";
 import { useJournalStore } from "@/store/journal-store";
 import type { EntryType, MoodId } from "@/types/journal";
 
@@ -46,6 +47,7 @@ type JournalEditorScreenProps = {
 export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { runAutoSync } = useAutoSync();
   const scrollViewRef = useRef<ScrollView | null>(null);
   const {
     prompt: promptParam,
@@ -161,6 +163,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
         {
           onPress: () => {
             deleteEntry(entryId);
+            void runAutoSync("journal_change");
             router.replace("/journal-history");
           },
           style: "destructive",
@@ -198,10 +201,12 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
     if (entryId) {
       updateEntry(entryId, savedEntry);
       setWasSaved(true);
+      void runAutoSync("journal_change");
       return;
     }
 
     const newEntry = addEntry(savedEntry);
+    void runAutoSync("journal_change");
     router.replace({
       pathname: "/journal/[id]",
       params: { id: newEntry.id, source: source ?? "home" },

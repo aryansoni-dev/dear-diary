@@ -1,6 +1,8 @@
 import { useAuth } from "@clerk/expo";
 import { Redirect, Stack } from "expo-router";
 
+import { AutoSyncManager } from "@/components/sync/auto-sync-manager";
+
 export default function HomeTabLayout() {
   const { isLoaded, isSignedIn } = useAuth();
 
@@ -12,5 +14,10 @@ export default function HomeTabLayout() {
     return <Redirect href="/login" />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <>
+      <AutoSyncManager />
+      <Stack screenOptions={{ headerShown: false }} />
+    </>
+  );
 }

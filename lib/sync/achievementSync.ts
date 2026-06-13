@@ -95,9 +95,69 @@ export async function syncAchievementStatesTwoWay({
 }
 
 function createAchievementStateId(userId: string, achievementId: string) {
-  const safeUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const encodedUserId = encodeBase64Url(userId);
 
-  return `achievement_state_${safeUserId}_${achievementId}`;
+  return `achievement_state_${encodedUserId}_${achievementId}`;
+}
+
+function encodeBase64Url(value: string) {
+  const alphabet =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  const bytes = encodeUtf8(value);
+  let encoded = "";
+
+  for (let index = 0; index < bytes.length; index += 3) {
+    const firstByte = bytes[index];
+    const secondByte = bytes[index + 1];
+    const thirdByte = bytes[index + 2];
+
+    encoded += alphabet[firstByte >> 2];
+    encoded +=
+      alphabet[((firstByte & 0b11) << 4) | ((secondByte ?? 0) >> 4)];
+
+    if (secondByte !== undefined) {
+      encoded +=
+        alphabet[
+          ((secondByte & 0b1111) << 2) | ((thirdByte ?? 0) >> 6)
+        ];
+    }
+
+    if (thirdByte !== undefined) {
+      encoded += alphabet[thirdByte & 0b111111];
+    }
+  }
+
+  return encoded;
+}
+
+function encodeUtf8(value: string) {
+  const bytes: number[] = [];
+
+  for (const character of value) {
+    const codePoint = character.codePointAt(0);
+
+    if (codePoint === undefined) {
+      continue;
+    }
+
+    if (codePoint <= 0x7f) {
+      bytes.push(codePoint);
+    } else if (codePoint <= 0x7ff) {
+      bytes.push(0xc0 | (codePoint >> 6));
+      bytes.push(0x80 | (codePoint & 0x3f));
+    } else if (codePoint <= 0xffff) {
+      bytes.push(0xe0 | (codePoint >> 12));
+      bytes.push(0x80 | ((codePoint >> 6) & 0x3f));
+      bytes.push(0x80 | (codePoint & 0x3f));
+    } else {
+      bytes.push(0xf0 | (codePoint >> 18));
+      bytes.push(0x80 | ((codePoint >> 12) & 0x3f));
+      bytes.push(0x80 | ((codePoint >> 6) & 0x3f));
+      bytes.push(0x80 | (codePoint & 0x3f));
+    }
+  }
+
+  return bytes;
 }
 
 function mapAchievementStateRowToState(
@@ -156,7 +216,7 @@ async function upsertAchievementStates({
       achievement_id: achievementId,
       first_unlocked_at:
         existing?.firstUnlockedAt ??
-        (unlockedIdSet.has(achievementId) ? now : null),
+        (unlockedIdSet.has(achievementId) || isNotified ? now : null),
       id: existing?.id ?? createAchievementStateId(userId, achievementId),
       is_notified: isNotified,
       notified_at: isNotified ? (existing?.notifiedAt ?? now) : null,
