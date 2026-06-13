@@ -6,7 +6,6 @@ import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   Text,
@@ -51,6 +50,7 @@ const colors = {
 
 const profileNotificationsHref = "/profile-notifications" as Href;
 const achievementsHref = "/achievements" as Href;
+type CloudSyncAction = "backup" | "restore";
 
 const moodLabels: Record<MoodId, string> = {
   anxious: "Anxious",
@@ -94,7 +94,8 @@ export function ProfileScreen() {
   const [isClearingData, setIsClearingData] = useState(false);
   const [isExportingJournal, setIsExportingJournal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [cloudSyncAction, setCloudSyncAction] =
+    useState<CloudSyncAction | null>(null);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const displayName = getDisplayName({
     emailAddress: user?.primaryEmailAddress?.emailAddress,
@@ -143,14 +144,19 @@ export function ProfileScreen() {
         error instanceof Error
           ? error.message
           : "We could not sign you out. Please try again.";
-      Alert.alert("Sign out failed", message);
+      showDialog({
+        confirmText: "OK",
+        message,
+        title: "Sign out failed",
+        variant: "destructive",
+      });
     } finally {
       setIsSigningOut(false);
     }
   }
 
   async function handleBackupToCloud() {
-    if (isSyncing) {
+    if (cloudSyncAction) {
       return;
     }
 
@@ -176,7 +182,7 @@ export function ProfileScreen() {
     }
 
     const entryIds = currentUserSyncEntries.map((entry) => entry.id);
-    setIsSyncing(true);
+    setCloudSyncAction("backup");
     setSupabaseAccessTokenProvider(() => getToken());
     markEntriesPendingSync(userId, entryIds);
 
@@ -235,12 +241,12 @@ export function ProfileScreen() {
         variant: "destructive",
       });
     } finally {
-      setIsSyncing(false);
+      setCloudSyncAction(null);
     }
   }
 
   async function handleRestoreFromCloud() {
-    if (isSyncing) {
+    if (cloudSyncAction) {
       return;
     }
 
@@ -265,7 +271,7 @@ export function ProfileScreen() {
       return;
     }
 
-    setIsSyncing(true);
+    setCloudSyncAction("restore");
     setSupabaseAccessTokenProvider(() => getToken());
 
     try {
@@ -306,7 +312,7 @@ export function ProfileScreen() {
         variant: "destructive",
       });
     } finally {
-      setIsSyncing(false);
+      setCloudSyncAction(null);
     }
   }
 
@@ -318,43 +324,60 @@ export function ProfileScreen() {
     const userId = user?.id;
 
     if (!userId) {
-      Alert.alert(
-        "Sign in required",
-        "Please sign in before clearing journal data.",
-      );
+      showDialog({
+        confirmText: "OK",
+        message: "Please sign in before clearing journal data.",
+        title: "Sign in required",
+        variant: "destructive",
+      });
       return;
     }
 
-    Alert.alert(
-      "Clear journal data?",
-      "This will delete your local journal entries on this device. This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
+    showDialog({
+      actions: [
         {
-          onPress: async () => {
-            setIsClearingData(true);
-
-            try {
-              await clearEntriesForUser(userId);
-              Alert.alert(
-                "Journal data cleared",
-                "Your local journal entries were deleted from this device.",
-              );
-            } catch (error) {
-              const message =
-                error instanceof Error
-                  ? error.message
-                  : "We could not clear local data. Please try again.";
-              Alert.alert("Clear data failed", message);
-            } finally {
-              setIsClearingData(false);
-            }
+          onPress: () => {
+            void clearCurrentUserData(userId);
           },
-          style: "destructive",
           text: "Clear Journal Data",
+          variant: "destructive",
         },
       ],
-    );
+      cancelText: "Cancel",
+      message:
+        "This will delete your local journal entries on this device. This cannot be undone.",
+      showCancel: true,
+      title: "Clear journal data?",
+      variant: "destructive",
+    });
+  }
+
+  async function clearCurrentUserData(userId: string) {
+    setIsClearingData(true);
+
+    try {
+      await clearEntriesForUser(userId);
+      showDialog({
+        confirmText: "Done",
+        message: "Your local journal entries were deleted from this device.",
+        title: "Journal data cleared",
+        variant: "success",
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "We could not clear local data. Please try again.";
+
+      showDialog({
+        confirmText: "OK",
+        message,
+        title: "Clear data failed",
+        variant: "destructive",
+      });
+    } finally {
+      setIsClearingData(false);
+    }
   }
 
   function handleExportJournalPress() {
@@ -468,6 +491,14 @@ export function ProfileScreen() {
     }
 
     router.replace("/home-tab");
+  }
+
+  function showComingSoon(label: string) {
+    showDialog({
+      confirmText: "OK",
+      message: "Coming soon",
+      title: label,
+    });
   }
 
   return (
@@ -675,6 +706,13 @@ export function ProfileScreen() {
         />
         <MenuSection
           items={accountItems}
+          loadingItemLabel={
+            cloudSyncAction === "backup"
+              ? "Backup to Cloud"
+              : cloudSyncAction === "restore"
+                ? "Restore from Cloud"
+                : undefined
+          }
           onItemPress={(item) => {
             if (item.label === "Backup to Cloud") {
               void handleBackupToCloud();
@@ -735,10 +773,12 @@ function SectionTitle({ children }: { children: string }) {
 
 function MenuSection({
   items,
+  loadingItemLabel,
   onItemPress,
   title,
 }: {
   items: ProfileMenuItem[];
+  loadingItemLabel?: string;
   onItemPress: (item: ProfileMenuItem) => void;
   title: string;
 }) {
@@ -774,6 +814,8 @@ function MenuSection({
                     {item.badge}
                   </Text>
                 </View>
+              ) : item.label === loadingItemLabel ? (
+                <ActivityIndicator color={colors.iconMuted} size="small" />
               ) : (
                 <Feather
                   name="chevron-right"
@@ -809,10 +851,6 @@ function MenuIcon({ item }: { item: ProfileMenuItem }) {
   }
 
   return <Feather name={item.icon} size={21} color={item.iconColor} />;
-}
-
-function showComingSoon(label: string) {
-  Alert.alert(label, "Coming soon");
 }
 
 function getRestoreResultMessage(addedCount: number, updatedCount: number) {
