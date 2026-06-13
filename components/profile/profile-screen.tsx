@@ -38,6 +38,7 @@ import {
   pullJournalEntriesFromCloud,
   pushJournalEntriesToCloud,
 } from "@/lib/sync/journalSync";
+import { syncJournalEntriesTwoWay } from "@/lib/sync/journalTwoWaySync";
 import { syncProfileToCloud } from "@/lib/sync/profileSync";
 import { useJournalStore } from "@/store/journal-store";
 import type { AchievementCategory } from "@/types/achievement";
@@ -50,7 +51,12 @@ const colors = {
 
 const profileNotificationsHref = "/profile-notifications" as Href;
 const achievementsHref = "/achievements" as Href;
-type CloudSyncAction = "backup" | "restore";
+const cloudSyncItemLabels = [
+  "Backup & Sync Now",
+  "Backup to Cloud",
+  "Restore from Cloud",
+];
+type CloudSyncAction = "backup" | "restore" | "sync";
 
 const moodLabels: Record<MoodId, string> = {
   anxious: "Anxious",
@@ -238,6 +244,120 @@ export function ProfileScreen() {
         confirmText: "OK",
         message: "We couldn't back up your journal right now. Please try again.",
         title: "Backup failed",
+        variant: "destructive",
+      });
+    } finally {
+      setCloudSyncAction(null);
+    }
+  }
+
+  async function handleSyncNow() {
+    if (cloudSyncAction) {
+      return;
+    }
+
+    const userId = user?.id;
+
+    if (!userId) {
+      showDialog({
+        confirmText: "OK",
+        message: "You need to be signed in to sync your journal.",
+        title: "Please sign in",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!hasHydrated) {
+      showDialog({
+        confirmText: "OK",
+        message: "Your journal is still loading. Please try again in a moment.",
+        title: "Journal loading",
+      });
+      return;
+    }
+
+    const pendingEntryIds = currentUserSyncEntries
+      .filter((entry) => entry.syncStatus !== "synced")
+      .map((entry) => entry.id);
+
+    setCloudSyncAction("sync");
+    setSupabaseAccessTokenProvider(() => getToken());
+    markEntriesPendingSync(userId, pendingEntryIds);
+
+    try {
+      await syncProfileToCloud({
+        avatarUrl: user.imageUrl,
+        email: user.primaryEmailAddress?.emailAddress,
+        fullName: user.fullName,
+        userId,
+      });
+
+      const syncResult = await syncJournalEntriesTwoWay({
+        localEntries: currentUserSyncEntries,
+        userId,
+      });
+
+      markEntriesSynced(userId, syncResult.syncedEntryIds);
+      markEntriesSyncFailed(userId, syncResult.failedEntryIds);
+
+      if (!syncResult.pullSucceeded) {
+        showDialog({
+          confirmText: "OK",
+          message:
+            "We couldn't sync your journal right now. Please check your connection and try again.",
+          title: "Sync failed",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const mergeResult = mergeRemoteEntries(
+        userId,
+        syncResult.remoteEntries,
+      );
+      const restoredCount =
+        mergeResult.addedCount + mergeResult.updatedCount;
+
+      if (syncResult.pushFailedCount > 0) {
+        showDialog({
+          confirmText: "OK",
+          message:
+            "Some entries could not be backed up. Please try again.",
+          title: "Sync incomplete",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (syncResult.pushedCount === 0 && restoredCount === 0) {
+        showDialog({
+          confirmText: "OK",
+          message: "Your journal is already synced.",
+          title: "Already up to date",
+          variant: "success",
+        });
+        return;
+      }
+
+      showDialog({
+        confirmText: "Done",
+        message: getSyncResultMessage(syncResult.pushedCount, restoredCount),
+        subtitle: "Your journal is up to date.",
+        title: "Sync complete",
+        variant: "success",
+      });
+    } catch (error) {
+      if (__DEV__) {
+        console.warn("Two-way journal sync failed", error);
+      }
+
+      markEntriesSyncFailed(userId, pendingEntryIds);
+      showDialog({
+        confirmText: "OK",
+        message:
+          "We couldn't sync your journal right now. Please check your connection and try again.",
+        title: "Sync failed",
         variant: "destructive",
       });
     } finally {
@@ -705,15 +825,25 @@ export function ProfileScreen() {
           title="Preferences"
         />
         <MenuSection
+          disabledItemLabels={
+            cloudSyncAction ? cloudSyncItemLabels : undefined
+          }
           items={accountItems}
           loadingItemLabel={
-            cloudSyncAction === "backup"
-              ? "Backup to Cloud"
-              : cloudSyncAction === "restore"
-                ? "Restore from Cloud"
-                : undefined
+            cloudSyncAction === "sync"
+              ? "Backup & Sync Now"
+              : cloudSyncAction === "backup"
+                ? "Backup to Cloud"
+                : cloudSyncAction === "restore"
+                  ? "Restore from Cloud"
+                  : undefined
           }
           onItemPress={(item) => {
+            if (item.label === "Backup & Sync Now") {
+              void handleSyncNow();
+              return;
+            }
+
             if (item.label === "Backup to Cloud") {
               void handleBackupToCloud();
               return;
@@ -772,16 +902,20 @@ function SectionTitle({ children }: { children: string }) {
 }
 
 function MenuSection({
+  disabledItemLabels,
   items,
   loadingItemLabel,
   onItemPress,
   title,
 }: {
+  disabledItemLabels?: string[];
   items: ProfileMenuItem[];
   loadingItemLabel?: string;
   onItemPress: (item: ProfileMenuItem) => void;
   title: string;
 }) {
+  const disabledItemLabelSet = new Set(disabledItemLabels);
+
   return (
     <View className="pt-10">
       <SectionTitle>{title}</SectionTitle>
@@ -792,8 +926,12 @@ function MenuSection({
         {items.map((item, index) => (
           <View key={item.label}>
             <Pressable
+              accessibilityState={{
+                disabled: disabledItemLabelSet.has(item.label),
+              }}
               accessibilityRole="button"
               className="min-h-[58px] flex-row items-center justify-between gap-3 rounded-[18px] p-3"
+              disabled={disabledItemLabelSet.has(item.label)}
               onPress={() => onItemPress(item)}
             >
               <View className="flex-1 flex-row items-center gap-4">
@@ -804,7 +942,9 @@ function MenuSection({
                   <MenuIcon item={item} />
                 </View>
                 <Text className="flex-1 text-[15px] font-medium leading-5 text-[#27272A]">
-                  {item.label}
+                  {item.label === loadingItemLabel
+                    ? getCloudSyncLoadingLabel(item.label)
+                    : item.label}
                 </Text>
               </View>
 
@@ -858,6 +998,25 @@ function getRestoreResultMessage(addedCount: number, updatedCount: number) {
   const updatedLabel = updatedCount === 1 ? "entry" : "entries";
 
   return `Added ${addedCount} ${addedLabel}, updated ${updatedCount} ${updatedLabel}.`;
+}
+
+function getSyncResultMessage(pushedCount: number, restoredCount: number) {
+  const backedUpLabel = pushedCount === 1 ? "entry" : "entries";
+  const restoredLabel = restoredCount === 1 ? "update" : "updates";
+
+  return `Backed up ${pushedCount} ${backedUpLabel} and restored ${restoredCount} ${restoredLabel}.`;
+}
+
+function getCloudSyncLoadingLabel(label: string) {
+  if (label === "Backup & Sync Now") {
+    return "Syncing...";
+  }
+
+  if (label === "Backup to Cloud") {
+    return "Backing up...";
+  }
+
+  return "Restoring...";
 }
 
 function getDisplayName({

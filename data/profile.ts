@@ -127,6 +127,12 @@ export const preferenceItems: ProfileMenuItem[] = [
 
 export const accountItems: ProfileMenuItem[] = [
   {
+    backgroundColor: "#FFE1EE",
+    icon: "refresh-cw",
+    iconColor: "#FF2056",
+    label: "Backup & Sync Now",
+  },
+  {
     backgroundColor: "#D8F3E2",
     icon: "upload-cloud",
     iconColor: "#51515B",

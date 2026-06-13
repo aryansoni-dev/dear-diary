@@ -70,14 +70,15 @@ export const AppDialogContext =
   createContext<AppDialogContextValue | undefined>(undefined);
 
 export function AppDialogProvider({ children }: { children: ReactNode }) {
-  const [dialog, setDialog] = useState<AppDialogOptions | null>(null);
+  const [dialogs, setDialogs] = useState<AppDialogOptions[]>([]);
+  const dialog = dialogs[0] ?? null;
 
   const hideDialog = useCallback(() => {
-    setDialog(null);
+    setDialogs((currentDialogs) => currentDialogs.slice(1));
   }, []);
 
   const showDialog = useCallback((options: AppDialogOptions) => {
-    setDialog(options);
+    setDialogs((currentDialogs) => [...currentDialogs, options]);
   }, []);
 
   const value = useMemo(
