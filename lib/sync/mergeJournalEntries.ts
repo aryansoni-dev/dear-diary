@@ -53,7 +53,10 @@ export function mergeJournalEntries({
     }
 
     const localEntry = entries[localEntryIndex];
-    const localUpdatedAt = new Date(localEntry.updatedAt).getTime();
+    const parsedLocalUpdatedAt = new Date(localEntry.updatedAt).getTime();
+    const localUpdatedAt = Number.isFinite(parsedLocalUpdatedAt)
+      ? parsedLocalUpdatedAt
+      : Number.NEGATIVE_INFINITY;
     const remoteUpdatedAt = new Date(remoteEntry.updatedAt).getTime();
 
     if (remoteUpdatedAt > localUpdatedAt) {
