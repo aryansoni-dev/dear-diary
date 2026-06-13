@@ -5,7 +5,6 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -19,6 +18,7 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { useAppDialog } from "@/hooks/useAppDialog";
 import {
   disableJournalReminders,
   enableJournalReminders,
@@ -44,6 +44,7 @@ type TimePickerMode = "hour" | "minute";
 
 export function NotificationSettingsScreen() {
   const insets = useSafeAreaInsets();
+  const { showDialog } = useAppDialog();
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const isEnabled = useNotificationPreferencesStore((state) => state.isEnabled);
   const hasHydrated = useNotificationPreferencesStore(
@@ -90,7 +91,12 @@ export function NotificationSettingsScreen() {
         error instanceof Error
           ? error.message
           : "We could not update your reminder settings.";
-      Alert.alert("Notifications", message);
+      showDialog({
+        confirmText: "OK",
+        message,
+        title: "Notifications",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -123,7 +129,12 @@ export function NotificationSettingsScreen() {
         error instanceof Error
           ? error.message
           : "We could not reschedule your reminder.";
-      Alert.alert("Notifications", message);
+      showDialog({
+        confirmText: "OK",
+        message,
+        title: "Notifications",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }

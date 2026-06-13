@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { getAchievements } from "@/lib/achievements";
-import { useAchievementStore } from "@/store/useAchievementStore";
 import { useJournalStore } from "@/store/journal-store";
+import { useAchievementStore } from "@/store/useAchievementStore";
 import type { JournalEntry } from "@/types/journal";
 
 type AchievementWatcherProps = {
   userId: string;
 };
+
+const achievementDialogDelayMs = 800;
 
 export function AchievementWatcher({ userId }: AchievementWatcherProps) {
   const { showDialog } = useAppDialog();
@@ -35,6 +37,18 @@ export function AchievementWatcher({ userId }: AchievementWatcherProps) {
   const [visibleAchievementId, setVisibleAchievementId] = useState<
     string | null
   >(null);
+  const nextAchievementTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  useEffect(
+    () => () => {
+      if (nextAchievementTimeoutRef.current) {
+        clearTimeout(nextAchievementTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (
@@ -75,7 +89,14 @@ export function AchievementWatcher({ userId }: AchievementWatcherProps) {
     markAchievementAsNotified(userId, firstAchievement.id);
 
     function handleAchievementSeen() {
-      setVisibleAchievementId(null);
+      if (nextAchievementTimeoutRef.current) {
+        clearTimeout(nextAchievementTimeoutRef.current);
+      }
+
+      nextAchievementTimeoutRef.current = setTimeout(() => {
+        nextAchievementTimeoutRef.current = null;
+        setVisibleAchievementId(null);
+      }, achievementDialogDelayMs);
     }
 
     showDialog({

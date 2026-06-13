@@ -2,6 +2,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import {
+  mergeJournalEntries,
+  type MergeResult,
+} from "@/lib/sync/mergeJournalEntries";
 import type {
   EntryType,
   JournalEntry,
@@ -50,6 +54,10 @@ type JournalState = {
   markEntriesPendingSync: (userId: string, entryIds: string[]) => void;
   markEntriesSynced: (userId: string, entryIds: string[]) => void;
   markEntriesSyncFailed: (userId: string, entryIds: string[]) => void;
+  mergeRemoteEntries: (
+    userId: string,
+    remoteEntries: JournalEntry[],
+  ) => MergeResult;
   setActiveUserId: (userId: string | null) => void;
   setHasHydrated: (hasHydrated: boolean) => void;
   updateEntry: (id: string, entry: JournalEntryUpdate) => void;
@@ -268,6 +276,34 @@ export const useJournalStore = create<JournalState>()(
             "failed",
           ),
         })),
+      mergeRemoteEntries: (userId, remoteEntries) => {
+        let mergeResult: MergeResult = {
+          addedCount: 0,
+          skippedCount: 0,
+          updatedCount: 0,
+        };
+
+        set((state) => {
+          const result = mergeJournalEntries({
+            localEntries: state.allEntries,
+            remoteEntries,
+            userId,
+          });
+
+          mergeResult = {
+            addedCount: result.addedCount,
+            skippedCount: result.skippedCount,
+            updatedCount: result.updatedCount,
+          };
+
+          return {
+            allEntries: result.entries,
+            entries: getEntriesForUser(result.entries, state.activeUserId),
+          };
+        });
+
+        return mergeResult;
+      },
       setActiveUserId: (userId) =>
         set((state) => ({
           activeUserId: userId,

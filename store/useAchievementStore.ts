@@ -52,10 +52,11 @@ export const useAchievementStore = create<AchievementNotificationState>()(
         set((state) => {
           const currentNotifications =
             state.achievementNotificationsByUserId[userId];
-          const notifiedAchievementIds =
-            currentNotifications?.notifiedAchievementIds ?? [];
 
-          if (notifiedAchievementIds.includes(id)) {
+          if (
+            !currentNotifications ||
+            currentNotifications.notifiedAchievementIds.includes(id)
+          ) {
             return state;
           }
 
@@ -63,8 +64,11 @@ export const useAchievementStore = create<AchievementNotificationState>()(
             achievementNotificationsByUserId: {
               ...state.achievementNotificationsByUserId,
               [userId]: {
-                hasInitialized: true,
-                notifiedAchievementIds: [...notifiedAchievementIds, id],
+                ...currentNotifications,
+                notifiedAchievementIds: [
+                  ...currentNotifications.notifiedAchievementIds,
+                  id,
+                ],
               },
             },
           };
@@ -86,9 +90,25 @@ export const useAchievementStore = create<AchievementNotificationState>()(
     }),
     {
       name: "deardiary-achievement-store-v1",
-      migrate: () => ({
-        achievementNotificationsByUserId: {},
-      }),
+      migrate: (persistedState, version) => {
+        if (
+          version > achievementStorageVersion ||
+          !isRecord(persistedState) ||
+          !isRecord(persistedState.achievementNotificationsByUserId)
+        ) {
+          return { achievementNotificationsByUserId: {} };
+        }
+
+        return {
+          achievementNotificationsByUserId: Object.fromEntries(
+            Object.entries(
+              persistedState.achievementNotificationsByUserId,
+            ).filter((entry): entry is [string, UserAchievementNotifications] =>
+              isUserAchievementNotifications(entry[1]),
+            ),
+          ),
+        };
+      },
       onRehydrateStorage: (state) => () => {
         state?.setHasHydrated(true);
       },
@@ -101,3 +121,18 @@ export const useAchievementStore = create<AchievementNotificationState>()(
     },
   ),
 );
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isUserAchievementNotifications(
+  value: unknown,
+): value is UserAchievementNotifications {
+  return (
+    isRecord(value) &&
+    typeof value.hasInitialized === "boolean" &&
+    Array.isArray(value.notifiedAchievementIds) &&
+    value.notifiedAchievementIds.every((id) => typeof id === "string")
+  );
+}
