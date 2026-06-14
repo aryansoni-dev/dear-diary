@@ -39,6 +39,7 @@ import { syncJournalEntriesTwoWay } from "@/lib/sync/journalTwoWaySync";
 import { syncProfileToCloud } from "@/lib/sync/profileSync";
 import { useJournalStore } from "@/store/journal-store";
 import { useAchievementStore } from "@/store/useAchievementStore";
+import { useSyncStore } from "@/store/useSyncStore";
 import type { AchievementCategory } from "@/types/achievement";
 import type { JournalEntry, MoodId } from "@/types/journal";
 
@@ -99,10 +100,17 @@ export function ProfileScreen() {
   const setAchievementSyncUserId = useAchievementStore(
     (state) => state.setAchievementSyncUserId,
   );
+  const isSyncing = useSyncStore((state) => state.isSyncing);
+  const syncHasHydrated = useSyncStore((state) => state.hasHydrated);
+  const lastSyncedAt = useSyncStore((state) => state.lastSyncedAt);
+  const lastSyncFailedAt = useSyncStore((state) => state.lastSyncFailedAt);
+  const lastSyncUserId = useSyncStore((state) => state.lastSyncUserId);
+  const setIsSyncing = useSyncStore((state) => state.setIsSyncing);
+  const setSyncFailure = useSyncStore((state) => state.setSyncFailure);
+  const setSyncSuccess = useSyncStore((state) => state.setSyncSuccess);
   const [isClearingData, setIsClearingData] = useState(false);
   const [isExportingJournal, setIsExportingJournal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const displayName = getDisplayName({
     emailAddress: user?.primaryEmailAddress?.emailAddress,
@@ -132,6 +140,30 @@ export function ProfileScreen() {
 
     return allEntries.filter((entry) => entry.userId === user.id);
   }, [allEntries, user?.id]);
+  const accountMenuItems = useMemo(
+    () =>
+      accountItems.map((item) =>
+        item.label === cloudSyncItemLabel
+          ? {
+              ...item,
+              subtitle: getSyncStatusLabel({
+                isSyncing,
+                lastSyncFailedAt:
+                  lastSyncUserId === user?.id ? lastSyncFailedAt : null,
+                lastSyncedAt:
+                  lastSyncUserId === user?.id ? lastSyncedAt : null,
+              }),
+            }
+          : item,
+      ),
+    [
+      isSyncing,
+      lastSyncFailedAt,
+      lastSyncedAt,
+      lastSyncUserId,
+      user?.id,
+    ],
+  );
 
   async function handleSignOut() {
     if (isSigningOut) {
@@ -179,7 +211,7 @@ export function ProfileScreen() {
       return;
     }
 
-    if (!hasHydrated || !achievementHasHydrated) {
+    if (!hasHydrated || !achievementHasHydrated || !syncHasHydrated) {
       showDialog({
         confirmText: "OK",
         message: "Your data is still loading. Please try again in a moment.",
@@ -214,6 +246,11 @@ export function ProfileScreen() {
       markEntriesSyncFailed(userId, syncResult.failedEntryIds);
 
       if (!syncResult.pullSucceeded) {
+        setSyncFailure(
+          new Date().toISOString(),
+          "Manual sync failed",
+          userId,
+        );
         showDialog({
           confirmText: "OK",
           message:
@@ -268,6 +305,11 @@ export function ProfileScreen() {
       }
 
       if (syncResult.pushFailedCount > 0) {
+        setSyncFailure(
+          new Date().toISOString(),
+          "Manual sync incomplete",
+          userId,
+        );
         showDialog({
           confirmText: "OK",
           message:
@@ -279,6 +321,11 @@ export function ProfileScreen() {
       }
 
       if (achievementSyncFailed) {
+        setSyncFailure(
+          new Date().toISOString(),
+          "Achievement sync failed",
+          userId,
+        );
         showDialog({
           confirmText: "OK",
           message:
@@ -290,6 +337,7 @@ export function ProfileScreen() {
       }
 
       if (syncResult.pushedCount === 0 && restoredCount === 0) {
+        setSyncSuccess(new Date().toISOString(), userId);
         showDialog({
           confirmText: "OK",
           message: "Your journal and achievements are already synced.",
@@ -299,6 +347,7 @@ export function ProfileScreen() {
         return;
       }
 
+      setSyncSuccess(new Date().toISOString(), userId);
       showDialog({
         confirmText: "Done",
         message: getSyncResultMessage(syncResult.pushedCount, restoredCount),
@@ -312,6 +361,7 @@ export function ProfileScreen() {
       }
 
       markEntriesSyncFailed(userId, pendingEntryIds);
+      setSyncFailure(new Date().toISOString(), "Manual sync failed", userId);
       showDialog({
         confirmText: "OK",
         message:
@@ -715,7 +765,7 @@ export function ProfileScreen() {
         />
         <MenuSection
           disabledItemLabels={isSyncing ? [cloudSyncItemLabel] : undefined}
-          items={accountItems}
+          items={accountMenuItems}
           loadingItemLabel={isSyncing ? cloudSyncItemLabel : undefined}
           onItemPress={(item) => {
             if (item.label === cloudSyncItemLabel) {
@@ -810,11 +860,16 @@ function MenuSection({
                 >
                   <MenuIcon item={item} />
                 </View>
-                <Text className="flex-1 text-[15px] font-medium leading-5 text-[#27272A]">
-                  {item.label === loadingItemLabel
-                    ? getCloudSyncLoadingLabel(item.label)
-                    : item.label}
-                </Text>
+                <View className="flex-1">
+                  <Text className="text-[15px] font-medium leading-5 text-[#27272A]">
+                    {item.label}
+                  </Text>
+                  {item.subtitle ? (
+                    <Text className="mt-0.5 text-[12px] leading-4 text-[#A1A1AA]">
+                      {item.subtitle}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
 
               {item.badge ? (
@@ -869,14 +924,6 @@ function getSyncResultMessage(pushedCount: number, restoredCount: number) {
   return `Backed up ${pushedCount} ${backedUpLabel} and restored ${restoredCount} ${restoredLabel}.`;
 }
 
-function getCloudSyncLoadingLabel(label: string) {
-  if (label === cloudSyncItemLabel) {
-    return "Syncing...";
-  }
-
-  return label;
-}
-
 function getDisplayName({
   emailAddress,
   firstName,
@@ -895,6 +942,56 @@ function getDisplayName({
   const emailName = emailAddress?.split("@")[0]?.trim();
 
   return emailName || "DearDiary Friend";
+}
+
+function getSyncStatusLabel({
+  isSyncing,
+  lastSyncFailedAt,
+  lastSyncedAt,
+}: {
+  isSyncing: boolean;
+  lastSyncFailedAt: string | null;
+  lastSyncedAt: string | null;
+}) {
+  if (isSyncing) {
+    return "Syncing...";
+  }
+
+  if (
+    lastSyncFailedAt &&
+    (!lastSyncedAt ||
+      Date.parse(lastSyncFailedAt) > Date.parse(lastSyncedAt))
+  ) {
+    return "Last sync failed";
+  }
+
+  if (!lastSyncedAt) {
+    return "Not synced yet";
+  }
+
+  const elapsedMinutes = Math.max(
+    0,
+    Math.floor((Date.now() - Date.parse(lastSyncedAt)) / (60 * 1000)),
+  );
+
+  if (elapsedMinutes < 1) {
+    return "Last synced just now";
+  }
+
+  if (elapsedMinutes < 60) {
+    return `Last synced ${elapsedMinutes} min ago`;
+  }
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+
+  if (elapsedHours < 24) {
+    return `Last synced ${elapsedHours} hr ago`;
+  }
+
+  return `Last synced ${new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+  }).format(new Date(lastSyncedAt))}`;
 }
 
 function getProfileSummary(entries: JournalEntry[], hasHydrated: boolean) {
