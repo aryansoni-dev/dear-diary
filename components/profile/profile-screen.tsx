@@ -3,7 +3,7 @@ import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, router, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -51,6 +51,7 @@ const colors = {
 const profileNotificationsHref = "/profile-notifications" as Href;
 const achievementsHref = "/achievements" as Href;
 const cloudSyncItemLabel = "Backup & Sync Data";
+const syncStatusRefreshIntervalMs = 60 * 1000;
 
 const moodLabels: Record<MoodId, string> = {
   anxious: "Anxious",
@@ -111,6 +112,7 @@ export function ProfileScreen() {
   const [isClearingData, setIsClearingData] = useState(false);
   const [isExportingJournal, setIsExportingJournal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [syncStatusNow, setSyncStatusNow] = useState(() => Date.now());
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const displayName = getDisplayName({
     emailAddress: user?.primaryEmailAddress?.emailAddress,
@@ -118,6 +120,15 @@ export function ProfileScreen() {
     fullName: user?.fullName,
   });
   const profileInitial = displayName.charAt(0).toUpperCase();
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setSyncStatusNow(Date.now());
+    }, syncStatusRefreshIntervalMs);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
   const journalingSince = useMemo(
     () => getJournalingSinceLabel(entries, hasHydrated),
     [entries, hasHydrated],
@@ -152,6 +163,7 @@ export function ProfileScreen() {
                   lastSyncUserId === user?.id ? lastSyncFailedAt : null,
                 lastSyncedAt:
                   lastSyncUserId === user?.id ? lastSyncedAt : null,
+                now: syncStatusNow,
               }),
             }
           : item,
@@ -161,6 +173,7 @@ export function ProfileScreen() {
       lastSyncFailedAt,
       lastSyncedAt,
       lastSyncUserId,
+      syncStatusNow,
       user?.id,
     ],
   );
@@ -948,10 +961,12 @@ function getSyncStatusLabel({
   isSyncing,
   lastSyncFailedAt,
   lastSyncedAt,
+  now,
 }: {
   isSyncing: boolean;
   lastSyncFailedAt: string | null;
   lastSyncedAt: string | null;
+  now: number;
 }) {
   if (isSyncing) {
     return "Syncing...";
@@ -971,7 +986,7 @@ function getSyncStatusLabel({
 
   const elapsedMinutes = Math.max(
     0,
-    Math.floor((Date.now() - Date.parse(lastSyncedAt)) / (60 * 1000)),
+    Math.floor((now - Date.parse(lastSyncedAt)) / (60 * 1000)),
   );
 
   if (elapsedMinutes < 1) {
