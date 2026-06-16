@@ -190,10 +190,55 @@ Deno.serve(async (request) => {
 
   const authorization = request.headers.get("Authorization")?.trim();
 
-  if (!authorization) {
+  const bearerToken = authorization ? getBearerToken(authorization) : null;
+
+  if (!bearerToken) {
     return jsonResponse(
       {
         error: "Authentication is required.",
+        code: "unauthorized",
+        requestId,
+      },
+      401,
+    );
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseAnonKey =
+    Deno.env.get("SUPABASE_ANON_KEY") ??
+    Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return jsonResponse(
+      {
+        error: "The journal service is not configured.",
+        code: "supabase_not_configured",
+        requestId,
+      },
+      500,
+    );
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        Authorization: authorization,
+      },
+    },
+  });
+  const { data: authData, error: authError } =
+    await supabase.auth.getUser(bearerToken);
+
+  if (authError || !authData.user) {
+    console.info("journal-ai-chat auth_failed", { requestId });
+
+    return jsonResponse(
+      {
+        error: "Authentication is invalid.",
         code: "unauthorized",
         requestId,
       },
@@ -283,34 +328,6 @@ Deno.serve(async (request) => {
   let entries: JournalEntryRow[] = [];
 
   if (useJournalContext) {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseAnonKey =
-      Deno.env.get("SUPABASE_ANON_KEY") ??
-      Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return jsonResponse(
-        {
-          error: "The journal service is not configured.",
-          code: "supabase_not_configured",
-          requestId,
-        },
-        500,
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-      global: {
-        headers: {
-          Authorization: authorization,
-        },
-      },
-    });
-
     const previousRelatedEntryIds =
       intent === "follow_up"
         ? getPreviousRelatedEntryIds(recentMessages)
@@ -628,6 +645,13 @@ async function parseRequest(
     },
     ok: true,
   };
+}
+
+function getBearerToken(authorization: string) {
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  const token = match?.[1]?.trim();
+
+  return token || null;
 }
 
 function parseClientContext(
@@ -967,7 +991,7 @@ function selectRelevantEntries(params: {
   }
 
   if (intent === "journal_search") {
-    return rankEntriesByMessage(message, entries).slice(
+    return rankEntriesByMessage(message, entries, { fallbackToAll: false }).slice(
       0,
       maxRelatedEntryCount,
     );
@@ -1013,6 +1037,10 @@ function getNoDataResponse(
     return "I couldn't recover the specific journal entries from the previous answer. Please ask the full question again.";
   }
 
+  if (intent === "journal_search") {
+    return "I couldn't find matching reflections for that search yet.";
+  }
+
   return null;
 }
 
@@ -1022,6 +1050,8 @@ function filterEntriesByRequestedPeriod(
   clientContext?: ClientContext,
 ) {
   const period = detectSummaryPeriod(message);
+  const requestedMonthIndex = getRequestedMonthIndex(message);
+  const requestedYear = getRequestedYear(message);
 
   if (period === "today") {
     const today = getDateKey(getClientDate(clientContext), clientContext);
@@ -1041,6 +1071,19 @@ function filterEntriesByRequestedPeriod(
   }
 
   if (period === "month") {
+    if (requestedMonthIndex !== null) {
+      const year = requestedYear ?? getClientDate(clientContext).getFullYear();
+
+      return entries.filter((entry) => {
+        const entryDate = new Date(entry.created_at);
+
+        return (
+          entryDate.getMonth() === requestedMonthIndex &&
+          entryDate.getFullYear() === year
+        );
+      });
+    }
+
     const currentMonth = getMonthKey(getClientDate(clientContext), clientContext);
 
     return entries.filter(
@@ -1050,6 +1093,12 @@ function filterEntriesByRequestedPeriod(
   }
 
   if (period === "year") {
+    if (requestedYear) {
+      return entries.filter(
+        (entry) => new Date(entry.created_at).getFullYear() === requestedYear,
+      );
+    }
+
     const currentYear = getYearKey(getClientDate(clientContext), clientContext);
 
     return entries.filter(
@@ -1235,11 +1284,16 @@ function sortEntriesOldestFirst(entries: JournalEntryRow[]) {
   );
 }
 
-function rankEntriesByMessage(message: string, entries: JournalEntryRow[]) {
+function rankEntriesByMessage(
+  message: string,
+  entries: JournalEntryRow[],
+  options: { fallbackToAll?: boolean } = {},
+) {
   const keywords = tokenize(message);
+  const fallbackToAll = options.fallbackToAll ?? true;
 
   if (keywords.length === 0) {
-    return entries;
+    return fallbackToAll ? entries : [];
   }
 
   const rankedEntries = entries
@@ -1260,7 +1314,7 @@ function rankEntriesByMessage(message: string, entries: JournalEntryRow[]) {
     )
     .map((match) => match.entry);
 
-  return rankedEntries.length > 0 ? rankedEntries : entries;
+  return rankedEntries.length > 0 || !fallbackToAll ? rankedEntries : entries;
 }
 
 function getSearchableEntryText(entry: JournalEntryRow) {
@@ -1498,10 +1552,21 @@ function detectChatIntent(
     return "follow_up";
   }
 
+  const asksForTime =
+    includesAny(text, [
+      "what is the time",
+      "what's the time",
+      "what time is it",
+      "current time",
+      "tell me the time",
+      "time now",
+    ]) || /\bwhat time\b/.test(text);
+
   if (
-    /\b(date|today's date|todays date|what day|which day|time)\b/.test(text) ||
+    /\b(date|today's date|todays date|what day|which day)\b/.test(text) ||
     text.includes("what is today's date") ||
-    text.includes("what's today's date")
+    text.includes("what's today's date") ||
+    asksForTime
   ) {
     return "date_time";
   }
