@@ -6,6 +6,7 @@ import { Stack } from "expo-router";
 import { useEffect } from "react";
 
 import { AchievementWatcher } from "@/components/achievements/AchievementWatcher";
+import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
 import { AppDialogProvider } from "@/providers/AppDialogProvider";
 import { useJournalStore } from "@/store/journal-store";
 
@@ -26,7 +27,7 @@ export default function RootLayout() {
 }
 
 function AppStack() {
-  const { isLoaded, userId } = useAuth();
+  const { getToken, isLoaded, userId } = useAuth();
   const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
 
   useEffect(() => {
@@ -36,6 +37,17 @@ function AppStack() {
 
     setActiveUserId(userId ?? null);
   }, [isLoaded, setActiveUserId, userId]);
+
+  useEffect(() => {
+    if (!isLoaded || !userId) {
+      setSupabaseAccessTokenProvider(null);
+      return;
+    }
+
+    setSupabaseAccessTokenProvider(() => getToken());
+
+    return () => setSupabaseAccessTokenProvider(null);
+  }, [getToken, isLoaded, userId]);
 
   return (
     <>

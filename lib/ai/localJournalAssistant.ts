@@ -1,6 +1,19 @@
 import type { JournalEntry, MoodId } from "@/types/journal";
 
-const latestEntryCount = 3;
+import {
+  type ClientContext,
+  detectChatIntent,
+  getCapabilityResponse,
+  getDateTimeResponse,
+  getPromptGenerationResponse,
+  getSmallTalkResponse,
+  getUnsupportedResponse,
+  type RecentChatMessage,
+  shouldUseJournalContext,
+} from "@/lib/ai/chatIntent";
+
+const latestEntryCount = 5;
+type SummaryPeriod = "today" | "week" | "month" | "year" | "all_time";
 
 const moodLabels: Record<MoodId, string> = {
   anxious: "Anxious",
@@ -11,28 +24,11 @@ const moodLabels: Record<MoodId, string> = {
   sad: "Sad",
 };
 
-const moodWords = [
-  "mood",
-  "emotion",
-  "feeling",
-  "happy",
-  "sad",
-  "calm",
-  "anxious",
-  "stressed",
-] as const;
-
-const recentWords = [
-  "recent",
-  "lately",
-  "last few entries",
-  "what did i write",
-] as const;
-
 const stressWords = [
   "stress",
   "stressed",
   "challenge",
+  "challenged",
   "hard",
   "difficult",
   "anxious",
@@ -41,8 +37,6 @@ const stressWords = [
 ] as const;
 
 const gratitudeWords = ["gratitude", "grateful", "thankful"] as const;
-
-const patternWords = ["pattern", "notice", "trend", "insight"] as const;
 
 const topicStopWords = new Set([
   "about",
@@ -71,50 +65,288 @@ const topicStopWords = new Set([
 ]);
 
 export const generateLocalJournalResponse = (params: {
+  clientContext?: ClientContext;
   message: string;
   entries: JournalEntry[];
+  recentMessages?: RecentChatMessage[];
 }): {
   response: string;
   relatedEntryIds: string[];
+  usedJournalContext: boolean;
 } => {
+  const recentMessages = params.recentMessages ?? [];
+  const intent = detectChatIntent(params.message, recentMessages);
+  const usedJournalContext = shouldUseJournalContext(intent);
+
+  if (intent === "crisis") {
+    return {
+      relatedEntryIds: [],
+      response:
+        "I'm really sorry you're feeling this way. If you might hurt yourself or feel unsafe, please contact emergency services in your area or reach out to someone you trust right now. If you can, move near another person and tell them what's going on.",
+      usedJournalContext: false,
+    };
+  }
+
+  if (intent === "small_talk") {
+    return {
+      relatedEntryIds: [],
+      response: getSmallTalkResponse(params.message),
+      usedJournalContext: false,
+    };
+  }
+
+  if (intent === "date_time") {
+    return {
+      relatedEntryIds: [],
+      response: getDateTimeResponse({
+        clientContext: params.clientContext,
+        message: params.message,
+      }),
+      usedJournalContext: false,
+    };
+  }
+
+  if (intent === "app_capability") {
+    return {
+      relatedEntryIds: [],
+      response: getCapabilityResponse(),
+      usedJournalContext: false,
+    };
+  }
+
+  if (intent === "prompt_generation") {
+    return {
+      relatedEntryIds: [],
+      response: getPromptGenerationResponse(),
+      usedJournalContext: false,
+    };
+  }
+
+  if (intent === "unsupported") {
+    return {
+      relatedEntryIds: [],
+      response: getUnsupportedResponse(),
+      usedJournalContext: false,
+    };
+  }
+
+  if (intent === "general") {
+    return {
+      relatedEntryIds: [],
+      response:
+        "I'm here with you. Tell me a little more about what's on your mind.",
+      usedJournalContext: false,
+    };
+  }
+
   const visibleEntries = params.entries.filter((entry) => !entry.deletedAt);
   const sortedEntries = getEntriesNewestFirst(visibleEntries);
-  const normalizedMessage = params.message.toLowerCase();
+
+  if (intent === "follow_up") {
+    return {
+      ...getFollowUpResponse(sortedEntries, recentMessages),
+      usedJournalContext,
+    };
+  }
 
   if (sortedEntries.length === 0) {
     return {
       relatedEntryIds: [],
       response:
         "I don't have enough journal entries to reflect on yet. Write a few reflections, and I'll help you notice patterns.",
+      usedJournalContext,
     };
   }
 
-  if (hasAnyTerm(normalizedMessage, recentWords)) {
-    return getRecentEntriesResponse(sortedEntries);
+  if (intent === "journal_summary") {
+    return {
+      ...getJournalSummaryResponse(
+        sortedEntries,
+        params.message,
+        params.clientContext,
+      ),
+      usedJournalContext,
+    };
   }
 
-  if (hasAnyTerm(normalizedMessage, gratitudeWords)) {
-    return getGratitudeResponse(sortedEntries);
+  if (intent === "recent_entries") {
+    return {
+      ...getRecentEntriesResponse(sortedEntries),
+      usedJournalContext,
+    };
   }
 
-  if (hasAnyTerm(normalizedMessage, stressWords)) {
-    return getStressResponse(sortedEntries);
+  if (intent === "gratitude") {
+    return {
+      ...getGratitudeResponse(sortedEntries),
+      usedJournalContext,
+    };
   }
 
-  if (hasAnyTerm(normalizedMessage, moodWords)) {
-    return getMoodResponse(sortedEntries);
+  if (intent === "stress") {
+    return {
+      ...getStressResponse(sortedEntries, params.message, params.clientContext),
+      usedJournalContext,
+    };
   }
 
-  if (hasAnyTerm(normalizedMessage, patternWords)) {
-    return getPatternResponse(sortedEntries);
+  if (intent === "mood") {
+    return {
+      ...getMoodResponse(sortedEntries, params.message, params.clientContext),
+      usedJournalContext,
+    };
+  }
+
+  if (intent === "journal_analysis") {
+    return {
+      ...getPatternResponse(sortedEntries),
+      usedJournalContext,
+    };
+  }
+
+  if (intent === "journal_search") {
+    return {
+      ...getEntryListResponse(
+        "I found these matching reflections:",
+        rankEntriesByMessage(sortedEntries, params.message).slice(
+          0,
+          latestEntryCount,
+        ),
+      ),
+      usedJournalContext,
+    };
   }
 
   return {
     relatedEntryIds: [],
     response:
-      "I looked through your reflections. I can help you explore your moods, recent entries, gratitude moments, stress patterns, or recurring themes.",
+      "That sounds worth sitting with. What part of it feels most important right now?",
+    usedJournalContext,
   };
 };
+
+function getFollowUpResponse(
+  entries: JournalEntry[],
+  recentMessages: RecentChatMessage[],
+) {
+  const previousRelatedEntryIds = [...recentMessages]
+    .reverse()
+    .find(
+      (recentMessage) =>
+        recentMessage.role === "assistant" &&
+        (recentMessage.relatedEntryIds?.length ?? 0) > 0,
+    )?.relatedEntryIds;
+  const relatedEntries = previousRelatedEntryIds
+    ?.map((entryId) => entries.find((entry) => entry.id === entryId))
+    .filter((entry): entry is JournalEntry => entry !== undefined);
+
+  if (!relatedEntries?.length) {
+    return {
+      relatedEntryIds: [],
+      response:
+        "I couldn't recover the specific journal entries from the previous answer while offline. Please ask the full question again.",
+    };
+  }
+
+  return getEntryListResponse(
+    "The reflections I was referring to are:",
+    relatedEntries,
+  );
+}
+
+function getJournalSummaryResponse(
+  entries: JournalEntry[],
+  message: string,
+  clientContext?: ClientContext,
+) {
+  const period = detectSummaryPeriod(message);
+  const matchingEntries = filterEntriesByRequestedPeriod(
+    entries,
+    message,
+    clientContext,
+  );
+
+  if (matchingEntries.length === 0) {
+    return {
+      relatedEntryIds: [],
+      response: `I don't have any journal entries from ${getSummaryPeriodLabel(period)} to summarize yet.`,
+    };
+  }
+
+  const selectedEntries = matchingEntries.slice(0, latestEntryCount);
+  const topMood = getTopMood(
+    matchingEntries.reduce<Partial<Record<MoodId, number>>>((counts, entry) => {
+      if (entry.mood) {
+        counts[entry.mood] = (counts[entry.mood] ?? 0) + 1;
+      }
+
+      return counts;
+    }, {}),
+  );
+  const gratitudeCount = matchingEntries.filter(
+    (entry) =>
+      entry.type === "gratitude" ||
+      hasAnyTerm(getSearchableEntryText(entry), gratitudeWords),
+  ).length;
+  const challengeCount = matchingEntries.filter(
+    (entry) =>
+      hasAnyTerm(getSearchableEntryText(entry), stressWords) ||
+      entry.mood === "anxious" ||
+      entry.mood === "sad",
+  ).length;
+  const recurringTopic = getRecurringTopic(matchingEntries);
+  const exampleTitles = selectedEntries
+    .map((entry) => entry.title || getEntryPreview(entry))
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(", ");
+
+  return {
+    relatedEntryIds: selectedEntries.map((entry) => entry.id),
+    response: [
+      `Here’s your ${getSummaryPeriodLabel(period)} reflection summary:`,
+      "",
+      "1. Overall Theme",
+      recurringTopic
+        ? `A recurring thread was "${recurringTopic}", based on ${matchingEntries.length} ${matchingEntries.length === 1 ? "entry" : "entries"}.`
+        : `You have ${matchingEntries.length} ${matchingEntries.length === 1 ? "entry" : "entries"} in this period, but the themes are still light.`,
+      "",
+      "2. Things You Did",
+      exampleTitles
+        ? `You reflected on moments like ${exampleTitles}.`
+        : "Not enough data for this yet.",
+      "",
+      "3. How You Felt",
+      topMood
+        ? `${moodLabels[topMood]} showed up most often.`
+        : "Not enough mood-tagged data for this yet.",
+      "",
+      "4. Mood Shifts",
+      "Not enough data for this yet.",
+      "",
+      "5. What You Enjoyed",
+      gratitudeCount > 0
+        ? `Gratitude or wins appeared in ${gratitudeCount} ${gratitudeCount === 1 ? "entry" : "entries"}.`
+        : "Not enough data for this yet.",
+      "",
+      "6. What Challenged You",
+      challengeCount > 0
+        ? `Challenge or heavier emotion appeared in ${challengeCount} ${challengeCount === 1 ? "entry" : "entries"}.`
+        : "Not enough data for this yet.",
+      "",
+      "7. What You Could Have Done Better",
+      "Writing one extra detail in each entry would make future summaries deeper.",
+      "",
+      "8. Patterns I Noticed",
+      recurringTopic
+        ? `"${recurringTopic}" seems worth watching as a pattern.`
+        : "Keep writing and clearer patterns will emerge.",
+      "",
+      "9. Gentle Next Step",
+      'Try ending your next entry with: "What felt heavy today, and what helped me move through it?"',
+    ].join("\n"),
+  };
+}
 
 function getRecentEntriesResponse(entries: JournalEntry[]) {
   const recentEntries = entries.slice(0, latestEntryCount);
@@ -131,8 +363,17 @@ function getRecentEntriesResponse(entries: JournalEntry[]) {
   };
 }
 
-function getMoodResponse(entries: JournalEntry[]) {
-  const moodCounts = entries.reduce<Partial<Record<MoodId, number>>>(
+function getMoodResponse(
+  entries: JournalEntry[],
+  message: string,
+  clientContext?: ClientContext,
+) {
+  const matchingEntries = filterEntriesByRequestedPeriod(
+    entries,
+    message,
+    clientContext,
+  );
+  const moodCounts = matchingEntries.reduce<Partial<Record<MoodId, number>>>(
     (counts, entry) => {
       if (!entry.mood) {
         return counts;
@@ -148,13 +389,14 @@ function getMoodResponse(entries: JournalEntry[]) {
   if (!topMood) {
     return {
       relatedEntryIds: [],
-      response:
-        "I found your reflections, but they don't have mood tags yet. Add moods to future entries and I'll help you notice emotional patterns.",
+      response: message.toLowerCase().includes("week")
+        ? "I don't have enough journal entries from this week to answer that clearly yet."
+        : "I found your reflections, but they don't have mood tags yet. Add moods to future entries and I'll help you notice emotional patterns.",
     };
   }
 
   const count = moodCounts[topMood] ?? 0;
-  const relatedEntryIds = entries
+  const relatedEntryIds = matchingEntries
     .filter((entry) => entry.mood === topMood)
     .slice(0, latestEntryCount)
     .map((entry) => entry.id);
@@ -165,26 +407,39 @@ function getMoodResponse(entries: JournalEntry[]) {
   };
 }
 
-function getStressResponse(entries: JournalEntry[]) {
-  const matchedEntries = entries.filter((entry) =>
-    hasAnyTerm(getSearchableEntryText(entry), stressWords),
+function getStressResponse(
+  entries: JournalEntry[],
+  message: string,
+  clientContext?: ClientContext,
+) {
+  const periodEntries = filterEntriesByRequestedPeriod(
+    entries,
+    message,
+    clientContext,
   );
-  const latestEntry = matchedEntries[0];
+  const matchedEntries = periodEntries
+    .filter(
+      (entry) =>
+        hasAnyTerm(getSearchableEntryText(entry), stressWords) ||
+        entry.mood === "anxious" ||
+        entry.mood === "sad" ||
+        entry.type === "evening_reflection",
+    )
+    .slice(0, latestEntryCount);
 
-  if (!latestEntry) {
+  if (matchedEntries.length === 0) {
     return {
       relatedEntryIds: [],
-      response:
-        "I didn't find clear mentions of stress or challenge in your reflections yet. If it helps, try writing about what felt heavy today.",
+      response: message.toLowerCase().includes("week")
+        ? "I don't have enough journal entries from this week to answer that clearly yet."
+        : "I didn't find clear mentions of stress or challenge in your reflections yet.",
     };
   }
 
-  return {
-    relatedEntryIds: matchedEntries
-      .slice(0, latestEntryCount)
-      .map((entry) => entry.id),
-    response: `I found a few reflections that mention stress or challenge. The most recent one was about ${latestEntry.title || getEntryPreview(latestEntry)}.`,
-  };
+  return getEntryListResponse(
+    "I found these likely stress or challenge points:",
+    matchedEntries,
+  );
 }
 
 function getGratitudeResponse(entries: JournalEntry[]) {
@@ -349,6 +604,143 @@ function getEntryPreview(entry: JournalEntry) {
   }
 
   return `${preview.slice(0, 87).trim()}...`;
+}
+
+function getEntryListResponse(title: string, entries: JournalEntry[]) {
+  const items = entries
+    .map(
+      (entry, index) =>
+        `${index + 1}. ${entry.title || "Untitled"} - ${getEntryPreview(entry)}`,
+    )
+    .join("\n");
+
+  return {
+    relatedEntryIds: entries.map((entry) => entry.id),
+    response: `${title}\n\n${items}`,
+  };
+}
+
+function filterEntriesByRequestedPeriod(
+  entries: JournalEntry[],
+  message: string,
+  clientContext?: ClientContext,
+) {
+  const period = detectSummaryPeriod(message);
+
+  if (period === "today") {
+    const todayKey = getLocalDateKey(getClientDate(clientContext));
+
+    return entries.filter(
+      (entry) => getLocalDateKey(new Date(entry.createdAt)) === todayKey,
+    );
+  }
+
+  if (period === "week") {
+    const sevenDaysAgo = getClientDate(clientContext);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    return entries.filter(
+      (entry) => new Date(entry.createdAt).getTime() >= sevenDaysAgo.getTime(),
+    );
+  }
+
+  if (period === "month") {
+    const currentDate = getClientDate(clientContext);
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+
+    return entries.filter((entry) => {
+      const entryDate = new Date(entry.createdAt);
+
+      return (
+        entryDate.getMonth() === currentMonth &&
+        entryDate.getFullYear() === currentYear
+      );
+    });
+  }
+
+  if (period === "year") {
+    const currentYear = getClientDate(clientContext).getFullYear();
+
+    return entries.filter(
+      (entry) => new Date(entry.createdAt).getFullYear() === currentYear,
+    );
+  }
+
+  return entries;
+}
+
+function detectSummaryPeriod(message: string): SummaryPeriod {
+  const text = message.toLowerCase();
+
+  if (text.includes("today")) {
+    return "today";
+  }
+
+  if (text.includes("week")) {
+    return "week";
+  }
+
+  if (text.includes("month")) {
+    return "month";
+  }
+
+  if (text.includes("year")) {
+    return "year";
+  }
+
+  return "all_time";
+}
+
+function getSummaryPeriodLabel(period: SummaryPeriod) {
+  if (period === "today") {
+    return "today";
+  }
+
+  if (period === "week") {
+    return "this week";
+  }
+
+  if (period === "month") {
+    return "this month";
+  }
+
+  if (period === "year") {
+    return "this year";
+  }
+
+  return "your journal history";
+}
+
+function rankEntriesByMessage(entries: JournalEntry[], message: string) {
+  const keywords = message.toLowerCase().match(/[a-z0-9']+/g) ?? [];
+  const rankedEntries = entries
+    .map((entry, index) => {
+      const searchableText = getSearchableEntryText(entry);
+      const score = keywords.reduce(
+        (total, keyword) =>
+          total + (searchableText.includes(keyword) ? 1 : 0),
+        0,
+      );
+
+      return { entry, index, score };
+    })
+    .filter((match) => match.score > 0)
+    .sort(
+      (matchA, matchB) =>
+        matchB.score - matchA.score || matchA.index - matchB.index,
+    )
+    .map((match) => match.entry);
+
+  return rankedEntries.length > 0 ? rankedEntries : entries;
+}
+
+function getClientDate(clientContext?: ClientContext) {
+  const parsedDate = clientContext?.currentDateTimeISO
+    ? new Date(clientContext.currentDateTimeISO)
+    : new Date();
+
+  return Number.isFinite(parsedDate.getTime()) ? parsedDate : new Date();
 }
 
 function formatEntryDate(createdAt: string) {

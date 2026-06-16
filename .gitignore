@@ -25,6 +25,8 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
+logs/
 
 # macOS
 .DS_Store
@@ -32,10 +34,24 @@ yarn-error.*
 
 # local env files
 .env
+.env.*
 .env*.local
+!.env.example
+!.env.*.example
+
+# local tool state
+.codex/
+
+# Supabase local CLI state
+supabase/.branches/
+supabase/.temp/
 
 # typescript
 *.tsbuildinfo
+
+# local screenshots / captures
+Screenshot_*.png
+Screen Shot *.png
 
 app-example
 
@@ -46,3 +62,4 @@ app-example
 PROMPTS.md
 task.md
 DB.md
+AI.md
