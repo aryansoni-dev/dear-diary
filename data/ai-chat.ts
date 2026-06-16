@@ -32,9 +32,3 @@ export const aiChatMessages: AiChatMessage[] = [
     text: "That sounds nourishing 🌿 Connection has a quiet way of reminding us who we are. What about that conversation stayed with you?",
   },
 ];
-
-export const aiChatSuggestions = [
-  "Tell me more",
-  "Why do you think that?",
-  "Explore this feeling",
-];

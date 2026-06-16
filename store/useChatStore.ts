@@ -2,10 +2,19 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import type { ChatMessage, ChatMessageRole } from "@/types/chat";
+import type {
+  ChatMessage,
+  ChatMessageRole,
+  ChatMessageSource,
+} from "@/types/chat";
 
 const chatStorageVersion = 1;
 const chatMessageRoles: ChatMessageRole[] = ["user", "assistant"];
+const chatMessageSources: ChatMessageSource[] = [
+  "local",
+  "remote_ai",
+  "local_fallback",
+];
 
 type ChatState = {
   addMessage: (message: ChatMessage) => void;
@@ -42,7 +51,12 @@ function isChatMessage(message: unknown): message is ChatMessage {
     typeof message.createdAt === "string" &&
     (message.relatedEntryIds === undefined ||
       (Array.isArray(message.relatedEntryIds) &&
-        message.relatedEntryIds.every((entryId) => typeof entryId === "string")))
+        message.relatedEntryIds.every(
+          (entryId) => typeof entryId === "string",
+        ))) &&
+    (message.source === undefined ||
+      (typeof message.source === "string" &&
+        chatMessageSources.includes(message.source as ChatMessageSource)))
   );
 }
 

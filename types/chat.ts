@@ -1,4 +1,5 @@
 export type ChatMessageRole = "user" | "assistant";
+export type ChatMessageSource = "local" | "remote_ai" | "local_fallback";
 
 export type ChatMessage = {
   id: string;
@@ -7,4 +8,5 @@ export type ChatMessage = {
   content: string;
   createdAt: string;
   relatedEntryIds?: string[];
+  source?: ChatMessageSource;
 };

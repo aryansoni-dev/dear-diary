@@ -6,11 +6,11 @@ import { StatusBar } from "expo-status-bar";
 import { Sparkles } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   Keyboard,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   type TextInputContentSizeChangeEvent,
@@ -19,8 +19,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { aiChatSuggestions } from "@/data/ai-chat";
+import { useAppDialog } from "@/hooks/useAppDialog";
 import { generateLocalJournalResponse } from "@/lib/ai/localJournalAssistant";
+import { generateRemoteJournalResponse } from "@/lib/ai/remoteJournalAssistant";
 import { useJournalStore } from "@/store/journal-store";
 import { useChatStore } from "@/store/useChatStore";
 import type { ChatMessage } from "@/types/chat";
@@ -43,7 +44,8 @@ export function AiChatScreen({
 }: AiChatScreenProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { showDialog } = useAppDialog();
+  const requestIdRef = useRef(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const [message, setMessage] = useState("");
   const [composerTextHeight, setComposerTextHeight] = useState(
@@ -57,7 +59,9 @@ export function AiChatScreen({
   const clearMessagesForUser = useChatStore(
     (state) => state.clearMessagesForUser,
   );
-  const bubbleMaxWidth = Math.floor((width - 48) * 0.8);
+  const chatContentWidth = Math.max(0, width);
+  const assistantBubbleMaxWidth = Math.floor(chatContentWidth);
+  const userBubbleMaxWidth = Math.floor(chatContentWidth * 0.75);
   const displayName = firstName?.trim() || "there";
   const currentUserEntries = useMemo(() => {
     if (!userId) {
@@ -97,9 +101,7 @@ export function AiChatScreen({
 
   useEffect(() => {
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      requestIdRef.current += 1;
     };
   }, []);
 
@@ -136,18 +138,26 @@ export function AiChatScreen({
     router.replace("/reflect-tab");
   }
 
-  function handleClearChat() {
+  function clearChat() {
     if (!userId) {
       return;
     }
 
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-
+    requestIdRef.current += 1;
     setIsThinking(false);
     clearMessagesForUser(userId);
+  }
+
+  function handleClearChatPress() {
+    showDialog({
+      cancelText: "Keep chat",
+      confirmText: "Clear chat",
+      message: "This will remove the current conversation from this device.",
+      onConfirm: clearChat,
+      showCancel: true,
+      title: "Clear this chat?",
+      variant: "destructive",
+    });
   }
 
   function handleMessageChange(nextMessage: string) {
@@ -168,7 +178,7 @@ export function AiChatScreen({
     );
   }
 
-  function handleSendMessage(nextMessage = message) {
+  async function handleSendMessage(nextMessage = message) {
     const trimmedMessage = nextMessage.trim();
 
     if (!trimmedMessage || !userId || isThinking) {
@@ -187,12 +197,59 @@ export function AiChatScreen({
     setMessage("");
     setComposerTextHeight(minComposerTextHeight);
     setIsThinking(true);
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    const resolvedDateTimeOptions = Intl.DateTimeFormat().resolvedOptions();
+    const clientContext = {
+      currentDateTimeISO: new Date().toISOString(),
+      locale: resolvedDateTimeOptions.locale || "en-IN",
+      timezone: resolvedDateTimeOptions.timeZone,
+    };
+    const recentMessages = currentUserMessages.slice(-10).map((chatMessage) => ({
+      content: chatMessage.content,
+      relatedEntryIds: chatMessage.relatedEntryIds,
+      role: chatMessage.role,
+    }));
 
-    timeoutRef.current = setTimeout(() => {
+    try {
+      const remoteResponse = await generateRemoteJournalResponse({
+        clientContext,
+        message: trimmedMessage,
+        recentMessages,
+      });
+
+      if (requestIdRef.current !== requestId) {
+        return;
+      }
+
+      if (__DEV__) {
+        console.info("AI response source:", remoteResponse.source);
+      }
+
+      addMessage({
+        content: remoteResponse.message,
+        createdAt: new Date().toISOString(),
+        id: createChatMessageId(),
+        relatedEntryIds: remoteResponse.relatedEntryIds,
+        role: "assistant",
+        source: remoteResponse.source,
+        userId,
+      });
+    } catch {
       const localResponse = generateLocalJournalResponse({
+        clientContext,
         entries: currentUserEntries,
         message: trimmedMessage,
+        recentMessages,
       });
+
+      if (requestIdRef.current !== requestId) {
+        return;
+      }
+
+      if (__DEV__) {
+        console.info("AI response source: local_fallback");
+      }
 
       addMessage({
         content: localResponse.response,
@@ -200,11 +257,14 @@ export function AiChatScreen({
         id: createChatMessageId(),
         relatedEntryIds: localResponse.relatedEntryIds,
         role: "assistant",
+        source: "local_fallback",
         userId,
       });
-      setIsThinking(false);
-      timeoutRef.current = null;
-    }, 400);
+    } finally {
+      if (requestIdRef.current === requestId) {
+        setIsThinking(false);
+      }
+    }
   }
 
   return (
@@ -248,18 +308,32 @@ export function AiChatScreen({
           </View>
         </View>
 
-        <View className="flex-row items-center gap-2 rounded-full bg-[#CFF8E6] px-2 py-1">
-          <View className="size-2 rounded-full bg-[#10B981]" />
-          <Text className="text-[11px] font-bold leading-4 text-[#047857]">
-            Online
-          </Text>
+        <View className="flex-row items-center gap-2">
+          <View className="flex-row items-center gap-2 rounded-full bg-[#CFF8E6] px-2 py-1">
+            <View className="size-2 rounded-full bg-[#10B981]" />
+            <Text className="text-[11px] font-bold leading-4 text-[#047857]">
+              Online
+            </Text>
+          </View>
+
+          {currentUserMessages.length > 0 ? (
+            <Pressable
+              accessibilityLabel="Clear chat"
+              accessibilityRole="button"
+              className="size-8 items-center justify-center rounded-full bg-white"
+              onPress={handleClearChatPress}
+              style={{ boxShadow: "0 1px 3px rgba(39, 39, 42, 0.1)" }}
+            >
+              <Feather name="trash-2" size={15} color="#FF2056" />
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
-          paddingBottom: 16 + footerKeyboardOffset,
+          paddingBottom: 32 + footerKeyboardOffset,
           paddingHorizontal: 24,
           paddingTop: 16,
         }}
@@ -268,79 +342,37 @@ export function AiChatScreen({
         ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
       >
-        <View className="items-center gap-3">
+        <View className="items-center">
           <Text className="rounded-full bg-zinc-100 px-4 py-2 text-[11px] font-semibold leading-4 text-[#A1A1AA]">
             Today
           </Text>
-          {currentUserMessages.length > 0 ? (
-            <Pressable
-              accessibilityLabel="Clear chat"
-              accessibilityRole="button"
-              className="rounded-full bg-white px-4 py-2"
-              onPress={handleClearChat}
-              style={{ boxShadow: "0 1px 3px rgba(39, 39, 42, 0.1)" }}
-            >
-              <Text className="text-[11px] font-bold leading-4 text-[#FF2056]">
-                Clear chat
-              </Text>
-            </Pressable>
-          ) : null}
         </View>
 
         <View className="mt-6 gap-6">
           {visibleMessages.map((chatMessage, index) => (
             <ChatBubble
+              assistantBubbleMaxWidth={assistantBubbleMaxWidth}
               avatarUrl={avatarUrl}
-              bubbleMaxWidth={bubbleMaxWidth}
               displayName={displayName}
               isFirstAssistant={index === 0}
               key={chatMessage.id}
               message={chatMessage}
+              userBubbleMaxWidth={userBubbleMaxWidth}
             />
           ))}
           {isThinking ? (
             <View className="items-start">
-              <View className="mb-2 flex-row items-center gap-2">
+              <View className="mb-1 flex-row items-center gap-2">
                 <AiAvatar size={28} iconSize={16} />
                 <Text className="text-[11px] font-bold leading-5 text-[#A1A1AA]">
                   DearDiary AI
                 </Text>
               </View>
-              <View
-                className="rounded-bl-[24px] rounded-br-[24px] rounded-tl-lg rounded-tr-[24px] bg-white px-4 pb-5 pt-[18px]"
-                style={{
-                  boxShadow: "0 3px 8px rgba(39, 39, 42, 0.12)",
-                  maxWidth: bubbleMaxWidth,
-                }}
-              >
-                <Text className="text-[15px] leading-[25px] text-[#71717B]">
-                  Thinking...
-                </Text>
-              </View>
+              <ThinkingText />
             </View>
           ) : null}
         </View>
 
-        <View className="mt-8 gap-4">
-          <Text className="text-[11px] font-semibold uppercase tracking-normal text-[#A1A1AA]">
-            Suggested replies
-          </Text>
-          <View className="flex-row flex-wrap gap-2">
-            {aiChatSuggestions.map((suggestion) => (
-              <Pressable
-                accessibilityRole="button"
-                className="rounded-full border border-zinc-200 bg-white px-4 py-2"
-                key={suggestion}
-                onPress={() => handleSendMessage(suggestion)}
-                style={{ boxShadow: "0 1px 3px rgba(39, 39, 42, 0.1)" }}
-              >
-                <Text className="text-[14px] font-medium leading-5 text-zinc-700">
-                  {suggestion}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
       </ScrollView>
 
       <LinearGradient
@@ -407,34 +439,90 @@ export function AiChatScreen({
   );
 }
 
+function ThinkingText() {
+  const opacity = useRef(new Animated.Value(0.42)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(opacity, {
+            duration: 620,
+            toValue: 1,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            duration: 620,
+            toValue: -1.5,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(opacity, {
+            duration: 620,
+            toValue: 0.42,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            duration: 620,
+            toValue: 0,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    );
+
+    animation.start();
+
+    return () => animation.stop();
+  }, [opacity, translateY]);
+
+  return (
+    <Animated.Text
+      className="pl-10 text-[15px] font-semibold leading-5 text-[#71717B]"
+      style={{
+        opacity,
+        transform: [{ translateY }],
+      }}
+    >
+      Thinking...
+    </Animated.Text>
+  );
+}
+
 function ChatBubble({
+  assistantBubbleMaxWidth,
   avatarUrl,
-  bubbleMaxWidth,
   displayName,
   isFirstAssistant,
   message,
+  userBubbleMaxWidth,
 }: {
+  assistantBubbleMaxWidth: number;
   avatarUrl?: string;
-  bubbleMaxWidth: number;
   displayName: string;
   isFirstAssistant: boolean;
   message: ChatMessage;
+  userBubbleMaxWidth: number;
 }) {
   const isUser = message.role === "user";
   const messageText =
     isFirstAssistant && message.role === "assistant"
       ? `Hi ${displayName} 🌸 ${message.content}`
       : message.content;
-  const bubbleWidth = getBubbleWidth(messageText, bubbleMaxWidth);
-  const textWidth = bubbleWidth - 32;
   const messageTime = new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(message.createdAt));
+  const assistantBubbleMinWidth = Math.min(
+    Math.max(0, assistantBubbleMaxWidth - 48),
+    Math.floor(assistantBubbleMaxWidth * 0.72),
+  );
 
   if (isUser) {
     return (
-      <View className="items-end">
+      <View className="w-full items-end">
         <View className="mb-2 flex-row items-center justify-end gap-2">
           <Text className="text-[11px] font-bold leading-5 text-[#A1A1AA]">
             {displayName}
@@ -445,29 +533,32 @@ function ChatBubble({
             size={28}
           />
         </View>
-        <View
-          className="overflow-hidden rounded-bl-[24px] rounded-br-[24px] rounded-tl-[24px] rounded-tr-lg px-4 pb-5 pt-[18px]"
+        <LinearGradient
+          colors={["#FF5C87", "#FF2056"]}
+          end={{ x: 1, y: 1 }}
+          start={{ x: 0, y: 0 }}
+          className="px-5 py-3"
           style={{
             alignSelf: "flex-end",
+            borderBottomLeftRadius: 24,
+            borderBottomRightRadius: 24,
+            borderCurve: "continuous",
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
             boxShadow: "0 8px 16px rgba(255, 32, 86, 0.2)",
-            width: bubbleWidth,
+            flexShrink: 1,
+            maxWidth: userBubbleMaxWidth,
           }}
         >
-          <LinearGradient
-            colors={["#FF5C87", "#FF2056"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
           <Text
-            allowFontScaling={false}
-            className="pb-0.5 text-[15px] leading-[25px] text-rose-50"
-            style={{ flexWrap: "wrap", width: textWidth }}
+            className="text-[16px] font-semibold leading-6 text-rose-50"
+            selectable
+            style={{ flexShrink: 1, flexWrap: "wrap" }}
           >
             {messageText}
           </Text>
-        </View>
-        <Text className="mt-2 pr-1 text-[11px] font-medium leading-5 text-[#A1A1AA]">
+        </LinearGradient>
+        <Text className="mt-2 pr-1 text-[11px] font-medium leading-4 text-[#A1A1AA]">
           {messageTime}
         </Text>
       </View>
@@ -475,7 +566,7 @@ function ChatBubble({
   }
 
   return (
-    <View className="items-start">
+    <View className="w-full items-start">
       <View className="mb-2 flex-row items-center gap-2">
         <AiAvatar size={28} iconSize={16} />
         <Text className="text-[11px] font-bold leading-5 text-[#A1A1AA]">
@@ -483,30 +574,34 @@ function ChatBubble({
         </Text>
       </View>
       <View
-        className="rounded-bl-[24px] rounded-br-[24px] rounded-tl-lg rounded-tr-[24px] px-4 pb-5 pt-[18px]"
+        className="px-5 py-3"
         style={{
           alignSelf: "flex-start",
           backgroundColor: getAssistantBubbleColor(message.id),
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
+          borderCurve: "continuous",
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
           boxShadow: "0 3px 8px rgba(39, 39, 42, 0.12)",
-          width: bubbleWidth,
+          flexShrink: 1,
+          maxWidth: assistantBubbleMaxWidth,
+          minWidth: assistantBubbleMinWidth,
         }}
       >
         <Text
-          allowFontScaling={false}
-          className="pb-0.5 text-[15px] leading-[25px] text-[#51515B]"
-          style={{ flexWrap: "wrap", width: textWidth }}
+          className="text-[16px] leading-6 text-[#51515B]"
+          selectable
+          style={{ flexShrink: 1, flexWrap: "wrap" }}
         >
           {messageText}
         </Text>
       </View>
+      <Text className="mt-2 pl-1 text-[11px] font-medium leading-4 text-[#A1A1AA]">
+        {messageTime}
+      </Text>
     </View>
   );
-}
-
-function getBubbleWidth(message: string, maxWidth: number) {
-  const estimatedTextWidth = message.length * 8.5 + 36;
-
-  return Math.min(maxWidth, Math.max(80, estimatedTextWidth));
 }
 
 function getAssistantBubbleColor(messageId: string) {
