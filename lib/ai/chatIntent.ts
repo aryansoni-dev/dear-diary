@@ -99,10 +99,21 @@ export function detectChatIntent(
     return "follow_up";
   }
 
+  const asksForTime =
+    includesAny(text, [
+      "what is the time",
+      "what's the time",
+      "what time is it",
+      "current time",
+      "tell me the time",
+      "time now",
+    ]) || /\bwhat time\b/.test(text);
+
   if (
-    /\b(date|today's date|todays date|what day|which day|time)\b/.test(text) ||
+    /\b(date|today's date|todays date|what day|which day)\b/.test(text) ||
     text.includes("what is today's date") ||
-    text.includes("what's today's date")
+    text.includes("what's today's date") ||
+    asksForTime
   ) {
     return "date_time";
   }

@@ -205,13 +205,22 @@ export const generateLocalJournalResponse = (params: {
   }
 
   if (intent === "journal_search") {
+    const matchedEntries = rankEntriesByMessage(sortedEntries, params.message, {
+      fallbackToAll: false,
+    }).slice(0, latestEntryCount);
+
+    if (matchedEntries.length === 0) {
+      return {
+        relatedEntryIds: [],
+        response: "I couldn't find matching reflections for that search yet.",
+        usedJournalContext,
+      };
+    }
+
     return {
       ...getEntryListResponse(
         "I found these matching reflections:",
-        rankEntriesByMessage(sortedEntries, params.message).slice(
-          0,
-          latestEntryCount,
-        ),
+        matchedEntries,
       ),
       usedJournalContext,
     };
@@ -265,11 +274,16 @@ function getJournalSummaryResponse(
     message,
     clientContext,
   );
+  const periodLabel = getSummaryPeriodLabel(
+    period,
+    message,
+    getClientDate(clientContext),
+  );
 
   if (matchingEntries.length === 0) {
     return {
       relatedEntryIds: [],
-      response: `I don't have any journal entries from ${getSummaryPeriodLabel(period)} to summarize yet.`,
+      response: `I don't have any journal entries from ${periodLabel} to summarize yet.`,
     };
   }
 
@@ -304,7 +318,7 @@ function getJournalSummaryResponse(
   return {
     relatedEntryIds: selectedEntries.map((entry) => entry.id),
     response: [
-      `Here’s your ${getSummaryPeriodLabel(period)} reflection summary:`,
+      `Here’s your ${periodLabel} reflection summary:`,
       "",
       "1. Overall Theme",
       recurringTopic
@@ -626,6 +640,8 @@ function filterEntriesByRequestedPeriod(
   clientContext?: ClientContext,
 ) {
   const period = detectSummaryPeriod(message);
+  const requestedMonthIndex = getRequestedMonthIndex(message);
+  const requestedYear = getRequestedYear(message);
 
   if (period === "today") {
     const todayKey = getLocalDateKey(getClientDate(clientContext));
@@ -645,6 +661,19 @@ function filterEntriesByRequestedPeriod(
   }
 
   if (period === "month") {
+    if (requestedMonthIndex !== null) {
+      const year = requestedYear ?? getClientDate(clientContext).getFullYear();
+
+      return entries.filter((entry) => {
+        const entryDate = new Date(entry.createdAt);
+
+        return (
+          entryDate.getMonth() === requestedMonthIndex &&
+          entryDate.getFullYear() === year
+        );
+      });
+    }
+
     const currentDate = getClientDate(clientContext);
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
@@ -660,6 +689,12 @@ function filterEntriesByRequestedPeriod(
   }
 
   if (period === "year") {
+    if (requestedYear) {
+      return entries.filter(
+        (entry) => new Date(entry.createdAt).getFullYear() === requestedYear,
+      );
+    }
+
     const currentYear = getClientDate(clientContext).getFullYear();
 
     return entries.filter(
@@ -672,6 +707,8 @@ function filterEntriesByRequestedPeriod(
 
 function detectSummaryPeriod(message: string): SummaryPeriod {
   const text = message.toLowerCase();
+  const requestedMonthIndex = getRequestedMonthIndex(message);
+  const requestedYear = getRequestedYear(message);
 
   if (text.includes("today")) {
     return "today";
@@ -685,14 +722,61 @@ function detectSummaryPeriod(message: string): SummaryPeriod {
     return "month";
   }
 
-  if (text.includes("year")) {
+  if (requestedMonthIndex !== null) {
+    return "month";
+  }
+
+  if (text.includes("year") || requestedYear) {
     return "year";
   }
 
   return "all_time";
 }
 
-function getSummaryPeriodLabel(period: SummaryPeriod) {
+const monthNames = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+function getRequestedMonthIndex(message: string) {
+  const text = message.toLowerCase();
+  const monthIndex = monthNames.findIndex((monthName) =>
+    text.includes(monthName.toLowerCase()),
+  );
+
+  return monthIndex >= 0 ? monthIndex : null;
+}
+
+function getRequestedYear(message: string) {
+  const yearText = message.match(/\b(20\d{2}|19\d{2})\b/)?.[0];
+
+  if (!yearText) {
+    return null;
+  }
+
+  const year = Number(yearText);
+
+  return Number.isFinite(year) ? year : null;
+}
+
+function getSummaryPeriodLabel(
+  period: SummaryPeriod,
+  message?: string,
+  now = new Date(),
+) {
+  const requestedMonthIndex = message ? getRequestedMonthIndex(message) : null;
+  const requestedYear = message ? getRequestedYear(message) : null;
+
   if (period === "today") {
     return "today";
   }
@@ -702,18 +786,38 @@ function getSummaryPeriodLabel(period: SummaryPeriod) {
   }
 
   if (period === "month") {
+    if (requestedMonthIndex !== null) {
+      const year = requestedYear ?? now.getFullYear();
+
+      return `${monthNames[requestedMonthIndex]} ${year}`;
+    }
+
     return "this month";
   }
 
   if (period === "year") {
+    if (requestedYear) {
+      return String(requestedYear);
+    }
+
     return "this year";
   }
 
   return "your journal history";
 }
 
-function rankEntriesByMessage(entries: JournalEntry[], message: string) {
+function rankEntriesByMessage(
+  entries: JournalEntry[],
+  message: string,
+  options: { fallbackToAll?: boolean } = {},
+) {
   const keywords = message.toLowerCase().match(/[a-z0-9']+/g) ?? [];
+  const fallbackToAll = options.fallbackToAll ?? true;
+
+  if (keywords.length === 0) {
+    return fallbackToAll ? entries : [];
+  }
+
   const rankedEntries = entries
     .map((entry, index) => {
       const searchableText = getSearchableEntryText(entry);
@@ -732,7 +836,7 @@ function rankEntriesByMessage(entries: JournalEntry[], message: string) {
     )
     .map((match) => match.entry);
 
-  return rankedEntries.length > 0 ? rankedEntries : entries;
+  return rankedEntries.length > 0 || !fallbackToAll ? rankedEntries : entries;
 }
 
 function getClientDate(clientContext?: ClientContext) {
