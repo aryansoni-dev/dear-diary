@@ -11,6 +11,7 @@ import {
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
 import { journalMoodFilters } from "@/data/journal-history";
+import { formatTagLabel } from "@/lib/tags";
 import { useJournalStore } from "@/store/journal-store";
 import type {
   MoodId,
@@ -31,6 +32,7 @@ type TimelineJournalEntry = {
   excerpt: string;
   id: string;
   markerBackgroundColor: string;
+  tags: string[];
   time: string;
   title: string;
 };
@@ -125,6 +127,7 @@ export function JournalHistoryScreen() {
   const journalDays = useMemo(() => getRecentJournalDays(), []);
   const filteredEntries = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
+    const normalizedTagQuery = normalizedQuery.replace(/^#/, "");
 
     return entries
       .filter((entry) => {
@@ -136,7 +139,11 @@ export function JournalHistoryScreen() {
           [entry.title, entry.content, moodLabel, formatEntryDate(entry.createdAt)]
             .join(" ")
             .toLowerCase()
-            .includes(normalizedQuery);
+            .includes(normalizedQuery) ||
+          (normalizedTagQuery.length > 0 &&
+            (entry.tags ?? []).some((tag) =>
+              tag.toLowerCase().includes(normalizedTagQuery),
+            ));
 
         return matchesMood && matchesSearch;
       })
@@ -208,7 +215,7 @@ export function JournalHistoryScreen() {
               accessibilityLabel="Search journal entries"
               className="ml-3 flex-1 text-[15px] leading-5 text-zinc-700"
               onChangeText={setSearchQuery}
-              placeholder="Search entries, moods, dates..."
+              placeholder="Search entries, moods, tags..."
               placeholderTextColor={colors.muted}
               value={searchQuery}
             />
@@ -425,6 +432,7 @@ function toTimelineEntry(entry: StoredJournalEntry): TimelineJournalEntry {
     excerpt: entry.content || "No body text yet.",
     id: entry.id,
     markerBackgroundColor: visual.markerBackgroundColor,
+    tags: entry.tags ?? [],
     time: `${formatEntryDate(entry.createdAt)} · ${formatEntryTime(
       entry.createdAt,
     )}`,
@@ -566,6 +574,27 @@ function TimelineEntry({
         >
           {entry.excerpt}
         </Text>
+        {entry.tags.length > 0 ? (
+          <View className="mt-2 flex-row flex-wrap gap-1.5">
+            {entry.tags.slice(0, 3).map((tag) => (
+              <View
+                className="h-7 items-center justify-center rounded-full bg-[#FFF1F5] px-2.5"
+                key={tag}
+              >
+                <Text className="text-[11px] font-semibold leading-4 text-[#FF2056]">
+                  {formatTagLabel(tag)}
+                </Text>
+              </View>
+            ))}
+            {entry.tags.length > 3 ? (
+              <View className="h-7 items-center justify-center rounded-full bg-zinc-100 px-2.5">
+                <Text className="text-[11px] font-semibold leading-4 text-zinc-500">
+                  +{entry.tags.length - 3}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );

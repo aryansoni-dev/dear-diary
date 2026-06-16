@@ -1,10 +1,12 @@
+import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Check, ChevronLeft, Sparkles, Trash2 } from "lucide-react-native";
+import { Check, ChevronLeft, Sparkles, Trash2, X } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
   Keyboard,
   KeyboardAvoidingView,
   Pressable,
@@ -19,8 +21,11 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { TagInputModal } from "@/components/tags/tag-input-modal";
 import { journalEditorMoods } from "@/data/journal-editor";
 import { useAutoSync } from "@/hooks/useAutoSync";
+import { useAppDialog } from "@/hooks/useAppDialog";
+import { formatTagLabel, normalizeTag, normalizeTags } from "@/lib/tags";
 import { useJournalStore } from "@/store/journal-store";
 import type { EntryType, MoodId } from "@/types/journal";
 
@@ -48,7 +53,11 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { runAutoSync } = useAutoSync();
+  const { showDialog } = useAppDialog();
   const scrollViewRef = useRef<ScrollView | null>(null);
+  const addTagButtonScale = useRef(new Animated.Value(1)).current;
+  const deleteButtonScale = useRef(new Animated.Value(1)).current;
+  const saveButtonScale = useRef(new Animated.Value(1)).current;
   const {
     prompt: promptParam,
     source,
@@ -66,6 +75,8 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const activeUserId = useJournalStore((state) => state.activeUserId);
   const [content, setContent] = useState("");
   const [selectedMood, setSelectedMood] = useState<MoodId | null>("happy");
+  const [tags, setTags] = useState<string[]>([]);
+  const [isTagInputVisible, setIsTagInputVisible] = useState(false);
   const [title, setTitle] = useState("");
   const [wasSaved, setWasSaved] = useState(false);
   const [isWritingFocused, setIsWritingFocused] = useState(false);
@@ -110,6 +121,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
 
     setContent(entry.content);
     setSelectedMood(entry.mood);
+    setTags(entry.tags ?? []);
     setTitle(entry.title);
   }, [entry]);
 
@@ -155,22 +167,20 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       return;
     }
 
-    Alert.alert(
-      "Delete entry?",
-      "This journal entry will be removed from this device.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          onPress: () => {
-            deleteEntry(entryId);
-            void runAutoSync("journal_change");
-            router.replace("/journal-history");
-          },
-          style: "destructive",
-          text: "Delete",
-        },
-      ],
-    );
+    showDialog({
+      cancelText: "Keep Entry",
+      confirmText: "Delete Entry",
+      icon: "!",
+      message: "This journal entry will be removed from this device.",
+      onConfirm: () => {
+        deleteEntry(entryId);
+        void runAutoSync("journal_change");
+        router.replace("/journal-history");
+      },
+      showCancel: true,
+      title: "Delete entry?",
+      variant: "destructive",
+    });
   }
 
   function handleSave() {
@@ -190,6 +200,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
     const savedEntry = {
       content: content.trim(),
       mood: selectedMood,
+      tags,
       title: getSavedTitle({
         title: title.trim(),
         type: activeEntryType,
@@ -211,6 +222,44 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       pathname: "/journal/[id]",
       params: { id: newEntry.id, source: source ?? "home" },
     });
+  }
+
+  function handleAddTag(tag: string) {
+    const normalizedTag = normalizeTag(tag);
+
+    if (!normalizedTag) {
+      return;
+    }
+
+    setTags((currentTags) => normalizeTags([...currentTags, normalizedTag]));
+    setWasSaved(false);
+  }
+
+  function handleRemoveTag(tag: string) {
+    setTags((currentTags) =>
+      currentTags.filter((currentTag) => currentTag !== tag),
+    );
+    setWasSaved(false);
+  }
+
+  function animateButton(scaleValue: Animated.Value, toValue: number) {
+    Animated.timing(scaleValue, {
+      duration: toValue < 1 ? 80 : 130,
+      toValue,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function handleButtonPressIn(scaleValue: Animated.Value) {
+    animateButton(scaleValue, 0.96);
+
+    if (process.env.EXPO_OS === "ios") {
+      void Haptics.selectionAsync();
+    }
+  }
+
+  function handleButtonPressOut(scaleValue: Animated.Value) {
+    animateButton(scaleValue, 1);
   }
 
   if (!hasHydrated) {
@@ -298,36 +347,59 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
               <Pressable
                 accessibilityLabel="Delete journal entry"
                 accessibilityRole="button"
-                className="size-[54px] items-center justify-center rounded-full bg-zinc-100"
                 onPress={handleDelete}
+                onPressIn={() => handleButtonPressIn(deleteButtonScale)}
+                onPressOut={() => handleButtonPressOut(deleteButtonScale)}
               >
-                <Trash2 color={colors.primary} size={22} strokeWidth={2.4} />
+                <Animated.View
+                  className="size-[54px] items-center justify-center rounded-full bg-zinc-100"
+                  style={{
+                    opacity: deleteButtonScale.interpolate({
+                      inputRange: [0.96, 1],
+                      outputRange: [0.82, 1],
+                    }),
+                    transform: [{ scale: deleteButtonScale }],
+                  }}
+                >
+                  <Trash2 color={colors.primary} size={22} strokeWidth={2.4} />
+                </Animated.View>
               </Pressable>
             ) : null}
 
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ disabled: !canSave }}
-              className="h-[54px] flex-row items-center justify-center gap-2 rounded-full px-7"
+              disabled={!canSave}
               onPress={handleSave}
-              style={{
-                backgroundColor: canSave ? colors.primary : "#F4F4F5",
-                boxShadow: canSave
-                  ? "0 4px 12px rgba(255, 32, 86, 0.28)"
-                  : undefined,
-              }}
+              onPressIn={() => handleButtonPressIn(saveButtonScale)}
+              onPressOut={() => handleButtonPressOut(saveButtonScale)}
             >
-              <Check
-                color={canSave ? "white" : colors.placeholder}
-                size={22}
-                strokeWidth={2.6}
-              />
-              <Text
-                className="text-[17px] font-semibold leading-6"
-                style={{ color: canSave ? "white" : colors.placeholder }}
+              <Animated.View
+                className="h-[54px] flex-row items-center justify-center gap-2 rounded-full px-7"
+                style={{
+                  backgroundColor: canSave ? colors.primary : "#F4F4F5",
+                  boxShadow: canSave
+                    ? "0 4px 12px rgba(255, 32, 86, 0.28)"
+                    : undefined,
+                  opacity: saveButtonScale.interpolate({
+                    inputRange: [0.96, 1],
+                    outputRange: [0.82, 1],
+                  }),
+                  transform: [{ scale: saveButtonScale }],
+                }}
               >
-                {wasSaved ? "Saved" : "Save"}
-              </Text>
+                <Check
+                  color={canSave ? "white" : colors.placeholder}
+                  size={22}
+                  strokeWidth={2.6}
+                />
+                <Text
+                  className="text-[17px] font-semibold leading-6"
+                  style={{ color: canSave ? "white" : colors.placeholder }}
+                >
+                  {wasSaved ? "Saved" : "Save"}
+                </Text>
+              </Animated.View>
             </Pressable>
           </View>
         </View>
@@ -414,6 +486,49 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
           </ScrollView>
         </View>
 
+        <View className="mb-7">
+          <Text className="mb-3 text-[11px] font-semibold uppercase leading-5 tracking-[3.2px] text-[#71717B]">
+            Tags
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {tags.map((tag) => (
+              <Pressable
+                accessibilityLabel={`Remove ${formatTagLabel(tag)} tag`}
+                accessibilityRole="button"
+                className="h-10 flex-row items-center justify-center gap-2 rounded-full bg-[#FFE8F0] px-4"
+                key={tag}
+                onPress={() => handleRemoveTag(tag)}
+              >
+                <Text className="text-[15px] font-semibold leading-5 text-[#FF2056]">
+                  {formatTagLabel(tag)}
+                </Text>
+                <X color={colors.primary} size={15} strokeWidth={2.4} />
+              </Pressable>
+            ))}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setIsTagInputVisible(true)}
+              onPressIn={() => handleButtonPressIn(addTagButtonScale)}
+              onPressOut={() => handleButtonPressOut(addTagButtonScale)}
+            >
+              <Animated.View
+                className="h-10 items-center justify-center rounded-full bg-[#F4EFFA] px-4"
+                style={{
+                  opacity: addTagButtonScale.interpolate({
+                    inputRange: [0.96, 1],
+                    outputRange: [0.82, 1],
+                  }),
+                  transform: [{ scale: addTagButtonScale }],
+                }}
+              >
+                <Text className="text-[15px] font-semibold leading-5 text-zinc-700">
+                  + Add tag
+                </Text>
+              </Animated.View>
+            </Pressable>
+          </View>
+        </View>
+
         <View className="flex-1">
           <TextInput
             accessibilityLabel="Journal title"
@@ -456,6 +571,11 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       </ScrollView>
 
       <BottomTabBar activeTab={activeTab} />
+      <TagInputModal
+        onAddTag={handleAddTag}
+        onClose={() => setIsTagInputVisible(false)}
+        visible={isTagInputVisible}
+      />
     </KeyboardAvoidingView>
   );
 }

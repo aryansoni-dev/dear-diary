@@ -50,8 +50,8 @@ supabase/.temp/
 *.tsbuildinfo
 
 # local screenshots / captures
-Screenshot_*.png
-Screen Shot *.png
+# Screenshot_*.png
+# Screen Shot *.png
 
 app-example
 
