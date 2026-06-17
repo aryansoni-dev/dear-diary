@@ -235,16 +235,37 @@ Deno.serve(async (request) => {
       },
     },
   });
-  const { data: authData, error: authError } =
-    await supabase.auth.getUser(bearerToken);
+  const authClaims = parseJwtClaims(bearerToken);
 
-  if (authError || !authData.user) {
-    console.info("journal-ai-chat auth_failed", { requestId });
+  if (!authClaims?.sub) {
+    console.info("journal-ai-chat auth_claims_invalid", { requestId });
 
     return jsonResponse(
       {
         error: "Authentication is invalid.",
-        code: "unauthorized",
+        code: "invalid_jwt",
+        requestId,
+      },
+      401,
+    );
+  }
+
+  const authProbe = await supabase
+    .from("journal_entries")
+    .select("id")
+    .eq("user_id", authClaims.sub)
+    .limit(1);
+
+  if (authProbe.error) {
+    console.info("journal-ai-chat auth_probe_failed", {
+      code: authProbe.error.code,
+      requestId,
+    });
+
+    return jsonResponse(
+      {
+        error: "Authentication is invalid.",
+        code: "token_rejected",
         requestId,
       },
       401,
@@ -341,6 +362,7 @@ Deno.serve(async (request) => {
       let scopedJournalQuery = supabase
         .from("journal_entries")
         .select(selectColumns)
+        .eq("user_id", authClaims.sub)
         .is("deleted_at", null);
 
       if (intent === "journal_summary" && summaryPeriod) {
@@ -672,6 +694,33 @@ function getBearerToken(authorization: string) {
   const token = match?.[1]?.trim();
 
   return token || null;
+}
+
+function parseJwtClaims(token: string) {
+  const [, payload] = token.split(".");
+
+  if (!payload) {
+    return null;
+  }
+
+  try {
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = normalizedPayload.padEnd(
+      normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
+      "=",
+    );
+    const claims: unknown = JSON.parse(atob(paddedPayload));
+
+    if (!isRecord(claims) || typeof claims.sub !== "string") {
+      return null;
+    }
+
+    return {
+      sub: claims.sub,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function parseClientContext(
@@ -2004,7 +2053,7 @@ function formatTags(tags?: string[] | null) {
 
 function isMissingTagsColumnError(error: { code?: string; message?: string }) {
   return (
-    error.code === "42703" &&
+    (error.code === "42703" || error.code === "PGRST204") &&
     (error.message ?? "").includes("journal_entries.tags")
   );
 }

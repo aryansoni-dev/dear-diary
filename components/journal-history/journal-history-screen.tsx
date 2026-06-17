@@ -569,7 +569,7 @@ function TimelineEntry({
           {entry.title}
         </Text>
         <Text
-          className="mt-2 text-[14px] leading-[24px] text-zinc-500"
+          className="mt-2 text-[15px] leading-[24px] text-zinc-500"
           numberOfLines={2}
         >
           {entry.excerpt}
@@ -581,14 +581,17 @@ function TimelineEntry({
                 className="h-7 items-center justify-center rounded-full bg-[#FFF1F5] px-2.5"
                 key={tag}
               >
-                <Text className="text-[11px] font-semibold leading-4 text-[#FF2056]">
+                <Text
+                  className="text-[13px] font-semibold leading-5"
+                  style={{ color: colors.primary }}
+                >
                   {formatTagLabel(tag)}
                 </Text>
               </View>
             ))}
             {entry.tags.length > 3 ? (
               <View className="h-7 items-center justify-center rounded-full bg-zinc-100 px-2.5">
-                <Text className="text-[11px] font-semibold leading-4 text-zinc-500">
+                <Text className="text-[13px] font-semibold leading-5 text-zinc-500">
                   +{entry.tags.length - 3}
                 </Text>
               </View>

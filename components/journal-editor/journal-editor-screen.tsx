@@ -23,8 +23,8 @@ import {
 } from "@/components/navigation/bottom-tab-bar";
 import { TagInputModal } from "@/components/tags/tag-input-modal";
 import { journalEditorMoods } from "@/data/journal-editor";
-import { useAutoSync } from "@/hooks/useAutoSync";
 import { useAppDialog } from "@/hooks/useAppDialog";
+import { useAutoSync } from "@/hooks/useAutoSync";
 import { formatTagLabel, normalizeTag, normalizeTags } from "@/lib/tags";
 import { useJournalStore } from "@/store/journal-store";
 import type { EntryType, MoodId } from "@/types/journal";
@@ -97,13 +97,16 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       : "free_write";
   const activeEntryType = entry?.type ?? requestedEntryType;
   const activePrompt = entry?.prompt ?? routePrompt;
+  const promptTitle = activePrompt?.trim();
+  const hasPromptTitle = Boolean(promptTitle);
   const promptLabel =
     activeEntryType === "morning_intention"
       ? "Morning Intention"
       : "Reflection Prompt";
   const isEditing = Boolean(entryId);
   const isMissingEntry = hasHydrated && isEditing && !entry;
-  const canSave = title.trim().length > 0 || content.trim().length > 0;
+  const canSave =
+    hasPromptTitle || title.trim().length > 0 || content.trim().length > 0;
   const dateLabel = useMemo(() => {
     const date = entry?.createdAt ? new Date(entry.createdAt) : new Date();
 
@@ -196,17 +199,18 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       return;
     }
 
-    const trimmedPrompt = activePrompt?.trim();
     const savedEntry = {
       content: content.trim(),
       mood: selectedMood,
       tags,
-      title: getSavedTitle({
-        title: title.trim(),
-        type: activeEntryType,
-      }),
+      title:
+        promptTitle ||
+        getSavedTitle({
+          title: title.trim(),
+          type: activeEntryType,
+        }),
       type: activeEntryType,
-      ...(trimmedPrompt ? { prompt: trimmedPrompt } : {}),
+      ...(promptTitle ? { prompt: promptTitle } : {}),
     };
 
     if (entryId) {
@@ -530,21 +534,26 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
         </View>
 
         <View className="flex-1">
-          <TextInput
-            accessibilityLabel="Journal title"
-            className="min-h-[58px] text-[30px] font-bold leading-8 text-zinc-950"
-            onChangeText={(value) => {
-              setTitle(value);
-              setWasSaved(false);
-            }}
-            placeholder="What's on your mind?"
-            placeholderTextColor={colors.placeholder}
-            value={title}
-          />
+          {!hasPromptTitle ? (
+            <>
+              <TextInput
+                accessibilityLabel="Journal title"
+                className="min-h-[58px] text-[30px] font-bold leading-8 text-zinc-950"
+                onChangeText={(value) => {
+                  setTitle(value);
+                  setWasSaved(false);
+                }}
+                placeholder="What's on your mind?"
+                placeholderTextColor={colors.placeholder}
+                value={title}
+              />
+              <View className="h-px w-full bg-zinc-200" />
+            </>
+          ) : null}
           <View className="h-px w-full bg-zinc-200" />
           <TextInput
             accessibilityLabel="Journal entry"
-            className="pt-6 text-[20px] leading-6 text-zinc-950"
+            className={`${hasPromptTitle ? "" : "pt-6"} text-[20px] leading-6 text-zinc-950`}
             multiline
             onBlur={() => setIsWritingFocused(false)}
             onChangeText={(value) => {

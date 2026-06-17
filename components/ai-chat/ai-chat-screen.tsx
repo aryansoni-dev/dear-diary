@@ -14,6 +14,7 @@ import {
   Text,
   TextInput,
   type TextInputContentSizeChangeEvent,
+  type TextStyle,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -34,8 +35,28 @@ type AiChatScreenProps = {
 
 const createChatMessageId = () =>
   `chat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+const chatHorizontalPadding = 24;
 const minComposerTextHeight = 24;
 const maxComposerTextHeight = 104;
+const quickEmojis = ["😊", "🥹", "❤️", "✨", "🌸", "🙏", "😌", "😂", "🔥", "🫶"];
+const chatMessageLineHeight = 26;
+const chatMessageTextStyle = {
+  flexShrink: 1,
+  flexWrap: "wrap",
+  includeFontPadding: true,
+  lineHeight: chatMessageLineHeight,
+  paddingBottom: 4,
+  paddingTop: 1,
+} as const;
+const assistantMessageTextStyle = {
+  flexShrink: 1,
+  flexWrap: "wrap",
+  includeFontPadding: true,
+  overflow: "visible",
+  paddingBottom: 7,
+  paddingRight: 3,
+  paddingTop: 3,
+} as const;
 
 export function AiChatScreen({
   avatarUrl,
@@ -52,6 +73,7 @@ export function AiChatScreen({
     minComposerTextHeight,
   );
   const [isThinking, setIsThinking] = useState(false);
+  const [isEmojiPickerVisible, setIsEmojiPickerVisible] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const journalEntries = useJournalStore((state) => state.entries);
   const chatMessages = useChatStore((state) => state.messages);
@@ -59,7 +81,7 @@ export function AiChatScreen({
   const clearMessagesForUser = useChatStore(
     (state) => state.clearMessagesForUser,
   );
-  const chatContentWidth = Math.max(0, width);
+  const chatContentWidth = Math.max(0, width - chatHorizontalPadding * 2);
   const assistantBubbleMaxWidth = Math.floor(chatContentWidth);
   const userBubbleMaxWidth = Math.floor(chatContentWidth * 0.75);
   const displayName = firstName?.trim() || "there";
@@ -168,6 +190,10 @@ export function AiChatScreen({
     }
   }
 
+  function handleEmojiPress(emoji: string) {
+    setMessage((currentMessage) => `${currentMessage}${emoji}`);
+  }
+
   function handleComposerContentSizeChange(
     event: TextInputContentSizeChangeEvent,
   ) {
@@ -196,6 +222,7 @@ export function AiChatScreen({
     addMessage(userMessage);
     setMessage("");
     setComposerTextHeight(minComposerTextHeight);
+    setIsEmojiPickerVisible(false);
     setIsThinking(true);
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
@@ -334,7 +361,7 @@ export function AiChatScreen({
         className="flex-1"
         contentContainerStyle={{
           paddingBottom: 32 + footerKeyboardOffset,
-          paddingHorizontal: 24,
+          paddingHorizontal: chatHorizontalPadding,
           paddingTop: 16,
         }}
         keyboardShouldPersistTaps="handled"
@@ -383,6 +410,29 @@ export function AiChatScreen({
           transform: [{ translateY: -footerKeyboardOffset }],
         }}
       >
+        {isEmojiPickerVisible ? (
+          <ScrollView
+            className="mb-3"
+            contentContainerStyle={{ gap: 8, paddingRight: 4 }}
+            horizontal
+            keyboardShouldPersistTaps="handled"
+            showsHorizontalScrollIndicator={false}
+          >
+            {quickEmojis.map((emoji) => (
+              <Pressable
+                accessibilityLabel={`Insert ${emoji}`}
+                accessibilityRole="button"
+                className="size-10 items-center justify-center rounded-full bg-white"
+                key={emoji}
+                onPress={() => handleEmojiPress(emoji)}
+                style={{ boxShadow: "0 2px 7px rgba(39, 39, 42, 0.12)" }}
+              >
+                <Text className="text-[21px] leading-7">{emoji}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
+
         <View className="flex-row items-end gap-3">
           <View
             className="flex-1 flex-row items-end gap-2 rounded-[28px] border border-zinc-200 bg-white py-2 pl-4 pr-2"
@@ -391,11 +441,19 @@ export function AiChatScreen({
               minHeight: 56,
             }}
           >
-            <View className="h-10 justify-center">
+            <Pressable
+              accessibilityLabel="Toggle emojis"
+              accessibilityRole="button"
+              className="h-10 justify-center"
+              hitSlop={8}
+              onPress={() =>
+                setIsEmojiPickerVisible((isVisible) => !isVisible)
+              }
+            >
               <Feather name="smile" size={22} color="#A1A1AA" />
-            </View>
+            </Pressable>
             <TextInput
-              className="flex-1 text-[15px] leading-5 text-zinc-700"
+              className="flex-1 text-[15px] leading-5 text-zinc-700 mb-1"
               multiline
               onChangeText={handleMessageChange}
               onContentSizeChange={handleComposerContentSizeChange}
@@ -411,13 +469,6 @@ export function AiChatScreen({
               }}
               value={message}
             />
-            <Pressable
-              accessibilityLabel="Record voice message"
-              accessibilityRole="button"
-              className="size-10 items-center justify-center rounded-full bg-zinc-100"
-            >
-              <Feather name="mic" size={22} color="#71717B" />
-            </Pressable>
           </View>
 
           <Pressable
@@ -515,16 +566,13 @@ function ChatBubble({
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(message.createdAt));
-  const assistantBubbleMinWidth = Math.min(
-    Math.max(0, assistantBubbleMaxWidth - 48),
-    Math.floor(assistantBubbleMaxWidth * 0.72),
-  );
+  const assistantBubbleColor = getAssistantBubbleColor(message.id);
 
   if (isUser) {
     return (
       <View className="w-full items-end">
         <View className="mb-2 flex-row items-center justify-end gap-2">
-          <Text className="text-[11px] font-bold leading-5 text-[#A1A1AA]">
+          <Text className="text-[12px] font-bold leading-5 text-[#A1A1AA]">
             {displayName}
           </Text>
           <UserAvatar
@@ -550,13 +598,10 @@ function ChatBubble({
             maxWidth: userBubbleMaxWidth,
           }}
         >
-          <Text
-            className="text-[16px] font-semibold leading-6 text-rose-50"
-            selectable
-            style={{ flexShrink: 1, flexWrap: "wrap" }}
-          >
-            {messageText}
-          </Text>
+          <BubbleMessageText
+            className="text-[16px] font-semibold text-rose-50"
+            text={messageText}
+          />
         </LinearGradient>
         <Text className="mt-2 pr-1 text-[11px] font-medium leading-4 text-[#A1A1AA]">
           {messageTime}
@@ -569,15 +614,17 @@ function ChatBubble({
     <View className="w-full items-start">
       <View className="mb-2 flex-row items-center gap-2">
         <AiAvatar size={28} iconSize={16} />
-        <Text className="text-[11px] font-bold leading-5 text-[#A1A1AA]">
+        <Text className="text-[12px] font-bold leading-5 text-[#A1A1AA]">
           DearDiary AI
         </Text>
       </View>
-      <View
-        className="px-5 py-3"
+      <LinearGradient
+        colors={[assistantBubbleColor, assistantBubbleColor]}
+        end={{ x: 1, y: 1 }}
+        start={{ x: 0, y: 0 }}
+        className="px-5 py-4"
         style={{
           alignSelf: "flex-start",
-          backgroundColor: getAssistantBubbleColor(message.id),
           borderBottomLeftRadius: 24,
           borderBottomRightRadius: 24,
           borderCurve: "continuous",
@@ -586,21 +633,43 @@ function ChatBubble({
           boxShadow: "0 3px 8px rgba(39, 39, 42, 0.12)",
           flexShrink: 1,
           maxWidth: assistantBubbleMaxWidth,
-          minWidth: assistantBubbleMinWidth,
+          overflow: "visible",
         }}
       >
-        <Text
-          className="text-[16px] leading-6 text-[#51515B]"
-          selectable
-          style={{ flexShrink: 1, flexWrap: "wrap" }}
-        >
-          {messageText}
-        </Text>
-      </View>
+        <BubbleMessageText
+          className="text-[16px] text-[#51515B]"
+          style={assistantMessageTextStyle}
+          text={messageText}
+          selectable={false}
+        />
+      </LinearGradient>
       <Text className="mt-2 pl-1 text-[11px] font-medium leading-4 text-[#A1A1AA]">
         {messageTime}
       </Text>
     </View>
+  );
+}
+
+function BubbleMessageText({
+  className,
+  selectable = true,
+  style = chatMessageTextStyle,
+  text,
+}: {
+  className: string;
+  selectable?: boolean;
+  style?: TextStyle;
+  text: string;
+}) {
+  return (
+    <Text
+      android_hyphenationFrequency="none"
+      className={className}
+      selectable={selectable}
+      style={style}
+    >
+      {text}
+    </Text>
   );
 }
 

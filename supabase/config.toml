@@ -1,0 +1,2 @@
+[functions.journal-ai-chat]
+verify_jwt = false

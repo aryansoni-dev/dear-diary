@@ -3,10 +3,24 @@ add column if not exists tags text[] not null default '{}';
 
 create or replace function public.merge_journal_entries(entries jsonb)
 returns void
-language sql
+language plpgsql
 security invoker
 set search_path = ''
 as $$
+begin
+perform 1
+from jsonb_to_recordset(entries) as incoming (
+user_id text
+)
+where incoming.user_id is null
+or incoming.user_id is distinct from (select auth.jwt() ->> 'sub')
+limit 1;
+
+if found then
+raise exception 'Journal entry user_id does not match authenticated user'
+using errcode = '42501';
+end if;
+
 insert into public.journal_entries as existing (
 id,
 user_id,
@@ -28,7 +42,7 @@ incoming.content,
 incoming.mood,
 incoming.type,
 incoming.prompt,
-coalesce(incoming.tags, '{}'),
+coalesce(array_remove(incoming.tags, null), '{}'),
 incoming.created_at,
 incoming.updated_at,
 incoming.deleted_at
@@ -58,6 +72,7 @@ updated_at = excluded.updated_at,
 deleted_at = excluded.deleted_at
 where excluded.updated_at > existing.updated_at;
 
+end;
 $$
 ;
 
