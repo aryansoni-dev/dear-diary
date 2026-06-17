@@ -39,21 +39,20 @@ const chatHorizontalPadding = 24;
 const minComposerTextHeight = 24;
 const maxComposerTextHeight = 104;
 const quickEmojis = ["😊", "🥹", "❤️", "✨", "🌸", "🙏", "😌", "😂", "🔥", "🫶"];
-const chatMessageLineHeight = 26;
 const chatMessageTextStyle = {
   flexShrink: 1,
   flexWrap: "wrap",
   includeFontPadding: true,
-  lineHeight: chatMessageLineHeight,
-  paddingBottom: 4,
-  paddingTop: 1,
+  overflow: "visible",
+  paddingBottom: 8,
+  paddingTop: 3,
 } as const;
 const assistantMessageTextStyle = {
   flexShrink: 1,
   flexWrap: "wrap",
   includeFontPadding: true,
   overflow: "visible",
-  paddingBottom: 7,
+  paddingBottom: 8,
   paddingRight: 3,
   paddingTop: 3,
 } as const;
