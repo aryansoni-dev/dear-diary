@@ -2,6 +2,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { requireOptionalNativeModule } from "expo-modules-core";
 import { Share } from "react-native";
 
+import { formatTagLabel } from "@/lib/tags";
 import type { JournalEntry } from "@/types/journal";
 
 type ExportFileType = "json" | "markdown";
@@ -57,6 +58,12 @@ export const generateJournalMarkdown = (entries: JournalEntry[]): string => {
     }
 
     lines.push(`**Type:** ${entry.type}  `);
+
+    const tags = entry.tags ?? [];
+
+    if (tags.length > 0) {
+      lines.push(`**Tags:** ${tags.map(formatTagLabel).join(" ")}  `);
+    }
 
     if (entry.prompt?.trim()) {
       lines.push(`**Prompt:** ${entry.prompt.trim()}`);

@@ -543,7 +543,10 @@ function getTopMood(moodCounts: Partial<Record<MoodId, number>>) {
 
 function getRecurringTopic(entries: JournalEntry[]) {
   const wordCounts = entries.reduce<Record<string, number>>((counts, entry) => {
-    const words = entry.content.toLowerCase().match(/[a-z']+/g) ?? [];
+    const words =
+      `${entry.tags.join(" ")} ${entry.content}`
+        .toLowerCase()
+        .match(/[a-z']+/g) ?? [];
 
     words.forEach((word) => {
       if (word.length < 4 || topicStopWords.has(word)) {
@@ -603,7 +606,14 @@ function getReflectionStreak(entries: JournalEntry[]) {
 }
 
 function getSearchableEntryText(entry: JournalEntry) {
-  return `${entry.title} ${entry.content} ${entry.prompt ?? ""}`.toLowerCase();
+  return [
+    entry.title,
+    entry.content,
+    entry.prompt ?? "",
+    entry.tags.join(" "),
+  ]
+    .join(" ")
+    .toLowerCase();
 }
 
 function hasAnyTerm(value: string, terms: readonly string[]) {

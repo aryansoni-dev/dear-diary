@@ -24,6 +24,7 @@ export type JournalEntry = {
   mood: MoodId | null;
   type: EntryType;
   prompt?: string;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
   syncStatus?: JournalSyncStatus;

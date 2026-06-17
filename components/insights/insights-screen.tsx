@@ -381,7 +381,10 @@ function getRecurringTopicInsight(entries: JournalEntry[]) {
 
 function getRecurringTopic(entries: JournalEntry[]) {
   const wordCounts = entries.reduce<Record<string, number>>((counts, entry) => {
-    const words = entry.content.toLowerCase().match(/[a-z']+/g) ?? [];
+    const words =
+      `${entry.tags.join(" ")} ${entry.content}`
+        .toLowerCase()
+        .match(/[a-z']+/g) ?? [];
 
     words.forEach((word) => {
       if (word.length < 4 || stopWordSet.has(word)) {

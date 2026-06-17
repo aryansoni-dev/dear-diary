@@ -68,6 +68,10 @@ const maxRelatedEntryCount = 5;
 const maxSummaryEntryCount = 100;
 const maxSummaryEntryContentLength = 800;
 const maxSummaryQueryCount = 200;
+const journalEntrySelectWithTags =
+  "id,title,content,mood,type,prompt,tags,created_at,updated_at";
+const journalEntrySelectWithoutTags =
+  "id,title,content,mood,type,prompt,created_at,updated_at";
 const smallTalkMessages = new Set([
   "hi",
   "hello",
@@ -132,6 +136,7 @@ type JournalEntryRow = {
   id: string;
   mood: string | null;
   prompt: string | null;
+  tags?: string[] | null;
   title: string;
   type: string;
   updated_at: string;
@@ -332,40 +337,55 @@ Deno.serve(async (request) => {
       intent === "follow_up"
         ? getPreviousRelatedEntryIds(recentMessages)
         : undefined;
-    let scopedJournalQuery = supabase
-      .from("journal_entries")
-      .select("id,title,content,mood,type,prompt,created_at,updated_at")
-      .is("deleted_at", null);
+    const buildScopedJournalQuery = (selectColumns: string) => {
+      let scopedJournalQuery = supabase
+        .from("journal_entries")
+        .select(selectColumns)
+        .is("deleted_at", null);
 
-    if (intent === "journal_summary" && summaryPeriod) {
-      if (summaryPeriod === "all_time") {
+      if (intent === "journal_summary" && summaryPeriod) {
+        if (summaryPeriod === "all_time") {
+          scopedJournalQuery = scopedJournalQuery
+            .order("created_at", { ascending: false })
+            .limit(maxSummaryQueryCount);
+        } else {
+          const periodRange = getPeriodRange(
+            summaryPeriod,
+            getClientDate(clientContext),
+            message,
+          );
+
+          scopedJournalQuery = scopedJournalQuery
+            .gte("created_at", periodRange.startISO)
+            .lte("created_at", periodRange.endISO)
+            .order("created_at", { ascending: true })
+            .limit(maxSummaryQueryCount);
+        }
+      } else if (previousRelatedEntryIds?.length) {
+        scopedJournalQuery = scopedJournalQuery
+          .in("id", previousRelatedEntryIds)
+          .order("created_at", { ascending: false });
+      } else {
         scopedJournalQuery = scopedJournalQuery
           .order("created_at", { ascending: false })
-          .limit(maxSummaryQueryCount);
-      } else {
-        const periodRange = getPeriodRange(
-          summaryPeriod,
-          getClientDate(clientContext),
-          message,
-        );
-
-        scopedJournalQuery = scopedJournalQuery
-          .gte("created_at", periodRange.startISO)
-          .lte("created_at", periodRange.endISO)
-          .order("created_at", { ascending: true })
-          .limit(maxSummaryQueryCount);
+          .limit(40);
       }
-    } else if (previousRelatedEntryIds?.length) {
-      scopedJournalQuery = scopedJournalQuery
-        .in("id", previousRelatedEntryIds)
-        .order("created_at", { ascending: false });
-    } else {
-      scopedJournalQuery = scopedJournalQuery
-        .order("created_at", { ascending: false })
-        .limit(40);
-    }
 
-    const { data, error } = await scopedJournalQuery;
+      return scopedJournalQuery;
+    };
+
+    const taggedResult = await buildScopedJournalQuery(journalEntrySelectWithTags);
+    let data = taggedResult.data;
+    let error = taggedResult.error;
+
+    if (error && isMissingTagsColumnError(error)) {
+      const fallbackResult = await buildScopedJournalQuery(
+        journalEntrySelectWithoutTags,
+      );
+
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
 
     if (error) {
       const isAuthorizationError =
@@ -705,6 +725,7 @@ function buildJournalContext(entries: JournalEntryRow[]) {
       `Title: ${cleanSingleLine(entry.title) || "Untitled"}`,
       `Type: ${cleanSingleLine(entry.type)}`,
       `Mood: ${cleanSingleLine(entry.mood ?? "") || "Not tagged"}`,
+      `Tags: ${formatTags(entry.tags)}`,
       `Prompt: ${cleanSingleLine(entry.prompt ?? "") || "None"}`,
       "Content:",
       truncateText(entry.content, maxEntryContentLength),
@@ -863,6 +884,7 @@ function buildSummaryEntriesContext(entries: JournalEntryRow[]) {
       `${index + 1}. Date: ${formatDate(entry.created_at)}`,
       `   Type: ${cleanSingleLine(entry.type)}`,
       `   Mood: ${cleanSingleLine(entry.mood ?? "") || "Not tagged"}`,
+      `   Tags: ${formatTags(entry.tags)}`,
       `   Title: ${cleanSingleLine(entry.title) || "Untitled"}`,
       `   Prompt: ${cleanSingleLine(entry.prompt ?? "") || "None"}`,
       `   Content: ${truncateText(entry.content, maxSummaryEntryContentLength)}`,
@@ -1323,6 +1345,7 @@ function getSearchableEntryText(entry: JournalEntryRow) {
     entry.content,
     entry.prompt ?? "",
     entry.mood ?? "",
+    ...(entry.tags ?? []),
     entry.type,
   ]
     .join(" ")
@@ -1895,7 +1918,7 @@ function getRecurringKeywords(entries: JournalEntryRow[]) {
   ]);
   const counts = entries.reduce<Record<string, number>>((wordCounts, entry) => {
     const words =
-      `${entry.title} ${entry.prompt ?? ""} ${entry.content}`
+      `${(entry.tags ?? []).join(" ")} ${entry.title} ${entry.prompt ?? ""} ${entry.content}`
         .toLowerCase()
         .match(/[a-z0-9']+/g) ?? [];
 
@@ -1954,6 +1977,10 @@ function isJournalEntryRow(value: unknown): value is JournalEntryRow {
     (value.mood === null || typeof value.mood === "string") &&
     typeof value.type === "string" &&
     (value.prompt === null || typeof value.prompt === "string") &&
+    (value.tags === undefined ||
+      value.tags === null ||
+      (Array.isArray(value.tags) &&
+        value.tags.every((tag) => typeof tag === "string"))) &&
     typeof value.created_at === "string" &&
     typeof value.updated_at === "string"
   );
@@ -1969,6 +1996,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function cleanSingleLine(value: string) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function formatTags(tags?: string[] | null) {
+  return tags?.length ? tags.map(cleanSingleLine).join(", ") : "None";
+}
+
+function isMissingTagsColumnError(error: { code?: string; message?: string }) {
+  return (
+    error.code === "42703" &&
+    (error.message ?? "").includes("journal_entries.tags")
+  );
 }
 
 function truncateText(value: string, maxLength: number) {

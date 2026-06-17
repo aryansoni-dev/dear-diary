@@ -6,6 +6,7 @@ import {
   mergeJournalEntries,
   type MergeResult,
 } from "@/lib/sync/mergeJournalEntries";
+import { normalizeTags } from "@/lib/tags";
 import type {
   EntryType,
   JournalEntry,
@@ -13,7 +14,7 @@ import type {
   MoodId,
 } from "@/types/journal";
 
-const journalStorageVersion = 2;
+const journalStorageVersion = 3;
 const entryTypes: EntryType[] = [
   "free_write",
   "daily_prompt",
@@ -35,6 +36,7 @@ type JournalEntryInput = {
   content: string;
   mood: MoodId | null;
   prompt?: string;
+  tags?: string[];
   title: string;
   type?: EntryType;
 };
@@ -63,6 +65,10 @@ type JournalState = {
   updateEntry: (id: string, entry: JournalEntryUpdate) => void;
 };
 
+type StoredJournalEntry = Omit<JournalEntry, "tags"> & {
+  tags?: string[];
+};
+
 function createEntryId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -89,12 +95,21 @@ function migrateJournalState(persistedState: unknown) {
       : [];
 
   return {
-    allEntries: persistedEntries.filter(isJournalEntry),
+    allEntries: persistedEntries
+      .filter(isJournalEntry)
+      .map(normalizeJournalEntry),
     entries: [],
   };
 }
 
-function isJournalEntry(entry: unknown): entry is JournalEntry {
+function normalizeJournalEntry(entry: StoredJournalEntry): JournalEntry {
+  return {
+    ...entry,
+    tags: normalizeTags(entry.tags ?? []),
+  };
+}
+
+function isJournalEntry(entry: unknown): entry is StoredJournalEntry {
   if (!isRecord(entry)) {
     return false;
   }
@@ -113,6 +128,9 @@ function isJournalEntry(entry: unknown): entry is JournalEntry {
     typeof entry.type === "string" &&
     isEntryType(entry.type) &&
     (prompt === undefined || typeof prompt === "string") &&
+    (entry.tags === undefined ||
+      (Array.isArray(entry.tags) &&
+        entry.tags.every((tag) => typeof tag === "string"))) &&
     typeof entry.createdAt === "string" &&
     typeof entry.updatedAt === "string" &&
     (deletedAt === undefined ||
@@ -171,6 +189,7 @@ export const useJournalStore = create<JournalState>()(
           id: createEntryId(),
           deletedAt: null,
           syncStatus: "pending",
+          tags: normalizeTags(entry.tags ?? []),
           type: entry.type ?? "free_write",
           updatedAt: now,
           userId,
@@ -317,22 +336,12 @@ export const useJournalStore = create<JournalState>()(
           allEntries: state.allEntries.map((currentEntry) =>
             currentEntry.id === id &&
             currentEntry.userId === state.activeUserId
-              ? {
-                  ...currentEntry,
-                  ...entry,
-                  syncStatus: "pending",
-                  updatedAt: now,
-                }
+              ? getUpdatedJournalEntry(currentEntry, entry, now)
               : currentEntry,
           ),
           entries: state.entries.map((currentEntry) =>
             currentEntry.id === id
-              ? {
-                  ...currentEntry,
-                  ...entry,
-                  syncStatus: "pending",
-                  updatedAt: now,
-                }
+              ? getUpdatedJournalEntry(currentEntry, entry, now)
               : currentEntry,
           ),
         }));
@@ -353,3 +362,20 @@ export const useJournalStore = create<JournalState>()(
     },
   ),
 );
+
+function getUpdatedJournalEntry(
+  currentEntry: JournalEntry,
+  entry: JournalEntryUpdate,
+  updatedAt: string,
+): JournalEntry {
+  return {
+    ...currentEntry,
+    ...entry,
+    syncStatus: "pending",
+    tags:
+      entry.tags === undefined
+        ? currentEntry.tags
+        : normalizeTags(entry.tags),
+    updatedAt,
+  };
+}

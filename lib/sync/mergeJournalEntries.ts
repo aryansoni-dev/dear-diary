@@ -1,3 +1,4 @@
+import { normalizeTags } from "@/lib/tags";
 import type { JournalEntry } from "@/types/journal";
 
 export type MergeResult = {
@@ -41,6 +42,7 @@ export function mergeJournalEntries({
 
     const syncedRemoteEntry: JournalEntry = {
       ...remoteEntry,
+      tags: normalizeTags(remoteEntry.tags ?? []),
       syncStatus: "synced",
     };
     const localEntryIndex = currentUserEntryIndexes.get(remoteEntry.id);
@@ -101,8 +103,21 @@ function entriesHaveMatchingCloudData(
     localEntry.mood === remoteEntry.mood &&
     localEntry.type === remoteEntry.type &&
     (localEntry.prompt ?? null) === (remoteEntry.prompt ?? null) &&
+    haveMatchingTags(localEntry.tags, remoteEntry.tags) &&
     localEntry.createdAt === remoteEntry.createdAt &&
     localEntry.updatedAt === remoteEntry.updatedAt &&
     (localEntry.deletedAt ?? null) === (remoteEntry.deletedAt ?? null)
+  );
+}
+
+function haveMatchingTags(localTags: string[], remoteTags: string[]) {
+  const normalizedLocalTags = normalizeTags(localTags);
+  const normalizedRemoteTags = normalizeTags(remoteTags);
+
+  return (
+    normalizedLocalTags.length === normalizedRemoteTags.length &&
+    normalizedLocalTags.every(
+      (tag, index) => tag === normalizedRemoteTags[index],
+    )
   );
 }

@@ -1,4 +1,5 @@
 import { getAuthenticatedSupabaseClient } from "@/lib/supabase";
+import { normalizeTags } from "@/lib/tags";
 import type { EntryType, JournalEntry, MoodId } from "@/types/journal";
 
 const entryTypes: EntryType[] = [
@@ -17,6 +18,10 @@ const moodIds: MoodId[] = [
   "anxious",
   "grateful",
 ];
+const journalEntrySelectWithTags =
+  "id, user_id, title, content, mood, type, prompt, tags, created_at, updated_at, deleted_at";
+const journalEntrySelectWithoutTags =
+  "id, user_id, title, content, mood, type, prompt, created_at, updated_at, deleted_at";
 
 type JournalEntryRow = {
   content: string;
@@ -26,6 +31,7 @@ type JournalEntryRow = {
   mood: string | null;
   prompt: string | null;
   sync_version?: number | null;
+  tags?: string[] | null;
   title: string;
   type: string;
   updated_at: string;
@@ -61,6 +67,7 @@ const mapJournalEntryRowToEntry = (
   mood: row.mood as JournalEntry["mood"],
   prompt: row.prompt ?? undefined,
   syncStatus: "synced",
+  tags: normalizeTags(row.tags ?? []),
   title: row.title,
   type: row.type as JournalEntry["type"],
   updatedAt: row.updated_at,
@@ -99,6 +106,7 @@ export async function pushJournalEntriesToCloud({
       id: entry.id,
       mood: entry.mood,
       prompt: entry.prompt ?? null,
+      tags: normalizeTags(entry.tags ?? []),
       title: entry.title,
       type: entry.type,
       updated_at: entry.updatedAt,
@@ -145,21 +153,32 @@ export async function pullJournalEntriesFromCloud({
   const client = getAuthenticatedSupabaseClient();
   const { data, error } = await client
     .from("journal_entries")
-    .select(
-      "id, user_id, title, content, mood, type, prompt, created_at, updated_at, deleted_at",
-    )
+    .select(journalEntrySelectWithTags)
     .eq("user_id", userId)
     .order("updated_at", { ascending: false });
+  let journalRows: unknown[] | null = data;
+  let journalError = error;
 
-  if (error) {
+  if (journalError && isMissingTagsColumnError(journalError)) {
+    const fallbackResult = await client
+      .from("journal_entries")
+      .select(journalEntrySelectWithoutTags)
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false });
+
+    journalRows = fallbackResult.data;
+    journalError = fallbackResult.error;
+  }
+
+  if (journalError) {
     if (__DEV__) {
-      console.warn("Journal restore query failed", error);
+      console.warn("Journal restore query failed", journalError);
     }
 
     throw new Error("Cloud journal entries could not be loaded.");
   }
 
-  const rows: unknown[] = data ?? [];
+  const rows: unknown[] = journalRows ?? [];
   const entries = rows
     .map(parseJournalEntryRow)
     .filter((row) => row.user_id === userId)
@@ -194,6 +213,10 @@ function isJournalEntryRow(row: unknown): row is JournalEntryRow {
     typeof row.type === "string" &&
     isEntryType(row.type) &&
     (row.prompt === null || typeof row.prompt === "string") &&
+    (row.tags === undefined ||
+      row.tags === null ||
+      (Array.isArray(row.tags) &&
+        row.tags.every((tag) => typeof tag === "string"))) &&
     isValidTimestamp(row.created_at) &&
     isValidTimestamp(row.updated_at) &&
     (row.deleted_at === null || isValidTimestamp(row.deleted_at)) &&
@@ -217,4 +240,11 @@ function isMoodId(value: string): value is MoodId {
 
 function isValidTimestamp(value: unknown): value is string {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function isMissingTagsColumnError(error: { code?: string; message?: string }) {
+  return (
+    error.code === "42703" &&
+    (error.message ?? "").includes("journal_entries.tags")
+  );
 }
