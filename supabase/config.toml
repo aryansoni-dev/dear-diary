@@ -1,0 +1,5 @@
+[functions.journal-ai-chat]
+verify_jwt = false
+
+[functions.reflect-on-entry]
+verify_jwt = false

@@ -21,12 +21,15 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { EntryAIReflectionCard } from "@/components/journal-editor/entry-ai-reflection-card";
 import { TagInputModal } from "@/components/tags/tag-input-modal";
 import { journalEditorMoods } from "@/data/journal-editor";
-import { useAutoSync } from "@/hooks/useAutoSync";
 import { useAppDialog } from "@/hooks/useAppDialog";
+import { useAutoSync } from "@/hooks/useAutoSync";
+import { useEntryReflection } from "@/hooks/useEntryReflection";
 import { formatTagLabel, normalizeTag, normalizeTags } from "@/lib/tags";
 import { useJournalStore } from "@/store/journal-store";
+import { useEntryReflectionStore } from "@/store/useEntryReflectionStore";
 import type { EntryType, MoodId } from "@/types/journal";
 
 const colors = {
@@ -55,6 +58,8 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const { runAutoSync } = useAutoSync();
   const { showDialog } = useAppDialog();
   const scrollViewRef = useRef<ScrollView | null>(null);
+  const writingContentHeightRef = useRef(0);
+  const writingAreaYRef = useRef(0);
   const addTagButtonScale = useRef(new Animated.Value(1)).current;
   const deleteButtonScale = useRef(new Animated.Value(1)).current;
   const saveButtonScale = useRef(new Animated.Value(1)).current;
@@ -71,6 +76,9 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const addEntry = useJournalStore((state) => state.addEntry);
   const updateEntry = useJournalStore((state) => state.updateEntry);
   const deleteEntry = useJournalStore((state) => state.deleteEntry);
+  const removeCachedReflection = useEntryReflectionStore(
+    (state) => state.removeReflectionForEntry,
+  );
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const activeUserId = useJournalStore((state) => state.activeUserId);
   const [content, setContent] = useState("");
@@ -97,13 +105,16 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       : "free_write";
   const activeEntryType = entry?.type ?? requestedEntryType;
   const activePrompt = entry?.prompt ?? routePrompt;
+  const promptTitle = activePrompt?.trim();
+  const hasPromptTitle = Boolean(promptTitle);
   const promptLabel =
     activeEntryType === "morning_intention"
       ? "Morning Intention"
       : "Reflection Prompt";
   const isEditing = Boolean(entryId);
   const isMissingEntry = hasHydrated && isEditing && !entry;
-  const canSave = title.trim().length > 0 || content.trim().length > 0;
+  const canSave =
+    hasPromptTitle || title.trim().length > 0 || content.trim().length > 0;
   const dateLabel = useMemo(() => {
     const date = entry?.createdAt ? new Date(entry.createdAt) : new Date();
 
@@ -113,6 +124,12 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       weekday: "short",
     }).format(date);
   }, [entry?.createdAt]);
+  const entryReflection = useEntryReflection({
+    enabled: Boolean(entry),
+    entryId: entry?.id ?? null,
+    entryUpdatedAt: entry?.updatedAt ?? null,
+    userId: activeUserId,
+  });
 
   useEffect(() => {
     if (!entry) {
@@ -154,7 +171,21 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
 
   function scrollToWritingArea() {
     requestAnimationFrame(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
+      scrollViewRef.current?.scrollTo({
+        animated: true,
+        y: Math.max(writingAreaYRef.current - 24, 0),
+      });
+    });
+  }
+
+  function scrollToWritingAreaEnd() {
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({
+        animated: true,
+        y:
+          writingAreaYRef.current +
+          Math.max(writingContentHeightRef.current - 240, 0),
+      });
     });
   }
 
@@ -173,6 +204,12 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       icon: "!",
       message: "This journal entry will be removed from this device.",
       onConfirm: () => {
+        const reflectionUserId = entry?.userId ?? activeUserId;
+
+        if (reflectionUserId) {
+          removeCachedReflection(reflectionUserId, entryId);
+        }
+
         deleteEntry(entryId);
         void runAutoSync("journal_change");
         router.replace("/journal-history");
@@ -196,17 +233,18 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       return;
     }
 
-    const trimmedPrompt = activePrompt?.trim();
     const savedEntry = {
       content: content.trim(),
       mood: selectedMood,
       tags,
-      title: getSavedTitle({
-        title: title.trim(),
-        type: activeEntryType,
-      }),
+      title:
+        promptTitle ||
+        getSavedTitle({
+          title: title.trim(),
+          type: activeEntryType,
+        }),
       type: activeEntryType,
-      ...(trimmedPrompt ? { prompt: trimmedPrompt } : {}),
+      ...(promptTitle ? { prompt: promptTitle } : {}),
     };
 
     if (entryId) {
@@ -255,6 +293,61 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
 
     if (process.env.EXPO_OS === "ios") {
       void Haptics.selectionAsync();
+    }
+  }
+
+  function handleRegenerateReflection() {
+    showDialog({
+      cancelText: "Cancel",
+      confirmText: "Regenerate",
+      icon: "✦",
+      message:
+        "DearDiary will create a new reflection for this entry and replace the current one.",
+      onConfirm: () => {
+        void handleConfirmedRegenerateReflection();
+      },
+      showCancel: true,
+      title: "Regenerate reflection?",
+    });
+  }
+
+  async function syncEntryBeforeReflection() {
+    if (!entry || entry.syncStatus === "synced") {
+      return true;
+    }
+
+    await runAutoSync("journal_change");
+
+    const latestEntry = useJournalStore.getState().getEntryById(entry.id);
+
+    if (latestEntry?.syncStatus === "synced") {
+      return true;
+    }
+
+    showDialog({
+      confirmText: "OK",
+      icon: "!",
+      message:
+        "Please try again after this entry finishes syncing, so DearDiary AI reflects the latest saved version.",
+      title: "Sync needed",
+    });
+
+    return false;
+  }
+
+  async function handleGenerateReflection() {
+    const canGenerate = await syncEntryBeforeReflection();
+
+    if (canGenerate) {
+      await entryReflection.generate();
+    }
+  }
+
+  async function handleConfirmedRegenerateReflection() {
+    const canRegenerate = await syncEntryBeforeReflection();
+
+    if (canRegenerate) {
+      await entryReflection.regenerate();
     }
   }
 
@@ -529,31 +622,44 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
           </View>
         </View>
 
-        <View className="flex-1">
-          <TextInput
-            accessibilityLabel="Journal title"
-            className="min-h-[58px] text-[30px] font-bold leading-8 text-zinc-950"
-            onChangeText={(value) => {
-              setTitle(value);
-              setWasSaved(false);
-            }}
-            placeholder="What's on your mind?"
-            placeholderTextColor={colors.placeholder}
-            value={title}
-          />
+        <View
+          className="flex-1"
+          onLayout={(event) => {
+            writingAreaYRef.current = event.nativeEvent.layout.y;
+          }}
+        >
+          {!hasPromptTitle ? (
+            <>
+              <TextInput
+                accessibilityLabel="Journal title"
+                className="min-h-[58px] text-[30px] font-bold leading-8 text-zinc-950"
+                onChangeText={(value) => {
+                  setTitle(value);
+                  setWasSaved(false);
+                }}
+                placeholder="What's on your mind?"
+                placeholderTextColor={colors.placeholder}
+                value={title}
+              />
+              <View className="h-px w-full bg-zinc-200" />
+            </>
+          ) : null}
           <View className="h-px w-full bg-zinc-200" />
           <TextInput
             accessibilityLabel="Journal entry"
-            className="pt-6 text-[20px] leading-6 text-zinc-950"
+            className={`${hasPromptTitle ? "" : "pt-6"} text-[20px] leading-6 text-zinc-950`}
             multiline
             onBlur={() => setIsWritingFocused(false)}
             onChangeText={(value) => {
               setContent(value);
               setWasSaved(false);
             }}
-            onContentSizeChange={() => {
+            onContentSizeChange={(event) => {
+              writingContentHeightRef.current =
+                event.nativeEvent.contentSize.height;
+
               if (isWritingFocused) {
-                scrollToWritingArea();
+                scrollToWritingAreaEnd();
               }
             }}
             onFocus={() => {
@@ -568,6 +674,20 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
             value={content}
           />
         </View>
+
+        {entry ? (
+          <View>
+            <EntryAIReflectionCard
+              error={entryReflection.error}
+              isGenerating={entryReflection.isGenerating}
+              isLoading={entryReflection.isLoading}
+              isStale={entryReflection.isStale}
+              onGenerate={handleGenerateReflection}
+              onRegenerate={handleRegenerateReflection}
+              reflection={entryReflection.reflection}
+            />
+          </View>
+        ) : null}
       </ScrollView>
 
       <BottomTabBar activeTab={activeTab} />
