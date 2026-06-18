@@ -21,6 +21,7 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { EntryAIReflectionCard } from "@/components/journal-editor/entry-ai-reflection-card";
 import { TagInputModal } from "@/components/tags/tag-input-modal";
 import { journalEditorMoods } from "@/data/journal-editor";
@@ -416,15 +417,13 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
         showsVerticalScrollIndicator={false}
       >
         <View className="mb-8 flex-row items-center justify-between">
-          <Pressable
+          <AnimatedIconButton
             accessibilityLabel="Go back"
-            accessibilityRole="button"
-            className="size-[54px] items-center justify-center rounded-full bg-zinc-100"
             onPress={handleGoBack}
-            style={{ boxShadow: "0 2px 7px rgba(39, 39, 42, 0.16)" }}
+            shadow="0 2px 7px rgba(39, 39, 42, 0.16)"
           >
             <ChevronLeft color={colors.heading} size={25} strokeWidth={3} />
-          </Pressable>
+          </AnimatedIconButton>
 
           <View className="items-center">
             <Text className="text-[11px] font-semibold uppercase leading-5 tracking-[3.2px] text-[#71717B]">

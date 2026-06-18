@@ -10,6 +10,7 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { TabScreenHeader } from "@/components/ui/tab-screen-header";
 import { reflectPrompts, type ReflectPrompt } from "@/data/reflect";
 import { useJournalStore } from "@/store/journal-store";
 import type { JournalEntry } from "@/types/journal";
@@ -71,26 +72,26 @@ export function ReflectScreen() {
         contentContainerStyle={{
           paddingBottom: bottomNavHeight + 36,
           paddingHorizontal: 24,
-          paddingTop: Math.max(56, insets.top + 14),
+          paddingTop: Math.max(92, insets.top + 44),
         }}
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
-        <View className="flex-row items-center gap-3">
-          <View
-            className="size-12 items-center justify-center rounded-[20px] bg-white/80"
-            style={{ boxShadow: "0 8px 24px rgba(124, 93, 150, 0.16)" }}
-          >
-            <Text className="text-[25px] leading-5">🌙</Text>
-          </View>
-          <Text className="flex-1 text-[24px] font-bold leading-5 text-[#18181B]">
-            Evening Reflection
-          </Text>
-        </View>
-
-        <Text className="mt-6 text-[17px] leading-5 text-[#71717B]">
-          Slow down and check in with yourself.
-        </Text>
+        <TabScreenHeader
+          eyebrow="Reflect"
+          rightAccessory={
+            <View
+              className="size-[50px] items-center justify-center rounded-full bg-white"
+              style={{ boxShadow: "0 4px 14px rgba(39, 39, 42, 0.12)" }}
+            >
+              <Text allowFontScaling={false} className="text-[25px] leading-8">
+                🌙
+              </Text>
+            </View>
+          }
+          subtitle="Slow down and check in with yourself."
+          title="Evening Reflection"
+        />
 
         <View className="mt-8 gap-6">
           {reflectPrompts.map((prompt) => (

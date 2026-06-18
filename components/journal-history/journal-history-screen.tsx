@@ -10,6 +10,8 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
+import { TabScreenHeader } from "@/components/ui/tab-screen-header";
 import { journalMoodFilters } from "@/data/journal-history";
 import { formatTagLabel } from "@/lib/tags";
 import { useJournalStore } from "@/store/journal-store";
@@ -179,35 +181,29 @@ export function JournalHistoryScreen() {
         className="flex-1"
         contentContainerStyle={{
           paddingBottom: bottomNavHeight + 30,
-          paddingTop: Math.max(56, insets.top + 20),
+          paddingTop: Math.max(92, insets.top + 44),
         }}
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
         <View className="px-6 pb-3">
-          <View className="mb-6 flex-row items-center justify-between">
-            <View>
-              <Text className="text-[13px] font-medium uppercase leading-5 tracking-wide text-[#A1A1AA]">
-                Your Reflections
-              </Text>
-              <Text className="text-[30px] font-bold leading-[38px] text-zinc-950">
-                My Journal
-              </Text>
-            </View>
-
-            <Pressable
-              accessibilityLabel="Create journal entry"
-              accessibilityRole="button"
-              className="size-11 items-center justify-center rounded-full bg-white"
-              onPress={() => router.push(newJournalEntryHref)}
-              style={{ boxShadow: "0 2px 7px rgba(39, 39, 42, 0.18)" }}
-            >
-              <Plus size={23} color={colors.primary} strokeWidth={2} />
-            </Pressable>
-          </View>
+          <TabScreenHeader
+            eyebrow="Your Reflections"
+            rightAccessory={
+              <AnimatedIconButton
+                accessibilityLabel="Create journal entry"
+                onPress={() => router.push(newJournalEntryHref)}
+                shadow="0 2px 7px rgba(39, 39, 42, 0.18)"
+              >
+                <Plus size={23} color={colors.primary} strokeWidth={2} />
+              </AnimatedIconButton>
+            }
+            subtitle="Search and revisit your entries"
+            title="My Journal"
+          />
 
           <View
-            className="mb-4 h-12 flex-row items-center rounded-[16px] border border-zinc-100 bg-white px-4"
+            className="mb-4 mt-6 h-12 flex-row items-center rounded-[16px] border border-zinc-100 bg-white px-4"
             style={{ boxShadow: "0 2px 7px rgba(39, 39, 42, 0.16)" }}
           >
             <Search size={22} color={colors.muted} strokeWidth={2.2} />
