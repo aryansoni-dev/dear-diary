@@ -4,7 +4,11 @@ import {
   formatMoodLabel,
   formatReportDate,
 } from "@/components/insights/report/report-formatters";
-import { moodReportColors, reportColors } from "@/constants/report-theme";
+import {
+  moodJourneyColors,
+  moodReportColors,
+  reportColors,
+} from "@/constants/report-theme";
 import type { MoodTimelineItem } from "@/types/aiInsightReport";
 
 type MoodJourneyChartProps = {
@@ -17,7 +21,11 @@ export function MoodJourneyChart({ data, explanation }: MoodJourneyChartProps) {
 
   if (activeDays.length === 0) {
     return (
-      <Text allowFontScaling={false} className="text-[15px] leading-6 text-[#71717B]">
+      <Text
+        allowFontScaling={false}
+        className="text-[15px] leading-6"
+        style={{ color: moodJourneyColors.emptyText }}
+      >
         Mood journey will appear after entries are added in this period.
       </Text>
     );
@@ -45,7 +53,8 @@ export function MoodJourneyChart({ data, explanation }: MoodJourneyChartProps) {
           >
             <Text
               allowFontScaling={false}
-              className="text-[13px] font-semibold leading-5 text-[#71717B]"
+              className="text-[13px] font-semibold leading-5"
+              style={{ color: moodJourneyColors.cardDateText }}
             >
               {formatReportDate(item.date)}
             </Text>
@@ -67,20 +76,26 @@ export function MoodJourneyChart({ data, explanation }: MoodJourneyChartProps) {
             </View>
             <Text
               allowFontScaling={false}
-              className="mt-3 text-[15px] font-bold leading-5 text-[#18181B]"
+              className="mt-3 text-[15px] font-bold leading-5"
+              style={{ color: moodJourneyColors.moodText }}
             >
               {formatMoodLabel(item.dominantMood)}
             </Text>
             <Text
               allowFontScaling={false}
-              className="mt-1 text-[12px] leading-5 text-[#71717B]"
+              className="mt-1 text-[12px] leading-5"
+              style={{ color: moodJourneyColors.entryCountText }}
             >
               {item.entryCount} {item.entryCount === 1 ? "entry" : "entries"}
             </Text>
           </View>
         ))}
       </ScrollView>
-      <Text allowFontScaling={false} className="mt-4 text-[15px] leading-6 text-[#52525B]">
+      <Text
+        allowFontScaling={false}
+        className="mt-4 text-[15px] leading-6"
+        style={{ color: moodJourneyColors.explanationText }}
+      >
         {explanation}
       </Text>
     </View>

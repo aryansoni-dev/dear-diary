@@ -241,7 +241,8 @@ export function ReflectionPromptCard({ prompt }: { prompt: string | null }) {
       >
         <Pressable
           accessibilityRole="button"
-          className="mt-5 h-12 flex-row items-center justify-center gap-2 rounded-full bg-[#FF2056]"
+          className="mt-5 h-12 flex-row items-center justify-center gap-2 rounded-full"
+          style={{ backgroundColor: reportColors.primary }}
         >
           <PenLine color="white" size={18} />
           <Text

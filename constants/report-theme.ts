@@ -16,6 +16,22 @@ export const reportColors = {
   text: "#3F3F46",
 } as const;
 
+export const moodDistributionColors = {
+  emptyText: reportColors.muted,
+  labelText: reportColors.text,
+  noteText: reportColors.muted,
+  valueText: reportColors.muted,
+  track: reportColors.lavender,
+} as const;
+
+export const moodJourneyColors = {
+  cardDateText: reportColors.muted,
+  emptyText: reportColors.muted,
+  explanationText: "#52525B",
+  entryCountText: reportColors.muted,
+  moodText: reportColors.heading,
+} as const;
+
 export const moodReportColors = [
   "#FF2056",
   "#8B5CF6",

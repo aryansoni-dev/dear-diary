@@ -1,7 +1,10 @@
 import { Text, View } from "react-native";
 
 import { formatMoodLabel } from "@/components/insights/report/report-formatters";
-import { moodReportColors } from "@/constants/report-theme";
+import {
+  moodDistributionColors,
+  moodReportColors,
+} from "@/constants/report-theme";
 import type { MoodDistributionItem } from "@/types/aiInsightReport";
 
 type MoodDistributionChartProps = {
@@ -15,7 +18,11 @@ export function MoodDistributionChart({
 }: MoodDistributionChartProps) {
   if (data.length === 0) {
     return (
-      <Text allowFontScaling={false} className="text-[15px] leading-6 text-[#71717B]">
+      <Text
+        allowFontScaling={false}
+        className="text-[15px] leading-6"
+        style={{ color: moodDistributionColors.emptyText }}
+      >
         No mood data was selected for this period.
       </Text>
     );
@@ -37,19 +44,26 @@ export function MoodDistributionChart({
           <View className="flex-row items-center justify-between gap-3">
             <Text
               allowFontScaling={false}
-              className="flex-1 text-[15px] font-semibold leading-5 text-[#3F3F46]"
+              className="flex-1 text-[15px] font-semibold leading-5"
+              style={{ color: moodDistributionColors.labelText }}
             >
               {formatMoodLabel(item.mood)}
             </Text>
             <Text
               allowFontScaling={false}
-              className="text-[13px] font-semibold leading-5 text-[#71717B]"
-              style={{ fontVariant: ["tabular-nums"] }}
+              className="text-[13px] font-semibold leading-5"
+              style={{
+                color: moodDistributionColors.valueText,
+                fontVariant: ["tabular-nums"],
+              }}
             >
               {item.count} · {Math.round(item.percentage)}%
             </Text>
           </View>
-          <View className="h-3 overflow-hidden rounded-full bg-[#F4EFFA]">
+          <View
+            className="h-3 overflow-hidden rounded-full"
+            style={{ backgroundColor: moodDistributionColors.track }}
+          >
             <View
               className="h-full rounded-full"
               style={{
@@ -61,7 +75,11 @@ export function MoodDistributionChart({
         </View>
       ))}
       {entriesWithoutMood > 0 ? (
-        <Text allowFontScaling={false} className="text-[13px] leading-5 text-[#71717B]">
+        <Text
+          allowFontScaling={false}
+          className="text-[13px] leading-5"
+          style={{ color: moodDistributionColors.noteText }}
+        >
           {entriesWithoutMood} entries had no mood selected.
         </Text>
       ) : null}

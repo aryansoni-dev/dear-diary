@@ -134,19 +134,19 @@ function parseAnalytics(value: unknown): ReportAnalytics | null {
   }
 
   if (
-    typeof value.totalEntries !== "number" ||
-    typeof value.activeDays !== "number" ||
-    typeof value.longestStreak !== "number" ||
-    typeof value.averageEntriesPerActiveDay !== "number" ||
+    !isFiniteNumber(value.totalEntries) ||
+    !isFiniteNumber(value.activeDays) ||
+    !isFiniteNumber(value.longestStreak) ||
+    !isFiniteNumber(value.averageEntriesPerActiveDay) ||
     (value.mostActiveDate !== null && typeof value.mostActiveDate !== "string") ||
-    typeof value.mostActiveDateEntryCount !== "number" ||
+    !isFiniteNumber(value.mostActiveDateEntryCount) ||
     !Array.isArray(value.moodDistribution) ||
     !Array.isArray(value.moodTimeline) ||
     !Array.isArray(value.activityTimeline) ||
     !Array.isArray(value.recurringThemes) ||
     !Array.isArray(value.entryTypeDistribution) ||
-    typeof value.entriesWithMood !== "number" ||
-    typeof value.entriesWithoutMood !== "number" ||
+    !isFiniteNumber(value.entriesWithMood) ||
+    !isFiniteNumber(value.entriesWithoutMood) ||
     typeof value.dataWasCapped !== "boolean"
   ) {
     return null;
@@ -271,6 +271,10 @@ function isEntryTypeDistributionItem(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 function isPeriodType(value: unknown): value is AIInsightPeriodType {

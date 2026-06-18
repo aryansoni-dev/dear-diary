@@ -2,7 +2,7 @@ import { LinearGradient as ExpoLinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { BarChart3, CalendarDays, Sparkles } from "lucide-react-native";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -58,6 +58,15 @@ const fallbackMoodScore = 3;
 const fallbackMoodEmoji = "😐";
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const reflectionReportCardStyles = {
+  buttonClassName:
+    "mt-5 h-12 items-center justify-center rounded-full bg-[#FF2056]",
+  cardClassName: "rounded-[28px] bg-white/85 px-5 py-5",
+  iconClassName:
+    "size-11 items-center justify-center rounded-full bg-[#FFDDE8]",
+  shadow: "0 10px 30px rgba(160, 140, 200, 0.16)",
+  statusPillClassName: "rounded-full bg-[#F4EFFA] px-3 py-1",
+} as const;
 
 const moodScores: Record<MoodId, number> = {
   anxious: 2,
@@ -128,6 +137,7 @@ export function InsightsScreen() {
     () => getLocalInsights(entries, hasHydrated),
     [entries, hasHydrated],
   );
+  const todayKey = useTodayKey();
 
   return (
     <View className="flex-1 bg-[#FAF7F2]">
@@ -220,8 +230,8 @@ export function InsightsScreen() {
             Reflection Reports
           </Text>
           <View className="mt-4 gap-4">
-            <ReflectionReportCard periodType="weekly" />
-            <ReflectionReportCard periodType="monthly" />
+            <ReflectionReportCard periodType="weekly" todayKey={todayKey} />
+            <ReflectionReportCard periodType="monthly" todayKey={todayKey} />
           </View>
         </View>
       </ScrollView>
@@ -233,10 +243,15 @@ export function InsightsScreen() {
 
 function ReflectionReportCard({
   periodType,
+  todayKey,
 }: {
   periodType: AIInsightPeriodType;
+  todayKey: string;
 }) {
-  const period = useMemo(() => getCurrentReportPeriod(periodType), [periodType]);
+  const period = useMemo(
+    () => getCurrentReportPeriod(periodType, getLocalDateFromKey(todayKey)),
+    [periodType, todayKey],
+  );
   const reportState = useAIInsightReport(period);
   const minimumEntries = periodType === "weekly" ? 2 : 3;
   const hasEnoughEntries = reportState.availableEntryCount >= minimumEntries;
@@ -257,11 +272,11 @@ function ReflectionReportCard({
 
   return (
     <View
-      className="rounded-[28px] bg-white/85 px-5 py-5"
-      style={{ boxShadow: "0 10px 30px rgba(160, 140, 200, 0.16)" }}
+      className={reflectionReportCardStyles.cardClassName}
+      style={{ boxShadow: reflectionReportCardStyles.shadow }}
     >
       <View className="flex-row gap-4">
-        <View className="size-11 items-center justify-center rounded-full bg-[#FFDDE8]">
+        <View className={reflectionReportCardStyles.iconClassName}>
           {periodType === "weekly" ? (
             <CalendarDays color={primaryColor} size={21} strokeWidth={2.3} />
           ) : (
@@ -276,7 +291,7 @@ function ReflectionReportCard({
             >
               {title}
             </Text>
-            <View className="rounded-full bg-[#F4EFFA] px-3 py-1">
+            <View className={reflectionReportCardStyles.statusPillClassName}>
               <Text
                 allowFontScaling={false}
                 className="text-[11px] font-semibold leading-4 text-[#52525B]"
@@ -309,7 +324,7 @@ function ReflectionReportCard({
       >
         <Pressable
           accessibilityRole="button"
-          className="mt-5 h-12 items-center justify-center rounded-full bg-[#FF2056]"
+          className={reflectionReportCardStyles.buttonClassName}
         >
           <Text
             allowFontScaling={false}
@@ -390,6 +405,31 @@ function getLocalInsights(
       value: statValues[stat.label as keyof typeof statValues],
     })),
   };
+}
+
+function useTodayKey() {
+  const [todayKey, setTodayKey] = useState(() => getLocalDateKey(new Date()));
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    function scheduleNextDayUpdate() {
+      const now = new Date();
+      const nextDay = startOfLocalDay(now);
+
+      nextDay.setDate(nextDay.getDate() + 1);
+      timeoutId = setTimeout(() => {
+        setTodayKey(getLocalDateKey(new Date()));
+        scheduleNextDayUpdate();
+      }, Math.max(1000, nextDay.getTime() - now.getTime() + 1000));
+    }
+
+    scheduleNextDayUpdate();
+
+    return () => clearTimeout(timeoutId);
+  }, []);
+
+  return todayKey;
 }
 
 function getInsightCardBody(
@@ -593,6 +633,12 @@ function getLocalDateKey(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function getLocalDateFromKey(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+
+  return new Date(year, month - 1, day);
 }
 
 function startOfLocalDay(date: Date) {
