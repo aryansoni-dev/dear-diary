@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { generateLocalJournalResponse } from "@/lib/ai/localJournalAssistant";
 import { generateRemoteJournalResponse } from "@/lib/ai/remoteJournalAssistant";
@@ -312,15 +313,13 @@ export function AiChatScreen({
         className="flex-row items-center gap-4 px-6 pb-4"
         style={{ paddingTop: Math.max(56, insets.top + 20) }}
       >
-        <Pressable
+        <AnimatedIconButton
           accessibilityLabel="Go back"
-          accessibilityRole="button"
-          className="size-10 items-center justify-center rounded-full bg-white"
           onPress={handleBackPress}
-          style={{ boxShadow: "0 3px 10px rgba(39, 39, 42, 0.18)" }}
+          shadow="0 3px 10px rgba(39, 39, 42, 0.18)"
         >
           <Feather name="chevron-left" size={22} color="#3F3F46" />
-        </Pressable>
+        </AnimatedIconButton>
 
         <View className="flex-1 flex-row items-center gap-4">
           <AiAvatar size={44} iconSize={21} />

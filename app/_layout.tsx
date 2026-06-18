@@ -56,7 +56,14 @@ function AppStack() {
         <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="achievements" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="achievements/index"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="insights/report/[periodType]"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="journal" options={{ headerShown: false }} />
       </Stack>
       {isLoaded && userId ? <AchievementWatcher userId={userId} /> : null}

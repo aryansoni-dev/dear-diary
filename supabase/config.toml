@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.reflect-on-entry]
 verify_jwt = false
+
+[functions.generate-insight-report]
+verify_jwt = false

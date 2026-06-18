@@ -1,8 +1,22 @@
 import { LinearGradient as ExpoLinearGradient } from "expo-linear-gradient";
+import { Link } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Sparkles } from "lucide-react-native";
-import { useMemo } from "react";
-import { ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { BarChart3, CalendarDays, Sparkles } from "lucide-react-native";
+import { useEffect, useMemo } from "react";
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedProps,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, {
   Circle,
@@ -16,6 +30,7 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { TabScreenHeader } from "@/components/ui/tab-screen-header";
 import {
   insightCardStyles,
   insightStatStyles,
@@ -23,7 +38,12 @@ import {
   type InsightStat,
   type MoodJourneyPoint,
 } from "@/data/insights";
+import { useAIInsightReport } from "@/hooks/useAIInsightReport";
+import {
+  getCurrentReportPeriod,
+} from "@/lib/insights/reportPeriods";
 import { useJournalStore } from "@/store/journal-store";
+import type { AIInsightPeriodType } from "@/types/aiInsightReport";
 import type { JournalEntry, MoodId } from "@/types/journal";
 
 const primaryColor = "#FF2056";
@@ -36,6 +56,8 @@ const moodMin = 1;
 
 const fallbackMoodScore = 3;
 const fallbackMoodEmoji = "😐";
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const moodScores: Record<MoodId, number> = {
   anxious: 2,
@@ -129,30 +151,15 @@ export function InsightsScreen() {
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingBottom: bottomNavHeight + 28,
+          paddingBottom: bottomNavHeight + 56,
           paddingHorizontal: 24,
-          paddingTop: Math.max(60, insets.top + 22),
+          paddingTop: Math.max(92, insets.top + 44),
         }}
       >
-        <View>
-          <View className="flex-row items-center gap-2">
-            <Text
-              allowFontScaling={false}
-              className="text-[31px] font-bold leading-9 tracking-normal text-[#18181B]"
-            >
-              Your Insights
-            </Text>
-            <Text allowFontScaling={false} className="text-[31px] leading-9">
-              ✨
-            </Text>
-          </View>
-          <Text
-            allowFontScaling={false}
-            className="mt-1 text-[15px] leading-5 text-[#71717B]"
-          >
-            Powered by your journal entries
-          </Text>
-        </View>
+        <TabScreenHeader
+          subtitle="Powered by your journal entries"
+          title="Your Insights ✨"
+        />
 
         <View
           className="mt-7 rounded-[30px] bg-white/80 px-6 py-6"
@@ -204,11 +211,148 @@ export function InsightsScreen() {
             <InsightMessageCard card={card} key={card.title} />
           ))}
         </View>
+
+        <View className="mt-7">
+          <Text
+            allowFontScaling={false}
+            className="text-[20px] font-bold leading-7 text-[#18181B]"
+          >
+            Reflection Reports
+          </Text>
+          <View className="mt-4 gap-4">
+            <ReflectionReportCard periodType="weekly" />
+            <ReflectionReportCard periodType="monthly" />
+          </View>
+        </View>
       </ScrollView>
 
       <BottomTabBar activeTab="Insights" />
     </View>
   );
+}
+
+function ReflectionReportCard({
+  periodType,
+}: {
+  periodType: AIInsightPeriodType;
+}) {
+  const period = useMemo(() => getCurrentReportPeriod(periodType), [periodType]);
+  const reportState = useAIInsightReport(period);
+  const minimumEntries = periodType === "weekly" ? 2 : 3;
+  const hasEnoughEntries = reportState.availableEntryCount >= minimumEntries;
+  const title =
+    periodType === "weekly" ? "Weekly Reflection" : "Monthly Reflection";
+  const description =
+    periodType === "weekly"
+      ? "A visual review of your moods, activity and patterns this week."
+      : "Understand your emotional journey and progress this month.";
+  const status = getReportCardStatus({
+    hasEnoughEntries,
+    isGenerating: reportState.isGenerating,
+    isStale: reportState.isStale,
+    legacyReportAvailable: reportState.legacyReportAvailable,
+    reportExists: Boolean(reportState.report),
+  });
+  const buttonLabel = reportState.report ? "View" : "Open";
+
+  return (
+    <View
+      className="rounded-[28px] bg-white/85 px-5 py-5"
+      style={{ boxShadow: "0 10px 30px rgba(160, 140, 200, 0.16)" }}
+    >
+      <View className="flex-row gap-4">
+        <View className="size-11 items-center justify-center rounded-full bg-[#FFDDE8]">
+          {periodType === "weekly" ? (
+            <CalendarDays color={primaryColor} size={21} strokeWidth={2.3} />
+          ) : (
+            <BarChart3 color={primaryColor} size={21} strokeWidth={2.3} />
+          )}
+        </View>
+        <View className="flex-1">
+          <View className="flex-row items-start justify-between gap-3">
+            <Text
+              allowFontScaling={false}
+              className="flex-1 text-[17px] font-bold leading-6 text-[#18181B]"
+            >
+              {title}
+            </Text>
+            <View className="rounded-full bg-[#F4EFFA] px-3 py-1">
+              <Text
+                allowFontScaling={false}
+                className="text-[11px] font-semibold leading-4 text-[#52525B]"
+              >
+                {status}
+              </Text>
+            </View>
+          </View>
+          <Text
+            allowFontScaling={false}
+            className="mt-2 text-[14px] leading-6 text-[#71717B]"
+          >
+            {description}
+          </Text>
+          <Text
+            allowFontScaling={false}
+            className="mt-3 text-[13px] font-semibold leading-5 text-[#52525B]"
+          >
+            {period.label} · {reportState.availableEntryCount}{" "}
+            {reportState.availableEntryCount === 1 ? "entry" : "entries"} available
+          </Text>
+        </View>
+      </View>
+      <Link
+        asChild
+        href={{
+          pathname: "/insights/report/[periodType]",
+          params: { periodType },
+        }}
+      >
+        <Pressable
+          accessibilityRole="button"
+          className="mt-5 h-12 items-center justify-center rounded-full bg-[#FF2056]"
+        >
+          <Text
+            allowFontScaling={false}
+            className="text-[15px] font-bold leading-5 text-white"
+          >
+            {buttonLabel}
+          </Text>
+        </Pressable>
+      </Link>
+    </View>
+  );
+}
+
+function getReportCardStatus({
+  hasEnoughEntries,
+  isGenerating,
+  isStale,
+  legacyReportAvailable,
+  reportExists,
+}: {
+  hasEnoughEntries: boolean;
+  isGenerating: boolean;
+  isStale: boolean;
+  legacyReportAvailable: boolean;
+  reportExists: boolean;
+}) {
+  if (isGenerating) {
+    return "Generating";
+  }
+
+  if (legacyReportAvailable) {
+    return "Older report format";
+  }
+
+  if (!hasEnoughEntries) {
+    return "Not enough entries";
+  }
+
+  if (isStale) {
+    return "Outdated";
+  }
+
+  return reportExists ? "Ready" : "Not generated";
 }
 
 type LocalInsights = {
@@ -465,6 +609,7 @@ function isSameDay(firstDate: Date, secondDate: Date) {
 
 function MoodJourneyChart({ data }: { data: MoodJourneyPoint[] }) {
   const { width } = useWindowDimensions();
+  const drawProgress = useSharedValue(0);
   const chartWidth = Math.max(250, width - 96);
   const chartInset = 10;
   const usableChartWidth = chartWidth - chartInset * 2;
@@ -480,6 +625,24 @@ function MoodJourneyChart({ data }: { data: MoodJourneyPoint[] }) {
   const fillBottom = chartHeight - chartBottomPadding + 2;
   const linePath = getSmoothLinePath(points);
   const areaPath = `${linePath} L ${points[points.length - 1].x} ${fillBottom} L ${points[0].x} ${fillBottom} Z`;
+  const lineLength = getLineDrawLength(points);
+  const lineAnimatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: lineLength * (1 - drawProgress.value),
+  }));
+  const detailAnimatedProps = useAnimatedProps(() => ({
+    opacity: drawProgress.value,
+  }));
+
+  useEffect(() => {
+    drawProgress.value = 0;
+    drawProgress.value = withDelay(
+      120,
+      withTiming(1, {
+        duration: 1500,
+        easing: Easing.out(Easing.cubic),
+      }),
+    );
+  }, [drawProgress, lineLength, linePath]);
 
   return (
     <View className="mt-7 items-center">
@@ -504,17 +667,24 @@ function MoodJourneyChart({ data }: { data: MoodJourneyPoint[] }) {
               <Stop offset="1" stopColor={primaryColor} stopOpacity="0.02" />
             </SvgLinearGradient>
           </Defs>
-          <Path d={areaPath} fill="url(#moodFill)" />
-          <Path
+          <AnimatedPath
+            animatedProps={detailAnimatedProps}
+            d={areaPath}
+            fill="url(#moodFill)"
+          />
+          <AnimatedPath
+            animatedProps={lineAnimatedProps}
             d={linePath}
             fill="none"
             stroke={primaryColor}
+            strokeDasharray={lineLength}
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={4}
           />
           {points.map((point) => (
-            <Circle
+            <AnimatedCircle
+              animatedProps={detailAnimatedProps}
               cx={point.x}
               cy={point.y}
               fill="#FF2D61"
@@ -583,6 +753,25 @@ function getSmoothLinePath(points: ChartPoint[]) {
   }
 
   return commands.join(" ");
+}
+
+function getLineDrawLength(points: ChartPoint[]) {
+  if (points.length < 2) {
+    return 1;
+  }
+
+  const straightLineLength = points.reduce((total, point, index) => {
+    if (index === 0) {
+      return total;
+    }
+
+    const previousPoint = points[index - 1];
+    return (
+      total + Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y)
+    );
+  }, 0);
+
+  return Math.max(1, straightLineLength * 1.4);
 }
 
 function InsightMessageCard({ card }: { card: InsightCard }) {

@@ -18,6 +18,7 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { useAppDialog } from "@/hooks/useAppDialog";
 import {
   disableJournalReminders,
@@ -177,21 +178,19 @@ export function NotificationSettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="flex-row items-center justify-between">
-          <Pressable
+          <AnimatedIconButton
             accessibilityLabel="Go back"
-            accessibilityRole="button"
-            className="size-9 items-center justify-center rounded-full bg-white/75"
             onPress={handleBackPress}
-            style={{ boxShadow: "0 2px 6px rgba(39, 39, 42, 0.16)" }}
+            shadow="0 2px 6px rgba(39, 39, 42, 0.16)"
           >
             <Feather name="chevron-left" size={24} color="#51515B" />
-          </Pressable>
+          </AnimatedIconButton>
 
           <Text className="text-[17px] font-semibold leading-6 text-[#27272A]">
             Notifications
           </Text>
 
-          <View className="size-9" />
+          <View className="size-[50px]" />
         </View>
 
         <View className="pt-9">
