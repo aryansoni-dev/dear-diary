@@ -1,4 +1,5 @@
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useAuth } from "@clerk/expo";
+import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, RefreshCw } from "lucide-react-native";
 import { useMemo } from "react";
 import {
@@ -44,6 +45,7 @@ import {
 } from "@/lib/insights/reportPeriods";
 
 export default function AIInsightReportScreen() {
+  const { isLoaded, isSignedIn } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { showDialog } = useAppDialog();
@@ -81,6 +83,14 @@ export default function AIInsightReportScreen() {
       showCancel: true,
       title: "Update reflection?",
     });
+  }
+
+  if (!isLoaded) {
+    return null;
+  }
+
+  if (!isSignedIn) {
+    return <Redirect href="/login" />;
   }
 
   if (!isValidPeriodType) {

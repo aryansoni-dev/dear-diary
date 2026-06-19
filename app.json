@@ -41,7 +41,13 @@
         }
       ],
       "@clerk/expo",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow DearDiary to use Face ID to protect your private journal."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

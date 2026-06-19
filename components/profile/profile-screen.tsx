@@ -51,6 +51,7 @@ const colors = {
 
 const profileNotificationsHref = "/profile-notifications" as Href;
 const achievementsHref = "/achievements" as Href;
+const privacySettingsHref = "/settings/privacy" as Href;
 const cloudSyncItemLabel = "Backup & Sync Data";
 const syncStatusRefreshIntervalMs = 60 * 1000;
 
@@ -766,6 +767,11 @@ export function ProfileScreen() {
           onItemPress={(item) => {
             if (item.label === "Notifications") {
               router.push(profileNotificationsHref);
+              return;
+            }
+
+            if (item.label === "Privacy & Security") {
+              router.push(privacySettingsHref);
               return;
             }
 

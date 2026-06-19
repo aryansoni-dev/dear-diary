@@ -120,7 +120,7 @@ export const preferenceItems: ProfileMenuItem[] = [
     backgroundColor: "#D8F0FE",
     icon: "lock",
     iconColor: "#51515B",
-    label: "Privacy Lock",
+    label: "Privacy & Security",
   },
   {
     backgroundColor: "#F0DDFB",
