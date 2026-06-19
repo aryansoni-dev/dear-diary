@@ -185,15 +185,6 @@ Deno.serve(async (request) => {
     );
   }
 
-  const claims = parseJwtClaims(bearerToken);
-
-  if (!claims?.sub) {
-    return jsonResponse(
-      { code: "invalid_jwt", error: "Authentication is invalid.", requestId },
-      401,
-    );
-  }
-
   const parsedRequest = await parseRequest(request);
 
   if (!parsedRequest.ok) {
@@ -234,6 +225,16 @@ Deno.serve(async (request) => {
       },
     },
   });
+  const authResult = await supabase.auth.getUser(bearerToken);
+  const userId = authResult.data.user?.id;
+
+  if (authResult.error || !userId) {
+    return jsonResponse(
+      { code: "invalid_jwt", error: "Authentication is invalid.", requestId },
+      401,
+    );
+  }
+
   const reportRequest = parsedRequest.data;
   const periodStart = new Date(reportRequest.periodStart);
   const periodEnd = new Date(reportRequest.periodEnd);
@@ -422,7 +423,7 @@ Deno.serve(async (request) => {
             ? "Weekly Reflection"
             : "Monthly Reflection",
         updated_at: now,
-        user_id: claims.sub,
+        user_id: userId,
       },
       { onConflict: "user_id,insight_type,period_start,period_end" },
     )
@@ -967,31 +968,6 @@ function getBearerToken(authorization: string) {
   const token = match?.[1]?.trim();
 
   return token || null;
-}
-
-function parseJwtClaims(token: string) {
-  const [, payload] = token.split(".");
-
-  if (!payload) {
-    return null;
-  }
-
-  try {
-    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const paddedPayload = normalizedPayload.padEnd(
-      normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
-      "=",
-    );
-    const claims: unknown = JSON.parse(atob(paddedPayload));
-
-    if (!isRecord(claims) || typeof claims.sub !== "string") {
-      return null;
-    }
-
-    return { sub: claims.sub };
-  } catch {
-    return null;
-  }
 }
 
 function jsonResponse(body: unknown, status = 200) {

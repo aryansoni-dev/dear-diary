@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Animated, Pressable } from "react-native";
 
 type AnimatedIconButtonProps = {
@@ -26,19 +26,15 @@ export function AnimatedIconButton({
   const scaleValue = useRef(new Animated.Value(1)).current;
   const spinValue = useRef(new Animated.Value(0)).current;
   const loopRef = useRef<Animated.CompositeAnimation | null>(null);
+  const isBusyRef = useRef(isBusy);
   const rotation = spinValue.interpolate({
     inputRange: [0, 1],
     outputRange: ["0deg", "360deg"],
   });
 
-  useEffect(() => {
-    if (!isBusy) {
-      loopRef.current?.stop();
-      loopRef.current = null;
-      spinValue.setValue(0);
-      return;
-    }
+  isBusyRef.current = isBusy;
 
+  const startBusyLoop = useCallback(() => {
     spinValue.setValue(0);
     loopRef.current = Animated.loop(
       Animated.timing(spinValue, {
@@ -48,13 +44,26 @@ export function AnimatedIconButton({
       }),
     );
     loopRef.current.start();
+  }, [spinValue]);
+
+  useEffect(() => {
+    if (!isBusy) {
+      loopRef.current?.stop();
+      loopRef.current = null;
+      spinValue.setValue(0);
+      return;
+    }
+
+    loopRef.current?.stop();
+    loopRef.current = null;
+    startBusyLoop();
 
     return () => {
       loopRef.current?.stop();
       loopRef.current = null;
       spinValue.setValue(0);
     };
-  }, [isBusy, spinValue]);
+  }, [isBusy, spinValue, startBusyLoop]);
 
   function handlePressIn() {
     if (disabled) {
@@ -72,16 +81,28 @@ export function AnimatedIconButton({
       return;
     }
 
-    loopRef.current?.stop();
-    spinValue.setValue(0);
+    if (!isBusyRef.current) {
+      loopRef.current?.stop();
+      loopRef.current = null;
+      spinValue.setValue(0);
+    }
+
     Animated.timing(spinValue, {
       duration: 760,
       toValue: 1,
       useNativeDriver: true,
     }).start(({ finished }) => {
-      if (finished && !isBusy) {
-        spinValue.setValue(0);
+      if (!finished) {
+        return;
       }
+
+      if (isBusyRef.current) {
+        loopRef.current = null;
+        startBusyLoop();
+        return;
+      }
+
+      spinValue.setValue(0);
     });
   }
 

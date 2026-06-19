@@ -17,6 +17,12 @@ const monthDayFormatter = new Intl.DateTimeFormat("en-US", {
   month: "long",
 });
 
+const monthDayYearFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
 const dayFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
 });
@@ -74,6 +80,10 @@ function getWeeklyLabel(start: Date, end: Date) {
 
   if (sameMonth && sameYear) {
     return `${monthDayFormatter.format(start)}-${dayFormatter.format(end)}, ${end.getFullYear()}`;
+  }
+
+  if (!sameYear) {
+    return `${monthDayYearFormatter.format(start)}-${monthDayYearFormatter.format(end)}`;
   }
 
   return `${monthDayFormatter.format(start)}-${monthDayFormatter.format(end)}, ${end.getFullYear()}`;

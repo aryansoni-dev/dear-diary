@@ -27,7 +27,7 @@ drop constraint if exists ai_insights_period_type_check;
 
 alter table public.ai_insights
 add constraint ai_insights_period_type_check
-check (period_type in ('daily', 'weekly', 'monthly'));
+check (period_type in ('weekly', 'monthly'));
 
 drop policy if exists "Users can manage own AI insights"
 on public.ai_insights;

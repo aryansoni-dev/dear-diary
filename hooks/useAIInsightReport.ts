@@ -28,7 +28,15 @@ export type UseAIInsightReportResult = {
   refresh: () => Promise<void>;
 };
 
-export function useAIInsightReport(period: ReportPeriod): UseAIInsightReportResult {
+type UseAIInsightReportOptions = {
+  enabled?: boolean;
+};
+
+export function useAIInsightReport(
+  period: ReportPeriod,
+  options: UseAIInsightReportOptions = {},
+): UseAIInsightReportResult {
+  const enabled = options.enabled ?? true;
   const { userId } = useAuth();
   const { runAutoSync } = useAutoSync();
   const entries = useJournalStore((state) => state.entries);
@@ -36,6 +44,9 @@ export function useAIInsightReport(period: ReportPeriod): UseAIInsightReportResu
   const cacheKey = useMemo(() => getReportCacheKey(period), [period]);
   const getCachedReport = useAIInsightReportStore(
     (state) => state.getCachedReport,
+  );
+  const removeCachedReport = useAIInsightReportStore(
+    (state) => state.removeCachedReport,
   );
   const setCachedReport = useAIInsightReportStore(
     (state) => state.setCachedReport,
@@ -67,13 +78,27 @@ export function useAIInsightReport(period: ReportPeriod): UseAIInsightReportResu
   );
 
   useEffect(() => {
+    if (!enabled) {
+      requestInFlightRef.current = false;
+      setReport(null);
+      setIsLoading(false);
+      setIsGenerating(false);
+      setLegacyReportAvailable(false);
+      setError(null);
+      return;
+    }
+
     const cachedReport = getCachedReport(userId ?? null, cacheKey);
     setReport(cachedReport);
     setLegacyReportAvailable(false);
     setError(null);
-  }, [cacheKey, getCachedReport, userId]);
+  }, [cacheKey, enabled, getCachedReport, userId]);
 
   const refresh = useCallback(async () => {
+    if (!enabled) {
+      return;
+    }
+
     if (!userId) {
       setError("Please sign in again before viewing reflection reports.");
       return;
@@ -89,22 +114,29 @@ export function useAIInsightReport(period: ReportPeriod): UseAIInsightReportResu
       if (result.report) {
         setReport(result.report);
         setCachedReport(userId, cacheKey, result.report);
+      } else {
+        setReport(null);
+        removeCachedReport(userId, cacheKey);
       }
     } catch (refreshError) {
       setError(getErrorMessage(refreshError));
     } finally {
       setIsLoading(false);
     }
-  }, [cacheKey, period, setCachedReport, userId]);
+  }, [cacheKey, enabled, period, removeCachedReport, setCachedReport, userId]);
 
   useEffect(() => {
-    if (hasHydrated) {
+    if (enabled && hasHydrated) {
       void refresh();
     }
-  }, [hasHydrated, refresh]);
+  }, [enabled, hasHydrated, refresh]);
 
   const requestGeneration = useCallback(
     async (regenerate: boolean) => {
+      if (!enabled) {
+        return;
+      }
+
       if (requestInFlightRef.current) {
         return;
       }
@@ -147,7 +179,7 @@ export function useAIInsightReport(period: ReportPeriod): UseAIInsightReportResu
         setIsGenerating(false);
       }
     },
-    [cacheKey, period, runAutoSync, setCachedReport, userId],
+    [cacheKey, enabled, period, runAutoSync, setCachedReport, userId],
   );
 
   return {

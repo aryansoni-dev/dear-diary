@@ -125,7 +125,7 @@ export function buildReportAnalytics({
   const activeDays = activeDates.length;
   const mostActive = getMostActiveDate(activityTimeline);
   const moodDistribution = getMoodDistribution(entries);
-  const entriesWithMood = entries.filter((entry) => entry.mood).length;
+  const entriesWithMood = entries.filter((entry) => entry.mood?.trim()).length;
 
   return {
     activeDays,
@@ -288,7 +288,7 @@ function getRecurringThemes(entries: JournalEntryRow[]) {
     words.forEach((word) => {
       const normalizedWord = normalizeTheme(word);
 
-      if (normalizedWord && !tagCounts.has(normalizedWord)) {
+      if (normalizedWord) {
         contentCounts.set(
           normalizedWord,
           (contentCounts.get(normalizedWord) ?? 0) + 1,
@@ -302,8 +302,9 @@ function getRecurringThemes(entries: JournalEntryRow[]) {
     name,
     source: "tag" as const,
   }));
+  const tagThemeNames = new Set(tagThemes.map((theme) => theme.name));
   const contentThemes = Array.from(contentCounts.entries())
-    .filter(([, count]) => count > 1)
+    .filter(([name, count]) => count > 1 && !tagThemeNames.has(name))
     .map(([name, count]) => ({
       count,
       name,

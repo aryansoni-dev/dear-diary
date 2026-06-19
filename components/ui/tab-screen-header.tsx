@@ -20,21 +20,21 @@ export function TabScreenHeader({
         {eyebrow ? (
           <Text
             allowFontScaling={false}
-            className="text-[13px] font-semibold uppercase leading-5 tracking-wide text-[#A1A1AA]"
+            className="text-[13px] font-semibold uppercase leading-5 tracking-wide text-zinc-400"
           >
             {eyebrow}
           </Text>
         ) : null}
         <Text
           allowFontScaling={false}
-          className="text-[34px] font-bold leading-[42px] tracking-normal text-[#18181B]"
+          className="text-[34px] font-bold leading-[42px] tracking-normal text-zinc-900"
         >
           {title}
         </Text>
         {subtitle ? (
           <Text
             allowFontScaling={false}
-            className="mt-1 text-[15px] leading-5 text-[#71717B]"
+            className="mt-1 text-[15px] leading-5 text-zinc-500"
           >
             {subtitle}
           </Text>

@@ -6,9 +6,10 @@ import { Stack } from "expo-router";
 import { useEffect } from "react";
 
 import { AchievementWatcher } from "@/components/achievements/AchievementWatcher";
+import { AppLockGate } from "@/components/app-lock/AppLockGate";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
+import { AppLockProvider } from "@/providers/AppLockProvider";
 import { AppDialogProvider } from "@/providers/AppDialogProvider";
-import { useJournalStore } from "@/store/journal-store";
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 
@@ -28,15 +29,6 @@ export default function RootLayout() {
 
 function AppStack() {
   const { getToken, isLoaded, userId } = useAuth();
-  const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
-
-  useEffect(() => {
-    if (!isLoaded) {
-      return;
-    }
-
-    setActiveUserId(userId ?? null);
-  }, [isLoaded, setActiveUserId, userId]);
 
   useEffect(() => {
     if (!isLoaded || !userId) {
@@ -49,24 +41,37 @@ function AppStack() {
     return () => setSupabaseAccessTokenProvider(null);
   }, [getToken, isLoaded, userId]);
 
+  if (!isLoaded) {
+    return <RootNavigator />;
+  }
+
   return (
-    <>
-      <Stack initialRouteName="index">
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="achievements/index"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="insights/report/[periodType]"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen name="journal" options={{ headerShown: false }} />
-      </Stack>
-      {isLoaded && userId ? <AchievementWatcher userId={userId} /> : null}
-    </>
+    <AppLockProvider>
+      <AppLockGate>
+        <RootNavigator />
+        {isLoaded && userId ? <AchievementWatcher userId={userId} /> : null}
+      </AppLockGate>
+    </AppLockProvider>
+  );
+}
+
+function RootNavigator() {
+  return (
+    <Stack initialRouteName="index">
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="achievements/index"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="insights/report/[periodType]"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen name="journal" options={{ headerShown: false }} />
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
+    </Stack>
   );
 }
