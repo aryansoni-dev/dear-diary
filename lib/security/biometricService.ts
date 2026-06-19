@@ -44,9 +44,7 @@ export const authenticateWithBiometrics =
         cancelLabel: "Use PIN",
         disableDeviceFallback: true,
         fallbackLabel: "",
-        promptDescription: "Authenticate to access your private journal.",
         promptMessage: "Unlock DearDiary",
-        promptSubtitle: "Your journal is private.",
       });
 
       if (result.success) {

@@ -175,12 +175,12 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
   );
 
   const lockNow = useCallback(() => {
-    if (!config?.enabled) {
+    if (!configRef.current?.enabled) {
       return;
     }
 
     setStatus("locked");
-  }, [config?.enabled]);
+  }, []);
 
   const runQueuedPinVerification = useCallback(
     async (

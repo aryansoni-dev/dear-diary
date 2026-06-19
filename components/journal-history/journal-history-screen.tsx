@@ -2,16 +2,30 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Plus, Search } from "lucide-react-native";
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Animated,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { HistoryViewToggle } from "@/components/journal-history/history-view-toggle";
+import { JournalCalendarView } from "@/components/journal-history/journal-calendar-view";
 import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { TabScreenHeader } from "@/components/ui/tab-screen-header";
+import {
+  fallbackMoodMetadata,
+  moodLabels,
+  moodMetadata,
+} from "@/constants/moods";
 import { journalMoodFilters } from "@/data/journal-history";
 import { formatTagLabel } from "@/lib/tags";
 import { useJournalStore } from "@/store/journal-store";
@@ -19,6 +33,7 @@ import type {
   MoodId,
   JournalEntry as StoredJournalEntry,
 } from "@/types/journal";
+import type { JournalHistoryViewMode } from "@/types/journalCalendar";
 
 const colors = {
   muted: "#A1A1AA",
@@ -55,78 +70,23 @@ const newJournalEntryHref = {
   params: { source: "history" },
 } as Href;
 
-const moodLabels: Record<MoodId, string> = {
-  anxious: "Anxious",
-  calm: "Calm",
-  grateful: "Grateful",
-  happy: "Happy",
-  motivated: "Motivated",
-  sad: "Sad",
-};
-
-const moodVisuals: Record<
-  MoodId,
-  {
-    dotColor: string;
-    emoji: string;
-    emojiBackgroundColor: string;
-    markerBackgroundColor: string;
-  }
-> = {
-  anxious: {
-    dotColor: "#A98FD0",
-    emoji: "😰",
-    emojiBackgroundColor: "#F4EFFA",
-    markerBackgroundColor: "#F4EFFA",
-  },
-  calm: {
-    dotColor: "#86C99B",
-    emoji: "😌",
-    emojiBackgroundColor: "#D8EEDB",
-    markerBackgroundColor: "#D8EEDB",
-  },
-  grateful: {
-    dotColor: "#7C9FD9",
-    emoji: "🙏",
-    emojiBackgroundColor: "#DDEFFF",
-    markerBackgroundColor: "#DDEFFF",
-  },
-  happy: {
-    dotColor: "#FF2056",
-    emoji: "😊",
-    emojiBackgroundColor: "#FFDDE8",
-    markerBackgroundColor: "#FFDDE8",
-  },
-  motivated: {
-    dotColor: "#FF8A3D",
-    emoji: "🔥",
-    emojiBackgroundColor: "#FFE8D8",
-    markerBackgroundColor: "#FFE8D8",
-  },
-  sad: {
-    dotColor: "#7C9FD9",
-    emoji: "😔",
-    emojiBackgroundColor: "#DDEFFF",
-    markerBackgroundColor: "#DDEFFF",
-  },
-};
-
-const fallbackMoodVisual = {
-  dotColor: "#A1A1AA",
-  emoji: "✍️",
-  emojiBackgroundColor: "#F4F4F5",
-  markerBackgroundColor: "#F4F4F5",
-};
-
 export function JournalHistoryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const entries = useJournalStore((state) => state.entries);
+  const activeUserId = useJournalStore((state) => state.activeUserId);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMood, setSelectedMood] = useState<MoodFilterId>("all");
+  const [viewMode, setViewMode] = useState<JournalHistoryViewMode>("list");
+  const [slideDirection, setSlideDirection] = useState(1);
+  const contentSlideAnimation = useRef(new Animated.Value(1)).current;
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const journalDays = useMemo(() => getRecentJournalDays(), []);
+  const contentTranslateX = contentSlideAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [slideDirection * 28, 0],
+  });
   const filteredEntries = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const normalizedTagQuery = normalizedQuery.replace(/^#/, "");
@@ -159,6 +119,23 @@ export function JournalHistoryScreen() {
     () => groupJournalEntries(filteredEntries),
     [filteredEntries],
   );
+  const handleViewModeChange = (nextViewMode: JournalHistoryViewMode) => {
+    if (nextViewMode === viewMode) {
+      return;
+    }
+
+    setSlideDirection(nextViewMode === "calendar" ? 1 : -1);
+    setViewMode(nextViewMode);
+  };
+
+  useEffect(() => {
+    contentSlideAnimation.setValue(0);
+    Animated.timing(contentSlideAnimation, {
+      duration: 230,
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  }, [contentSlideAnimation, slideDirection, viewMode]);
 
   return (
     <View className="flex-1 bg-white">
@@ -202,152 +179,192 @@ export function JournalHistoryScreen() {
             title="My Journal"
           />
 
-          <View
-            className="mb-4 mt-6 h-12 flex-row items-center rounded-[16px] border border-zinc-100 bg-white px-4"
-            style={{ boxShadow: "0 2px 7px rgba(39, 39, 42, 0.16)" }}
-          >
-            <Search size={22} color={colors.muted} strokeWidth={2.2} />
-            <TextInput
-              accessibilityLabel="Search journal entries"
-              className="ml-3 flex-1 text-[15px] leading-5 text-zinc-700"
-              onChangeText={setSearchQuery}
-              placeholder="Search entries, moods, tags..."
-              placeholderTextColor={colors.muted}
-              value={searchQuery}
-            />
-          </View>
+          <HistoryViewToggle value={viewMode} onChange={handleViewModeChange} />
         </View>
 
-        <ScrollView
-          className="pb-1"
-          contentContainerStyle={{
-            gap: 8,
-            paddingHorizontal: 24,
+        <Animated.View
+          style={{
+            opacity: contentSlideAnimation,
+            transform: [{ translateX: contentTranslateX }],
           }}
-          horizontal
-          showsHorizontalScrollIndicator={false}
         >
-          {journalMoodFilters.map((filter) => {
-            const isSelected = selectedMood === filter.id;
-
-            return (
-              <Pressable
-                accessibilityRole="button"
-                className="h-9 shrink-0 flex-row items-center justify-center rounded-full px-4"
-                key={filter.label}
-                onPress={() => setSelectedMood(filter.id)}
-                style={{
-                  backgroundColor: filter.backgroundColor,
-                  boxShadow: isSelected
-                    ? "0 2px 7px rgba(255, 32, 86, 0.24)"
-                    : undefined,
-                }}
+          {viewMode === "list" ? (
+            <>
+            <View className="px-6 pb-3">
+              <View
+                className="mb-4 mt-6 h-12 flex-row items-center rounded-[16px] border border-zinc-100 bg-white px-4"
+                style={{ boxShadow: "0 2px 7px rgba(39, 39, 42, 0.16)" }}
               >
-                <Text
-                  className="text-[14px] leading-5"
+                <Search size={22} color={colors.muted} strokeWidth={2.2} />
+                <TextInput
+                  accessibilityLabel="Search journal entries"
+                  className="ml-3 flex-1 text-[15px] leading-5 text-zinc-700"
+                  onChangeText={setSearchQuery}
+                  placeholder="Search entries, moods, tags..."
+                  placeholderTextColor={colors.muted}
+                  value={searchQuery}
+                />
+              </View>
+            </View>
+
+            <ScrollView
+              className="pb-1"
+              contentContainerStyle={{
+                gap: 8,
+                paddingHorizontal: 24,
+              }}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+            >
+              {journalMoodFilters.map((filter) => {
+                const isSelected = selectedMood === filter.id;
+
+                return (
+                  <Pressable
+                    accessibilityRole="button"
+                    className="h-9 shrink-0 flex-row items-center justify-center rounded-full px-4"
+                    key={filter.label}
+                    onPress={() => setSelectedMood(filter.id)}
+                    style={{
+                      backgroundColor: filter.backgroundColor,
+                      boxShadow: isSelected
+                        ? "0 2px 7px rgba(255, 32, 86, 0.24)"
+                        : undefined,
+                    }}
+                  >
+                    <Text
+                      className="text-[14px] leading-5"
+                      style={{
+                        color: isSelected ? "white" : "#3F3F46",
+                        fontWeight: isSelected ? "700" : "500",
+                      }}
+                    >
+                      {filter.emoji ? `${filter.emoji} ` : ""}
+                      {filter.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <ScrollView
+              className="pb-1 pt-6"
+              contentContainerStyle={{
+                gap: 12,
+                paddingHorizontal: 24,
+              }}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+            >
+              {journalDays.map((day) => (
+                <View
+                  className="h-17 w-15 shrink-0 items-center justify-center gap-1 rounded-[16px]"
+                  key={day.date}
                   style={{
-                    color: isSelected ? "white" : "#3F3F46",
-                    fontWeight: isSelected ? "700" : "500",
+                    backgroundColor: day.isSelected ? colors.primary : "white",
+                    boxShadow: day.isSelected
+                      ? "0 4px 12px rgba(255, 32, 86, 0.26)"
+                      : "0 2px 7px rgba(39, 39, 42, 0.13)",
                   }}
                 >
-                  {filter.emoji ? `${filter.emoji} ` : ""}
-                  {filter.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+                  <Text
+                    className="text-[11px] font-medium leading-4"
+                    style={{
+                      color: day.isSelected
+                        ? "rgba(255,255,255,0.8)"
+                        : colors.muted,
+                    }}
+                  >
+                    {day.day}
+                  </Text>
+                  <Text
+                    className="text-[18px] font-bold leading-5"
+                    style={{
+                      color: day.isSelected ? "white" : "#3F3F46",
+                    }}
+                  >
+                    {day.date}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
 
-        <ScrollView
-          className="pb-1 pt-6"
-          contentContainerStyle={{
-            gap: 12,
-            paddingHorizontal: 24,
-          }}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-        >
-          {journalDays.map((day) => (
-            <View
-              className="h-17 w-15 shrink-0 items-center justify-center gap-1 rounded-[16px]"
-              key={day.date}
-              style={{
-                backgroundColor: day.isSelected ? colors.primary : "white",
-                boxShadow: day.isSelected
-                  ? "0 4px 12px rgba(255, 32, 86, 0.26)"
-                  : "0 2px 7px rgba(39, 39, 42, 0.13)",
-              }}
-            >
-              <Text
-                className="text-[11px] font-medium leading-4"
-                style={{
-                  color: day.isSelected ? "rgba(255,255,255,0.8)" : colors.muted,
-                }}
-              >
-                {day.day}
-              </Text>
-              <Text
-                className="text-[18px] font-bold leading-5"
-                style={{
-                  color: day.isSelected ? "white" : "#3F3F46",
-                }}
-              >
-                {day.date}
-              </Text>
+            <View className="gap-4 px-6 pt-5">
+              {!hasHydrated ? (
+                <EmptyHistoryMessage title="Loading your journal..." />
+              ) : journalSections.length === 0 ? (
+                <EmptyHistoryMessage
+                  body={
+                    searchQuery.trim().length > 0 || selectedMood !== "all"
+                      ? "Try a different search or mood filter."
+                      : "Create your first reflection to see it here."
+                  }
+                  ctaLabel={
+                    searchQuery.trim().length > 0 || selectedMood !== "all"
+                      ? undefined
+                      : "Create Entry"
+                  }
+                  onCtaPress={
+                    searchQuery.trim().length > 0 || selectedMood !== "all"
+                      ? undefined
+                      : () => router.push(newJournalEntryHref)
+                  }
+                  title={
+                    searchQuery.trim().length > 0 || selectedMood !== "all"
+                      ? "No matching entries"
+                      : "No journal entries yet"
+                  }
+                />
+              ) : (
+                journalSections.map((section, sectionIndex) => (
+                  <View className="gap-4" key={section.title}>
+                    <SectionHeader title={section.title} />
+                    {section.entries.map((entry, entryIndex) => (
+                      <TimelineEntry
+                        entry={entry}
+                        isLastEntry={
+                          sectionIndex === journalSections.length - 1 &&
+                          entryIndex === section.entries.length - 1
+                        }
+                        key={entry.id}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/journal/[id]",
+                            params: { id: entry.id, source: "history" },
+                          })
+                        }
+                      />
+                    ))}
+                  </View>
+                ))
+              )}
             </View>
-          ))}
-        </ScrollView>
-
-        <View className="gap-4 px-6 pt-5">
-          {!hasHydrated ? (
-            <EmptyHistoryMessage title="Loading your journal..." />
-          ) : journalSections.length === 0 ? (
-            <EmptyHistoryMessage
-              body={
-                searchQuery.trim().length > 0 || selectedMood !== "all"
-                  ? "Try a different search or mood filter."
-                  : "Create your first reflection to see it here."
-              }
-              ctaLabel={
-                searchQuery.trim().length > 0 || selectedMood !== "all"
-                  ? undefined
-                  : "Create Entry"
-              }
-              onCtaPress={
-                searchQuery.trim().length > 0 || selectedMood !== "all"
-                  ? undefined
-                  : () => router.push(newJournalEntryHref)
-              }
-              title={
-                searchQuery.trim().length > 0 || selectedMood !== "all"
-                  ? "No matching entries"
-                  : "No journal entries yet"
-              }
-            />
+            </>
           ) : (
-            journalSections.map((section, sectionIndex) => (
-              <View className="gap-4" key={section.title}>
-                <SectionHeader title={section.title} />
-                {section.entries.map((entry, entryIndex) => (
-                  <TimelineEntry
-                    entry={entry}
-                    isLastEntry={
-                      sectionIndex === journalSections.length - 1 &&
-                      entryIndex === section.entries.length - 1
-                    }
-                    key={entry.id}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/journal/[id]",
-                        params: { id: entry.id, source: "history" },
-                      })
-                    }
-                  />
-                ))}
-              </View>
-            ))
+            <JournalCalendarView
+              currentUserId={activeUserId}
+              entries={entries}
+              hasHydrated={hasHydrated}
+              renderSelectedEntries={(day) => (
+                <View className="gap-4">
+                  {day.entries.map((entry, entryIndex) => (
+                    <TimelineEntry
+                      entry={toTimelineEntry(entry)}
+                      isLastEntry={entryIndex === day.entries.length - 1}
+                      key={entry.id}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/journal/[id]",
+                          params: { id: entry.id, source: "history" },
+                        })
+                      }
+                    />
+                  ))}
+                </View>
+              )}
+            />
           )}
-        </View>
+        </Animated.View>
       </ScrollView>
 
       <BottomTabBar activeTab="History" />
@@ -419,12 +436,12 @@ function groupJournalEntries(
 }
 
 function toTimelineEntry(entry: StoredJournalEntry): TimelineJournalEntry {
-  const visual = entry.mood ? moodVisuals[entry.mood] : fallbackMoodVisual;
+  const visual = entry.mood ? moodMetadata[entry.mood] : fallbackMoodMetadata;
 
   return {
     dotColor: visual.dotColor,
     emoji: visual.emoji,
-    emojiBackgroundColor: visual.emojiBackgroundColor,
+    emojiBackgroundColor: visual.backgroundColor,
     excerpt: entry.content || "No body text yet.",
     id: entry.id,
     markerBackgroundColor: visual.markerBackgroundColor,

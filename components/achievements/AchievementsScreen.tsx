@@ -2,8 +2,15 @@ import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Animated,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
@@ -38,11 +45,26 @@ export function AchievementsScreen() {
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const [selectedFilter, setSelectedFilter] =
     useState<AchievementFilter>("all");
+  const [filterToggleWidth, setFilterToggleWidth] = useState(0);
+  const [slideDirection, setSlideDirection] = useState(1);
+  const thumbAnimation = useRef(new Animated.Value(0)).current;
+  const listAnimation = useRef(new Animated.Value(1)).current;
   const currentStreak = useMemo(() => getReflectionStreak(entries), [entries]);
   const achievements = useMemo(
     () => getAchievements(entries, currentStreak),
     [currentStreak, entries],
   );
+  const selectedFilterIndex = getFilterIndex(selectedFilter);
+  const thumbWidth =
+    filterToggleWidth > 0 ? (filterToggleWidth - 8) / filters.length : 0;
+  const thumbTranslateX = thumbAnimation.interpolate({
+    inputRange: filters.map((_, index) => index),
+    outputRange: filters.map((_, index) => index * thumbWidth),
+  });
+  const listTranslateX = listAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [slideDirection * 24, 0],
+  });
   const unlockedCount = achievements.filter(
     (achievement) => achievement.unlocked,
   ).length;
@@ -57,6 +79,36 @@ export function AchievementsScreen() {
 
     return true;
   });
+
+  useEffect(() => {
+    Animated.timing(thumbAnimation, {
+      duration: 220,
+      toValue: selectedFilterIndex,
+      useNativeDriver: true,
+    }).start();
+
+    listAnimation.setValue(0);
+    Animated.timing(listAnimation, {
+      duration: 230,
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  }, [listAnimation, selectedFilterIndex, thumbAnimation]);
+
+  function handleFilterLayout(event: LayoutChangeEvent) {
+    setFilterToggleWidth(event.nativeEvent.layout.width);
+  }
+
+  function handleFilterPress(nextFilter: AchievementFilter) {
+    if (nextFilter === selectedFilter) {
+      return;
+    }
+
+    setSlideDirection(
+      getFilterIndex(nextFilter) > selectedFilterIndex ? 1 : -1,
+    );
+    setSelectedFilter(nextFilter);
+  }
 
   function handleBackPress() {
     if (router.canGoBack()) {
@@ -122,21 +174,30 @@ export function AchievementsScreen() {
         </View>
 
         <View
-          className="mt-7 flex-row rounded-full bg-white/80 p-1"
+          className="relative mt-7 flex-row overflow-hidden rounded-full bg-white/80 p-1"
+          onLayout={handleFilterLayout}
           style={{ boxShadow: "0 2px 8px rgba(39, 39, 42, 0.12)" }}
         >
+          {thumbWidth > 0 ? (
+            <Animated.View
+              pointerEvents="none"
+              className="absolute left-1 top-1 h-11 rounded-full bg-[#FF2056]"
+              style={{
+                transform: [{ translateX: thumbTranslateX }],
+                width: thumbWidth,
+              }}
+            />
+          ) : null}
           {filters.map((filter) => {
             const isSelected = selectedFilter === filter.value;
 
             return (
               <Pressable
                 accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
                 className="h-11 flex-1 items-center justify-center rounded-full"
                 key={filter.value}
-                onPress={() => setSelectedFilter(filter.value)}
-                style={{
-                  backgroundColor: isSelected ? "#FF2056" : "transparent",
-                }}
+                onPress={() => handleFilterPress(filter.value)}
               >
                 <Text
                   className="text-[14px] font-bold leading-5"
@@ -149,11 +210,17 @@ export function AchievementsScreen() {
           })}
         </View>
 
-        <View className="gap-4 pt-7">
+        <Animated.View
+          className="gap-4 pt-7"
+          style={{
+            opacity: listAnimation,
+            transform: [{ translateX: listTranslateX }],
+          }}
+        >
           {filteredAchievements.map((achievement) => (
             <AchievementCard achievement={achievement} key={achievement.id} />
           ))}
-        </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -256,6 +323,10 @@ function getAchievementBackgroundColor(category: AchievementCategory) {
     case "streak":
       return "#FFDDE8";
   }
+}
+
+function getFilterIndex(filter: AchievementFilter) {
+  return filters.findIndex((option) => option.value === filter);
 }
 
 function getReflectionStreak(entries: JournalEntry[]) {
