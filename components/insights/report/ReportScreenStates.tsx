@@ -2,7 +2,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { Sparkles } from "lucide-react-native";
 import type { ReactNode } from "react";
-import { useRef } from "react";
+import { useMemo } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -30,10 +30,17 @@ export function ReportShell({
   insetsTop: number;
 }) {
   return (
-    <View className="flex-1 bg-[#FAF7F2]">
+    <View
+      className="flex-1"
+      style={{ backgroundColor: reportColors.background }}
+    >
       <StatusBar hidden />
       <LinearGradient
-        colors={["#F4EFFA", "#FAF7F2", "#FAF7F2"]}
+        colors={[
+          reportColors.lavender,
+          reportColors.background,
+          reportColors.background,
+        ]}
         locations={[0, 0.42, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
@@ -58,13 +65,15 @@ export function LoadingState({ periodType }: { periodType: ReportPeriodType }) {
       <ActivityIndicator color={reportColors.primary} />
       <Text
         allowFontScaling={false}
-        className="mt-4 text-center text-[17px] font-semibold leading-6 text-[#18181B]"
+        className="mt-4 text-center text-[17px] font-semibold leading-6"
+        style={{ color: reportColors.heading }}
       >
         Loading your {periodType} reflection...
       </Text>
       <Text
         allowFontScaling={false}
-        className="mt-2 text-center text-[15px] leading-6 text-[#71717B]"
+        className="mt-2 text-center text-[15px] leading-6"
+        style={{ color: reportColors.muted }}
       >
         Saved visual reports remain available offline after they load once.
       </Text>
@@ -82,7 +91,8 @@ export function UpdatingBanner({
       <ActivityIndicator color={reportColors.primary} />
       <Text
         allowFontScaling={false}
-        className="flex-1 text-[15px] font-semibold leading-6 text-[#52525B]"
+        className="flex-1 text-[15px] font-semibold leading-6"
+        style={{ color: reportColors.explanationText }}
       >
         DearDiary is reflecting on your{" "}
         {periodType === "weekly" ? "week" : "month"}...
@@ -93,10 +103,14 @@ export function UpdatingBanner({
 
 export function ErrorBanner({ message }: { message: string }) {
   return (
-    <View className="rounded-[22px] bg-[#FFE2EA] px-4 py-4">
+    <View
+      className="rounded-[22px] px-4 py-4"
+      style={{ backgroundColor: reportColors.rose }}
+    >
       <Text
         allowFontScaling={false}
-        className="text-[15px] leading-6 text-[#A60033]"
+        className="text-[15px] leading-6"
+        style={{ color: reportColors.errorText }}
       >
         {message}
       </Text>
@@ -115,7 +129,8 @@ export function StaleBanner({
     <View className="rounded-[26px] bg-white px-5 py-5">
       <Text
         allowFontScaling={false}
-        className="text-[17px] font-bold leading-6 text-[#18181B]"
+        className="text-[17px] font-bold leading-6"
+        style={{ color: reportColors.heading }}
       >
         Your journal has changed since this reflection was generated.
       </Text>
@@ -145,18 +160,23 @@ export function EmptyReportState({
 }) {
   return (
     <View className="rounded-[30px] bg-white px-6 py-7">
-      <View className="size-12 items-center justify-center rounded-full bg-[#FFDDE8]">
+      <View
+        className="size-12 items-center justify-center rounded-full"
+        style={{ backgroundColor: reportColors.pinkSoft }}
+      >
         <Sparkles color={reportColors.primary} size={22} />
       </View>
       <Text
         allowFontScaling={false}
-        className="mt-5 text-[23px] font-bold leading-8 text-[#18181B]"
+        className="mt-5 text-[23px] font-bold leading-8"
+        style={{ color: reportColors.heading }}
       >
         Your {periodType} reflection has not been generated yet.
       </Text>
       <Text
         allowFontScaling={false}
-        className="mt-3 text-[16px] leading-7 text-[#71717B]"
+        className="mt-3 text-[16px] leading-7"
+        style={{ color: reportColors.muted }}
       >
         DearDiary will analyze this{" "}
         {periodType === "weekly" ? "week's" : "month's"} entries and create a
@@ -164,7 +184,8 @@ export function EmptyReportState({
       </Text>
       <Text
         allowFontScaling={false}
-        className="mt-4 text-[15px] font-semibold leading-6 text-[#52525B]"
+        className="mt-4 text-[15px] font-semibold leading-6"
+        style={{ color: reportColors.explanationText }}
       >
         {availableEntryCount}{" "}
         {availableEntryCount === 1 ? "entry" : "entries"} available
@@ -172,7 +193,8 @@ export function EmptyReportState({
       {!hasEnoughEntries ? (
         <Text
           allowFontScaling={false}
-          className="mt-2 text-[14px] leading-6 text-[#71717B]"
+          className="mt-2 text-[14px] leading-6"
+          style={{ color: reportColors.muted }}
         >
           Add at least {minimumEntries} entries this{" "}
           {periodType === "weekly" ? "week" : "month"} before generating.
@@ -202,13 +224,15 @@ export function OlderFormatState({
     <View className="rounded-[30px] bg-white px-6 py-7">
       <Text
         allowFontScaling={false}
-        className="text-[23px] font-bold leading-8 text-[#18181B]"
+        className="text-[23px] font-bold leading-8"
+        style={{ color: reportColors.heading }}
       >
         Older report format
       </Text>
       <Text
         allowFontScaling={false}
-        className="mt-3 text-[16px] leading-7 text-[#71717B]"
+        className="mt-3 text-[16px] leading-7"
+        style={{ color: reportColors.muted }}
       >
         A previous reflection is available, but it uses the older report format.
         Update it to view the new graphical report.
@@ -216,7 +240,8 @@ export function OlderFormatState({
       {!hasEnoughEntries ? (
         <Text
           allowFontScaling={false}
-          className="mt-3 text-[14px] leading-6 text-[#71717B]"
+          className="mt-3 text-[14px] leading-6"
+          style={{ color: reportColors.muted }}
         >
           Add more entries before generating the new visual dashboard.
         </Text>
@@ -228,7 +253,8 @@ export function OlderFormatState({
       />
       <Text
         allowFontScaling={false}
-        className="mt-4 text-[13px] leading-5 text-[#71717B]"
+        className="mt-4 text-[13px] leading-5"
+        style={{ color: reportColors.muted }}
       >
         {getReportTitle(periodType)} reports now use deterministic chart data
         with a concise AI interpretation.
@@ -246,7 +272,7 @@ export function PrimaryButton({
   label: string;
   onPress: () => void;
 }) {
-  const pressValue = useRef(new Animated.Value(0)).current;
+  const pressValue = useMemo(() => new Animated.Value(0), []);
   const scale = pressValue.interpolate({
     inputRange: [0, 1],
     outputRange: [1, 0.96],
@@ -271,14 +297,16 @@ export function PrimaryButton({
         onPressIn={() => animatePress(1)}
         onPressOut={() => animatePress(0)}
         style={({ pressed }) => ({
-          backgroundColor: disabled ? "#E4E4E7" : reportColors.primary,
+          backgroundColor: disabled
+            ? reportColors.disabled
+            : reportColors.primary,
           opacity: disabled ? 0.7 : pressed ? 0.88 : 1,
         })}
       >
         <Text
           allowFontScaling={false}
           className="text-[16px] font-bold leading-6"
-          style={{ color: disabled ? "#71717B" : "white" }}
+          style={{ color: disabled ? reportColors.muted : reportColors.card }}
         >
           {label}
         </Text>

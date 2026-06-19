@@ -72,10 +72,9 @@ export function PinInput({
         ref={inputRef}
         returnKeyType={returnKeyType}
         secureTextEntry
-        textContentType="oneTimeCode"
+        textContentType="none"
         value={pin}
       />
     </Pressable>
   );
 }
-

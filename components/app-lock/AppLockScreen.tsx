@@ -15,7 +15,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PinInput } from "@/components/app-lock/PinInput";
 import { useAppLock } from "@/hooks/useAppLock";
-import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
+import {
+  getSupabaseAccessTokenProvider,
+  setSupabaseAccessTokenProvider,
+} from "@/lib/supabase";
 import { useJournalStore } from "@/store/journal-store";
 
 export function AppLockScreen() {
@@ -151,13 +154,24 @@ export function AppLockScreen() {
       return;
     }
 
+    const previousActiveUserId = useJournalStore.getState().activeUserId;
+    const previousAccessTokenProvider = getSupabaseAccessTokenProvider();
+
     setSigningOut(true);
-    setActiveUserId(null);
-    setSupabaseAccessTokenProvider(null);
 
     try {
       await signOut();
+      setActiveUserId(null);
+      setSupabaseAccessTokenProvider(null);
       router.replace("/login");
+    } catch (error) {
+      setActiveUserId(previousActiveUserId);
+      setSupabaseAccessTokenProvider(previousAccessTokenProvider);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "We could not sign you out. Please try again.",
+      );
     } finally {
       setSigningOut(false);
     }

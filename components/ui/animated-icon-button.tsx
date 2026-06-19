@@ -32,8 +32,6 @@ export function AnimatedIconButton({
     outputRange: ["0deg", "360deg"],
   });
 
-  isBusyRef.current = isBusy;
-
   const startBusyLoop = useCallback(() => {
     spinValue.setValue(0);
     loopRef.current = Animated.loop(
@@ -47,6 +45,8 @@ export function AnimatedIconButton({
   }, [spinValue]);
 
   useEffect(() => {
+    isBusyRef.current = isBusy;
+
     if (!isBusy) {
       loopRef.current?.stop();
       loopRef.current = null;

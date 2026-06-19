@@ -41,10 +41,6 @@ function AppStack() {
     return () => setSupabaseAccessTokenProvider(null);
   }, [getToken, isLoaded, userId]);
 
-  if (!isLoaded) {
-    return <RootNavigator />;
-  }
-
   return (
     <AppLockProvider>
       <AppLockGate>

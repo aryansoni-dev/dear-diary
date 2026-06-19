@@ -6,6 +6,9 @@ export const reportColors = {
   background: "#FAF7F2",
   border: "#F0E7EE",
   card: "#FFFFFF",
+  disabled: "#E4E4E7",
+  errorText: "#A60033",
+  explanationText: "#52525B",
   heading: "#18181B",
   ivory: "#FFF8F1",
   lavender: "#F4EFFA",
@@ -27,7 +30,7 @@ export const moodDistributionColors = {
 export const moodJourneyColors = {
   cardDateText: reportColors.muted,
   emptyText: reportColors.muted,
-  explanationText: "#52525B",
+  explanationText: reportColors.explanationText,
   entryCountText: reportColors.muted,
   moodText: reportColors.heading,
 } as const;

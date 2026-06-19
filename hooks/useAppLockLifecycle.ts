@@ -29,9 +29,16 @@ export function useAppLockLifecycle({
 }: UseAppLockLifecycleParams) {
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const backgroundedAtRef = useRef<number | null>(null);
+  const visibilityRef = useRef(AppState.currentState === "active");
 
   useEffect(() => {
     function handleLoseVisibility() {
+      if (!visibilityRef.current) {
+        return;
+      }
+
+      visibilityRef.current = false;
+
       if (isAuthenticatingRef.current) {
         return;
       }
@@ -47,6 +54,12 @@ export function useAppLockLifecycle({
     }
 
     function handleBecomeVisible() {
+      if (visibilityRef.current) {
+        return;
+      }
+
+      visibilityRef.current = true;
+
       if (isAuthenticatingRef.current) {
         return;
       }

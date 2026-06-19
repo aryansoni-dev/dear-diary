@@ -31,6 +31,10 @@ export function setSupabaseAccessTokenProvider(
   accessTokenProvider = provider;
 }
 
+export function getSupabaseAccessTokenProvider() {
+  return accessTokenProvider;
+}
+
 export function getAuthenticatedSupabaseClient() {
   if (!supabase) {
     throw new SupabaseConfigurationError(

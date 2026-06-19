@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PinInput } from "@/components/app-lock/PinInput";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
+import { appLockColors, appLockLayout } from "@/constants/app-lock-theme";
 import { useAppLock } from "@/hooks/useAppLock";
 import type { AppLockDelay } from "@/types/appLock";
 
@@ -46,12 +47,12 @@ export default function AppLockSetupScreen() {
   );
 
   const helperMessage = useMemo(() => {
-    if (message) {
-      return message;
-    }
-
     if (confirmedPin.length === 6 && pin !== confirmedPin) {
       return "PINs do not match.";
+    }
+
+    if (message) {
+      return message;
     }
 
     return null;
@@ -91,13 +92,26 @@ export default function AppLockSetupScreen() {
     }
   }
 
+  function handlePinChange(nextPin: string) {
+    setPin(nextPin);
+    setMessage(null);
+  }
+
+  function handleConfirmedPinChange(nextConfirmedPin: string) {
+    setConfirmedPin(nextConfirmedPin);
+    setMessage(null);
+  }
+
   return (
-    <View className="flex-1 bg-[#FFF7FB]">
+    <View
+      className="flex-1"
+      style={{ backgroundColor: appLockColors.background }}
+    >
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
           paddingBottom: Math.max(insets.bottom + 36, 56),
-          paddingHorizontal: 24,
+          paddingHorizontal: appLockLayout.screenPaddingHorizontal,
           paddingTop: Math.max(insets.top + 28, 52),
         }}
         keyboardShouldPersistTaps="handled"
@@ -109,10 +123,13 @@ export default function AppLockSetupScreen() {
             onPress={() => router.back()}
             shadow="0 2px 6px rgba(39, 39, 42, 0.16)"
           >
-            <Feather name="chevron-left" size={24} color="#51515B" />
+            <Feather name="chevron-left" size={24} color={appLockColors.textMuted} />
           </AnimatedIconButton>
 
-          <Text className="text-[20px] font-semibold leading-6 text-[#27272A]">
+          <Text
+            className="text-[20px] font-semibold leading-6"
+            style={{ color: appLockColors.text }}
+          >
             Set Up App Lock
           </Text>
 
@@ -120,44 +137,82 @@ export default function AppLockSetupScreen() {
         </View>
 
         <View className="gap-6 pt-9">
-          <View className="gap-4 rounded-[28px] bg-white px-5 py-6">
-            <Text className="text-[18px] font-bold leading-6 text-[#27272A]">
+          <View
+            className="gap-4"
+            style={{
+              backgroundColor: appLockColors.surface,
+              borderRadius: appLockLayout.cardRadius,
+              paddingHorizontal: appLockLayout.cardPaddingHorizontal,
+              paddingVertical: appLockLayout.cardPaddingVertical,
+            }}
+          >
+            <Text
+              className="text-[18px] font-bold leading-6"
+              style={{ color: appLockColors.text }}
+            >
               Create a six-digit PIN
             </Text>
             <PinInput
               accessibilityLabel="Create your six-digit App Lock PIN"
               autoFocus
               disabled={isSaving}
-              onChangePin={setPin}
+              onChangePin={handlePinChange}
               pin={pin}
             />
           </View>
 
-          <View className="gap-4 rounded-[28px] bg-white px-5 py-6">
-            <Text className="text-[18px] font-bold leading-6 text-[#27272A]">
+          <View
+            className="gap-4"
+            style={{
+              backgroundColor: appLockColors.surface,
+              borderRadius: appLockLayout.cardRadius,
+              paddingHorizontal: appLockLayout.cardPaddingHorizontal,
+              paddingVertical: appLockLayout.cardPaddingVertical,
+            }}
+          >
+            <Text
+              className="text-[18px] font-bold leading-6"
+              style={{ color: appLockColors.text }}
+            >
               Confirm PIN
             </Text>
             <PinInput
               accessibilityLabel="Confirm your six-digit App Lock PIN"
               disabled={isSaving}
-              onChangePin={setConfirmedPin}
+              onChangePin={handleConfirmedPinChange}
               onSubmit={handleSave}
               pin={confirmedPin}
             />
             {helperMessage ? (
-              <Text className="text-center text-[14px] font-medium leading-5 text-[#DC2626]">
+              <Text
+                className="text-center text-[14px] font-medium leading-5"
+                style={{ color: appLockColors.danger }}
+              >
                 {helperMessage}
               </Text>
             ) : null}
           </View>
 
-          <View className="rounded-[28px] bg-white px-5 py-5">
+          <View
+            style={{
+              backgroundColor: appLockColors.surface,
+              borderRadius: appLockLayout.cardRadius,
+              paddingHorizontal: appLockLayout.cardPaddingHorizontal,
+              paddingVertical: appLockLayout.compactCardPaddingVertical,
+            }}
+          >
             <View className="flex-row items-center justify-between gap-4">
               <View className="flex-1">
-                <Text className="text-[17px] font-bold leading-6 text-[#27272A]">
+                <Text
+                  className="text-[17px] font-bold leading-6"
+                  style={{ color: appLockColors.text }}
+                >
                   Use {biometricLabel}
                 </Text>
-                <Text className="mt-1 text-[13px] leading-5 text-[#71717B]">
+                <Text
+                  className="mt-1 text-[13px] leading-5"
+                  style={{ color: appLockColors.textMuted }}
+                >
                   {canUseBiometrics
                     ? "You will confirm with your device before it is enabled."
                     : "Biometrics are not available or enrolled on this device."}
@@ -172,8 +227,19 @@ export default function AppLockSetupScreen() {
             </View>
           </View>
 
-          <View className="gap-4 rounded-[28px] bg-white px-5 py-5">
-            <Text className="text-[17px] font-bold leading-6 text-[#27272A]">
+          <View
+            className="gap-4"
+            style={{
+              backgroundColor: appLockColors.surface,
+              borderRadius: appLockLayout.cardRadius,
+              paddingHorizontal: appLockLayout.cardPaddingHorizontal,
+              paddingVertical: appLockLayout.compactCardPaddingVertical,
+            }}
+          >
+            <Text
+              className="text-[17px] font-bold leading-6"
+              style={{ color: appLockColors.text }}
+            >
               Require authentication
             </Text>
             <View className="gap-2">
@@ -181,19 +247,30 @@ export default function AppLockSetupScreen() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityState={{ selected: lockDelay === option.value }}
-                  className="min-h-[46px] flex-row items-center justify-between rounded-2xl px-3"
+                  className="min-h-[46px] flex-row items-center justify-between"
                   key={option.value}
                   onPress={() => setLockDelay(option.value)}
                   style={{
                     backgroundColor:
-                      lockDelay === option.value ? "#FFE1EE" : "#F8F3FC",
+                      lockDelay === option.value
+                        ? appLockColors.primarySoft
+                        : appLockColors.option,
+                    borderRadius: appLockLayout.optionRadius,
+                    paddingHorizontal: appLockLayout.optionPaddingHorizontal,
                   }}
                 >
-                  <Text className="text-[14px] font-semibold leading-5 text-[#27272A]">
+                  <Text
+                    className="text-[14px] font-semibold leading-5"
+                    style={{ color: appLockColors.text }}
+                  >
                     {option.label}
                   </Text>
                   {lockDelay === option.value ? (
-                    <Feather name="check" size={18} color="#FF2056" />
+                    <Feather
+                      name="check"
+                      size={18}
+                      color={appLockColors.primary}
+                    />
                   ) : null}
                 </Pressable>
               ))}
@@ -206,14 +283,22 @@ export default function AppLockSetupScreen() {
             className="h-[56px] items-center justify-center rounded-full"
             disabled={!canSave}
             onPress={handleSave}
-            style={{ backgroundColor: canSave ? "#FF2056" : "#F4F4F5" }}
+            style={{
+              backgroundColor: canSave
+                ? appLockColors.primary
+                : appLockColors.disabled,
+            }}
           >
             {isSaving ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
+              <ActivityIndicator color={appLockColors.surface} size="small" />
             ) : (
               <Text
                 className="text-[16px] font-bold leading-5"
-                style={{ color: canSave ? "#FFFFFF" : "#A1A1AA" }}
+                style={{
+                  color: canSave
+                    ? appLockColors.surface
+                    : appLockColors.disabledText,
+                }}
               >
                 Enable App Lock
               </Text>
