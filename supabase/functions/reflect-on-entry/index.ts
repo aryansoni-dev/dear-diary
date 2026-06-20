@@ -97,6 +97,17 @@ type ValidReflectionResult = {
   themes: string[];
 };
 
+type ChatCompletionRequestBody = {
+  max_tokens: number;
+  messages: Array<{
+    content: string;
+    role: "system" | "user";
+  }>;
+  model: string;
+  response_format?: { type: "json_object" };
+  temperature: number;
+};
+
 class AIProviderError extends Error {
   constructor(
     message: string,
@@ -576,17 +587,23 @@ async function callAIProvider(finalPrompt: string) {
   const timeout = setTimeout(() => controller.abort(), 30000);
 
   try {
+    const requestBody: ChatCompletionRequestBody = {
+      messages: [
+        { content: systemPrompt, role: "system" },
+        { content: finalPrompt, role: "user" },
+      ],
+      max_tokens: 1000,
+      model,
+      temperature: 0.2,
+    };
+
+    if (supportsJsonObjectResponseFormat(baseUrl)) {
+      // Only send JSON mode to providers that document this OpenAI-compatible parameter.
+      requestBody.response_format = { type: "json_object" };
+    }
+
     const response = await fetch(`${baseUrl}/chat/completions`, {
-      body: JSON.stringify({
-        messages: [
-          { content: systemPrompt, role: "system" },
-          { content: finalPrompt, role: "user" },
-        ],
-        max_tokens: 1000,
-        model,
-        response_format: { type: "json_object" },
-        temperature: 0.2,
-      }),
+      body: JSON.stringify(requestBody),
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -626,6 +643,26 @@ async function callAIProvider(finalPrompt: string) {
     return content;
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function supportsJsonObjectResponseFormat(baseUrl: string) {
+  const hostname = getProviderHostname(baseUrl);
+
+  return (
+    hostname === "api.openai.com" ||
+    hostname === "api.groq.com" ||
+    hostname === "api.openrouter.ai" ||
+    hostname === "openrouter.ai" ||
+    hostname.endsWith(".openai.azure.com")
+  );
+}
+
+function getProviderHostname(baseUrl: string) {
+  try {
+    return new URL(baseUrl).hostname.toLowerCase();
+  } catch {
+    return "";
   }
 }
 

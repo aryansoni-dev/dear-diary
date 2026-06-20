@@ -101,7 +101,7 @@ export function TagInputModal({
             accessibilityLabel="Tag name"
             autoCapitalize="none"
             autoCorrect={false}
-            className="mt-4 h-14 rounded-[18px] border border-zinc-200 bg-zinc-50 px-4 text-[18px] leading-6 text-zinc-950 p-3"
+            className="mt-4 h-14 rounded-[18px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[18px] leading-6 text-zinc-950"
             onChangeText={setTagText}
             onSubmitEditing={handleAddTag}
             placeholder="college, stress, gratitude"
