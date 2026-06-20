@@ -75,7 +75,7 @@ export const AppDialogContext =
 
 export function AppDialogProvider({ children }: { children: ReactNode }) {
   const [dialogs, setDialogs] = useState<AppDialogOptions[]>([]);
-  const [isDismissing, setIsDismissing] = useState(false);
+  const isDismissing = useRef(false);
   const dialogAnimation = useRef(new Animated.Value(0)).current;
   const dialog = dialogs[0] ?? null;
 
@@ -111,7 +111,7 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setIsDismissing(false);
+    isDismissing.current = false;
     dialogAnimation.setValue(0);
     Animated.timing(dialogAnimation, {
       duration: 400,
@@ -123,11 +123,11 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
 
   const dismissDialog = useCallback(
     (onDismiss?: () => void) => {
-      if (isDismissing) {
+      if (isDismissing.current) {
         return;
       }
 
-      setIsDismissing(true);
+      isDismissing.current = true;
       Animated.timing(dialogAnimation, {
         duration: 180,
         easing: dialogAnimationEasing,
@@ -135,15 +135,16 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
         useNativeDriver: true,
       }).start(({ finished }) => {
         if (!finished) {
+          isDismissing.current = false;
           return;
         }
 
         hideDialog();
-        setIsDismissing(false);
+        isDismissing.current = false;
         onDismiss?.();
       });
     },
-    [dialogAnimation, hideDialog, isDismissing],
+    [dialogAnimation, hideDialog],
   );
 
   function handleCancel() {
@@ -221,9 +222,9 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
                 actions.map((action) => (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityState={{ disabled: isDismissing }}
+                    accessibilityState={{ disabled: isDismissing.current }}
                     className="h-[52px] items-center justify-center rounded-full"
-                    disabled={isDismissing}
+                    disabled={isDismissing.current}
                     key={action.text}
                     onPress={() => handleActionPress(action)}
                     style={{
@@ -241,9 +242,9 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
               ) : (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityState={{ disabled: isDismissing }}
+                  accessibilityState={{ disabled: isDismissing.current }}
                   className="h-[52px] items-center justify-center rounded-full"
-                  disabled={isDismissing}
+                  disabled={isDismissing.current}
                   onPress={handleConfirm}
                   style={{ backgroundColor: theme.confirmColor }}
                 >
@@ -256,9 +257,9 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
               {dialog?.showCancel ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityState={{ disabled: isDismissing }}
+                  accessibilityState={{ disabled: isDismissing.current }}
                   className="h-12 items-center justify-center rounded-full bg-[#F4F4F5]"
-                  disabled={isDismissing}
+                  disabled={isDismissing.current}
                   onPress={handleCancel}
                 >
                   <Text className="text-[15px] font-semibold leading-5 text-[#51515B]">

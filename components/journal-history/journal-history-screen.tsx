@@ -220,7 +220,7 @@ export function JournalHistoryScreen() {
             </View>
 
             <ScrollView
-              className="pb-1"
+              className="p-2"
               contentContainerStyle={{
                 gap: 8,
                 paddingHorizontal: 24,
@@ -245,7 +245,7 @@ export function JournalHistoryScreen() {
                     }}
                   >
                     <Text
-                      className="text-[14px] leading-5"
+                      className="text-[14px] leading-6"
                       style={{
                         color: isSelected ? colors.selectedText : colors.text,
                         fontWeight: isSelected ? "700" : "500",

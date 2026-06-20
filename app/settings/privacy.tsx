@@ -16,6 +16,7 @@ import {
   SettingsRow,
 } from "@/components/app-lock/AppLockSettingsComponents";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
+import { appLockColors } from "@/constants/app-lock-theme";
 import { useAppLockSettings } from "@/hooks/useAppLockSettings";
 import type { AppLockDelay } from "@/types/appLock";
 
@@ -49,7 +50,7 @@ export default function PrivacySettingsScreen() {
     pendingAction,
     pin,
   } = useAppLockSettings();
-  const isPendingActionExecuting = pendingAction !== null && busyAction === pendingAction;
+  const isPendingActionBusy = busyAction !== null;
 
   function handleBackPress() {
     if (router.canGoBack()) {
@@ -174,7 +175,7 @@ export default function PrivacySettingsScreen() {
                   backgroundColor:
                     pin.length === 6 && busyAction === null
                       ? "#FF2056"
-                      : "#F4F4F5",
+                      : appLockColors.disabled,
                 }}
               >
                 {busyAction === pendingAction ? (
@@ -197,10 +198,13 @@ export default function PrivacySettingsScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ disabled: busyAction !== null }}
-                className="h-11 items-center justify-center rounded-full bg-[#F4F4F5]"
+                className="h-11 items-center justify-center rounded-full"
                 disabled={busyAction !== null}
                 onPress={handleCancelPendingAction}
-                style={{ opacity: isPendingActionExecuting ? 0.55 : 1 }}
+                style={{
+                  backgroundColor: appLockColors.disabled,
+                  opacity: isPendingActionBusy ? 0.55 : 1,
+                }}
               >
                 <Text className="text-[14px] font-semibold leading-5 text-[#51515B]">
                   Cancel
