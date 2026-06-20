@@ -8,7 +8,7 @@ import {
 } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
 
-import { reportColors } from "@/constants/report-theme";
+import { reportCardShadow, reportColors } from "@/constants/report-theme";
 
 const reportBodyTextStyle = {
   fontSize: 15,
@@ -139,7 +139,10 @@ export function PatternCards({ items }: { items: string[] }) {
         <View
           className="rounded-[22px] px-4 py-4"
           key={item}
-          style={{ backgroundColor: reportColors.lavender }}
+          style={{
+            backgroundColor: reportColors.lavender,
+            boxShadow: reportCardShadow,
+          }}
         >
           <Text
             allowFontScaling={false}
@@ -159,7 +162,10 @@ export function NextFocusCard({ focus }: { focus: string }) {
   return (
     <View
       className="rounded-[28px] px-5 py-5"
-      style={{ backgroundColor: reportColors.primary }}
+      style={{
+        backgroundColor: reportColors.primary,
+        boxShadow: reportCardShadow,
+      }}
     >
       <View className="flex-row items-center gap-3">
         <View className="size-10 items-center justify-center rounded-full bg-white/20">
@@ -204,7 +210,7 @@ export function ReflectionPromptCard({ prompt }: { prompt: string | null }) {
   return (
     <View
       className="rounded-[28px] bg-white px-5 py-5"
-      style={{ boxShadow: "0 10px 30px rgba(160, 140, 200, 0.16)" }}
+      style={{ boxShadow: reportCardShadow }}
     >
       <Text
         allowFontScaling={false}

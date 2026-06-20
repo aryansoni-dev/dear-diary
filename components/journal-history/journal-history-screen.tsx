@@ -38,7 +38,10 @@ import type { JournalHistoryViewMode } from "@/types/journalCalendar";
 const colors = {
   muted: "#A1A1AA",
   primary: "#FF2056",
-};
+  selectedText: "#FFFFFF",
+  text: "#3F3F46",
+  textOnPrimaryMuted: "rgba(255,255,255,0.8)",
+} as const;
 
 type MoodFilterId = MoodId | "all";
 
@@ -129,12 +132,21 @@ export function JournalHistoryScreen() {
   };
 
   useEffect(() => {
+    contentSlideAnimation.stopAnimation();
     contentSlideAnimation.setValue(0);
-    Animated.timing(contentSlideAnimation, {
+    const animation = Animated.timing(contentSlideAnimation, {
       duration: 230,
       toValue: 1,
       useNativeDriver: true,
-    }).start();
+    });
+
+    animation.start(({ finished }) => {
+      if (finished) {
+        contentSlideAnimation.setValue(1);
+      }
+    });
+
+    return () => animation.stop();
   }, [contentSlideAnimation, slideDirection, viewMode]);
 
   return (
@@ -183,8 +195,8 @@ export function JournalHistoryScreen() {
         </View>
 
         <Animated.View
+          collapsable={false}
           style={{
-            opacity: contentSlideAnimation,
             transform: [{ translateX: contentTranslateX }],
           }}
         >
@@ -235,7 +247,7 @@ export function JournalHistoryScreen() {
                     <Text
                       className="text-[14px] leading-5"
                       style={{
-                        color: isSelected ? "white" : "#3F3F46",
+                        color: isSelected ? colors.selectedText : colors.text,
                         fontWeight: isSelected ? "700" : "500",
                       }}
                     >
@@ -261,7 +273,9 @@ export function JournalHistoryScreen() {
                   className="h-17 w-15 shrink-0 items-center justify-center gap-1 rounded-[16px]"
                   key={day.date}
                   style={{
-                    backgroundColor: day.isSelected ? colors.primary : "white",
+                    backgroundColor: day.isSelected
+                      ? colors.primary
+                      : colors.selectedText,
                     boxShadow: day.isSelected
                       ? "0 4px 12px rgba(255, 32, 86, 0.26)"
                       : "0 2px 7px rgba(39, 39, 42, 0.13)",
@@ -271,7 +285,7 @@ export function JournalHistoryScreen() {
                     className="text-[11px] font-medium leading-4"
                     style={{
                       color: day.isSelected
-                        ? "rgba(255,255,255,0.8)"
+                        ? colors.textOnPrimaryMuted
                         : colors.muted,
                     }}
                   >
@@ -280,7 +294,7 @@ export function JournalHistoryScreen() {
                   <Text
                     className="text-[18px] font-bold leading-5"
                     style={{
-                      color: day.isSelected ? "white" : "#3F3F46",
+                      color: day.isSelected ? colors.selectedText : colors.text,
                     }}
                   >
                     {day.date}

@@ -1,5 +1,5 @@
 import { router, type Href } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { useAppLock } from "@/hooks/useAppLock";
@@ -24,6 +24,7 @@ export function useAppLockSettings() {
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const mutationInFlightRef = useRef(false);
   const biometricLabel = biometricAvailability?.displayName ?? "Biometrics";
   const canUseBiometrics =
     config?.biometricEnabled === true &&
@@ -51,6 +52,22 @@ export function useAppLockSettings() {
       title,
       variant: "destructive",
     });
+  }
+
+  function beginMutation(action: string) {
+    if (mutationInFlightRef.current) {
+      return false;
+    }
+
+    mutationInFlightRef.current = true;
+    setBusyAction(action);
+    setMessage(null);
+    return true;
+  }
+
+  function finishMutation() {
+    mutationInFlightRef.current = false;
+    setBusyAction(null);
   }
 
   function handleAppLockPress() {
@@ -81,8 +98,9 @@ export function useAppLockSettings() {
   }
 
   async function handleEnableBiometrics() {
-    setBusyAction("enable-biometrics");
-    setMessage(null);
+    if (!beginMutation("enable-biometrics")) {
+      return;
+    }
 
     try {
       const didEnable = await setBiometricEnabled(true);
@@ -103,7 +121,7 @@ export function useAppLockSettings() {
         title: "Could not enable biometrics",
       });
     } finally {
-      setBusyAction(null);
+      finishMutation();
     }
   }
 
@@ -129,7 +147,7 @@ export function useAppLockSettings() {
   }
 
   async function completePendingAction(useBiometric: boolean) {
-    if (!pendingAction || busyAction) {
+    if (!pendingAction) {
       return;
     }
 
@@ -138,12 +156,15 @@ export function useAppLockSettings() {
       return;
     }
 
-    setBusyAction(pendingAction);
-    setMessage(null);
+    const currentPendingAction = pendingAction;
+
+    if (!beginMutation(currentPendingAction)) {
+      return;
+    }
 
     try {
       const didComplete =
-        pendingAction === "disable-lock"
+        currentPendingAction === "disable-lock"
           ? await disableAppLock({ pin, useBiometric })
           : await setBiometricEnabled(false, { pin, useBiometric });
 
@@ -153,18 +174,17 @@ export function useAppLockSettings() {
         return;
       }
 
-      const completedAction = pendingAction;
       setPendingAction(null);
       setPin("");
 
       showDialog({
         confirmText: "OK",
         message:
-          completedAction === "disable-lock"
+          currentPendingAction === "disable-lock"
             ? "DearDiary will open without App Lock on this device."
             : `${biometricLabel} has been turned off for App Lock.`,
         title:
-          completedAction === "disable-lock"
+          currentPendingAction === "disable-lock"
             ? "App Lock disabled"
             : "Biometrics disabled",
         variant: "success",
@@ -175,16 +195,16 @@ export function useAppLockSettings() {
       showMutationErrorDialog({
         error,
         message:
-          pendingAction === "disable-lock"
+          currentPendingAction === "disable-lock"
             ? "App Lock could not be turned off right now. Please try again."
             : `${biometricLabel} could not be turned off right now. Please try again.`,
         title:
-          pendingAction === "disable-lock"
+          currentPendingAction === "disable-lock"
             ? "Could not disable App Lock"
             : "Could not disable biometrics",
       });
     } finally {
-      setBusyAction(null);
+      finishMutation();
     }
   }
 
@@ -200,7 +220,9 @@ export function useAppLockSettings() {
   }
 
   async function handleDelayPress(delay: AppLockDelay) {
-    setBusyAction(delay);
+    if (!beginMutation(delay)) {
+      return;
+    }
 
     try {
       await setLockDelay(delay);
@@ -212,7 +234,7 @@ export function useAppLockSettings() {
         title: "Could not update timing",
       });
     } finally {
-      setBusyAction(null);
+      finishMutation();
     }
   }
 

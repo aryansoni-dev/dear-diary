@@ -1,5 +1,6 @@
 export const appLockColors = {
   background: "#FFF7FB",
+  border: "#E4E4E7",
   danger: "#DC2626",
   disabled: "#F4F4F5",
   disabledText: "#A1A1AA",
@@ -7,6 +8,7 @@ export const appLockColors = {
   primary: "#FF2056",
   primaryTint: "#FFDDE8",
   primarySoft: "#FFE1EE",
+  shadow: "rgba(39, 39, 42, 0.12)",
   surface: "#FFFFFF",
   text: "#27272A",
   textMuted: "#71717B",

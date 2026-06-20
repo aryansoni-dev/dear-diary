@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 
-import { reportColors } from "@/constants/report-theme";
+import { reportCardShadow, reportColors } from "@/constants/report-theme";
 
 import {
   getGenerateLabel,
@@ -61,7 +61,10 @@ export function ReportShell({
 
 export function LoadingState({ periodType }: { periodType: ReportPeriodType }) {
   return (
-    <View className="items-center rounded-[28px] bg-white px-6 py-8">
+    <View
+      className="items-center rounded-[28px] bg-white px-6 py-8"
+      style={{ boxShadow: reportCardShadow }}
+    >
       <ActivityIndicator color={reportColors.primary} />
       <Text
         allowFontScaling={false}
@@ -87,7 +90,10 @@ export function UpdatingBanner({
   periodType: ReportPeriodType;
 }) {
   return (
-    <View className="flex-row items-center gap-3 rounded-[22px] bg-white px-4 py-4">
+    <View
+      className="flex-row items-center gap-3 rounded-[22px] bg-white px-4 py-4"
+      style={{ boxShadow: reportCardShadow }}
+    >
       <ActivityIndicator color={reportColors.primary} />
       <Text
         allowFontScaling={false}
@@ -105,7 +111,10 @@ export function ErrorBanner({ message }: { message: string }) {
   return (
     <View
       className="rounded-[22px] px-4 py-4"
-      style={{ backgroundColor: reportColors.rose }}
+      style={{
+        backgroundColor: reportColors.rose,
+        boxShadow: reportCardShadow,
+      }}
     >
       <Text
         allowFontScaling={false}
@@ -118,27 +127,63 @@ export function ErrorBanner({ message }: { message: string }) {
   );
 }
 
-export function StaleBanner({
+export function ReportRegenerateCard({
   disabled,
+  isStale,
   onPress,
 }: {
   disabled: boolean;
+  isStale: boolean;
   onPress: () => void;
 }) {
   return (
-    <View className="rounded-[26px] bg-white px-5 py-5">
+    <View
+      className="rounded-[26px] bg-white px-5 py-5"
+      style={{ boxShadow: reportCardShadow }}
+    >
       <Text
         allowFontScaling={false}
         className="text-[17px] font-bold leading-6"
         style={{ color: reportColors.heading }}
       >
-        Your journal has changed since this reflection was generated.
+        {isStale
+          ? "Your journal has changed since this reflection was generated."
+          : "Want DearDiary to take another look at this period?"}
       </Text>
-      <PrimaryButton
+      <Text
+        allowFontScaling={false}
+        className="mt-2 text-[14px] leading-6"
+        style={{ color: reportColors.muted }}
+      >
+        {isStale
+          ? "Regenerate the reflection to include your latest journal changes."
+          : "You can regenerate this reflection anytime without changing your journal entries."}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        className="mt-5 w-full"
         disabled={disabled}
-        label="Update Reflection"
         onPress={onPress}
-      />
+        style={({ pressed }) => ({ opacity: disabled ? 0.7 : pressed ? 0.88 : 1 })}
+      >
+        <View
+          className="h-[52px] w-full items-center justify-center rounded-full"
+          style={{
+            backgroundColor: disabled
+              ? reportColors.disabled
+              : reportColors.primary,
+          }}
+        >
+          <Text
+            allowFontScaling={false}
+            className="text-[16px] font-bold leading-6"
+            style={{ color: disabled ? reportColors.muted : reportColors.card }}
+          >
+            Regenerate Reflection
+          </Text>
+        </View>
+      </Pressable>
     </View>
   );
 }
@@ -159,7 +204,10 @@ export function EmptyReportState({
   periodType: ReportPeriodType;
 }) {
   return (
-    <View className="rounded-[30px] bg-white px-6 py-7">
+    <View
+      className="rounded-[30px] bg-white px-6 py-7"
+      style={{ boxShadow: reportCardShadow }}
+    >
       <View
         className="size-12 items-center justify-center rounded-full"
         style={{ backgroundColor: reportColors.pinkSoft }}
@@ -221,7 +269,10 @@ export function OlderFormatState({
   periodType: ReportPeriodType;
 }) {
   return (
-    <View className="rounded-[30px] bg-white px-6 py-7">
+    <View
+      className="rounded-[30px] bg-white px-6 py-7"
+      style={{ boxShadow: reportCardShadow }}
+    >
       <Text
         allowFontScaling={false}
         className="text-[23px] font-bold leading-8"

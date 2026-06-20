@@ -2,11 +2,16 @@ import { Feather } from "@expo/vector-icons";
 import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
+import { appLockColors } from "@/constants/app-lock-theme";
+
 export function SettingsCard({ children }: { children: ReactNode }) {
   return (
     <View
-      className="rounded-[24px] bg-white p-2"
-      style={{ boxShadow: "0 2px 8px rgba(39, 39, 42, 0.12)" }}
+      className="rounded-[24px] p-2"
+      style={{
+        backgroundColor: appLockColors.surface,
+        boxShadow: `0 2px 8px ${appLockColors.shadow}`,
+      }}
     >
       {children}
     </View>
@@ -14,7 +19,12 @@ export function SettingsCard({ children }: { children: ReactNode }) {
 }
 
 export function Divider() {
-  return <View className="mx-3 h-px bg-[#E4E4E7]" />;
+  return (
+    <View
+      className="mx-3 h-px"
+      style={{ backgroundColor: appLockColors.border }}
+    />
+  );
 }
 
 export function SettingsRow({
@@ -37,24 +47,36 @@ export function SettingsRow({
       onPress={onPress}
     >
       <View className="flex-1 flex-row items-center gap-4">
-        <View className="size-10 items-center justify-center rounded-[13px] bg-[#FFE1EE]">
-          <Feather name={icon} size={20} color="#FF2056" />
+        <View
+          className="size-10 items-center justify-center rounded-[13px]"
+          style={{ backgroundColor: appLockColors.primarySoft }}
+        >
+          <Feather name={icon} size={20} color={appLockColors.primary} />
         </View>
-        <Text className="flex-1 text-[15px] font-medium leading-5 text-[#27272A]">
+        <Text
+          className="flex-1 text-[15px] font-medium leading-5"
+          style={{ color: appLockColors.text }}
+        >
           {label}
         </Text>
       </View>
 
       {isBusy ? (
-        <ActivityIndicator color="#A1A1AA" size="small" />
+        <ActivityIndicator color={appLockColors.disabledText} size="small" />
       ) : value ? (
-        <Text className="text-[13px] font-semibold leading-5 text-[#71717B]">
+        <Text
+          className="text-[13px] font-semibold leading-5"
+          style={{ color: appLockColors.textMuted }}
+        >
           {value}
         </Text>
       ) : (
-        <Feather name="chevron-right" size={21} color="#A1A1AA" />
+        <Feather
+          name="chevron-right"
+          size={21}
+          color={appLockColors.disabledText}
+        />
       )}
     </Pressable>
   );
 }
-

@@ -17,22 +17,57 @@ import {
   addCalendarMonths,
   createLocalDateKey,
   formatSelectedDate,
+  parseLocalDateKey,
 } from "@/lib/calendar/dateUtils";
 import type { JournalEntry } from "@/types/journal";
 import type { CalendarDayStatus } from "@/types/journalCalendar";
 
 const colors = {
+  activityBorderEmpty: "#E4E4E7",
+  activityBorderHigh: "#FF6F9A",
+  activityBorderLow: "#FFD4E1",
+  activityBorderMedium: "#FFB7CC",
+  activityEmpty: "#FFFFFF",
+  activityHigh: "#FF9FBC",
+  activityLow: "#FFF1F5",
+  activityMedium: "#FFDDE8",
+  completeBackground: "#DCFCE7",
+  completeIcon: "#16A34A",
+  completeText: "#15803D",
+  evening: "#7C3AED",
+  eveningSoft: "#F5F3FF",
+  markerMuted: "#71717A",
   muted: "#A1A1AA",
   primary: "#FF2056",
+  secondaryText: "#52525B",
+  selectedText: "#FFFFFF",
+  selectedTextSubtle: "rgba(255,255,255,0.2)",
+  softBackground: "#F4F4F5",
   text: "#27272A",
-};
+} as const;
 
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const activityHeatmapLevels = [
-  { backgroundColor: "#FFFFFF", borderColor: "#E4E4E7", label: "0" },
-  { backgroundColor: "#FFF1F5", borderColor: "#FFD4E1", label: "1" },
-  { backgroundColor: "#FFDDE8", borderColor: "#FFB7CC", label: "2" },
-  { backgroundColor: "#FF9FBC", borderColor: "#FF6F9A", label: "3+" },
+  {
+    backgroundColor: colors.activityEmpty,
+    borderColor: colors.activityBorderEmpty,
+    label: "0",
+  },
+  {
+    backgroundColor: colors.activityLow,
+    borderColor: colors.activityBorderLow,
+    label: "1",
+  },
+  {
+    backgroundColor: colors.activityMedium,
+    borderColor: colors.activityBorderMedium,
+    label: "2",
+  },
+  {
+    backgroundColor: colors.activityHigh,
+    borderColor: colors.activityBorderHigh,
+    label: "3+",
+  },
 ] as const;
 
 export function JournalCalendarView({
@@ -46,23 +81,26 @@ export function JournalCalendarView({
   hasHydrated: boolean;
   renderSelectedEntries: (day: CalendarDayStatus) => ReactNode;
 }) {
-  const today = useMemo(() => new Date(), []);
+  const todayDateKey = createLocalDateKey(new Date());
   const todayButtonScale = useRef(new Animated.Value(1)).current;
   const [visibleMonth, setVisibleMonth] = useState(
-    () => new Date(today.getFullYear(), today.getMonth(), 1),
+    () => {
+      const initialToday = new Date();
+      return new Date(initialToday.getFullYear(), initialToday.getMonth(), 1);
+    },
   );
   const [selectedDateKey, setSelectedDateKey] = useState(() =>
-    createLocalDateKey(today),
+    createLocalDateKey(new Date()),
   );
   const calendarMonth = useMemo(
     () =>
       buildJournalCalendarMonth({
         currentUserId: currentUserId ?? "",
         entries,
-        now: today,
+        now: parseLocalDateKey(todayDateKey),
         visibleMonth,
       }),
-    [currentUserId, entries, today, visibleMonth],
+    [currentUserId, entries, todayDateKey, visibleMonth],
   );
   const selectedDay =
     calendarMonth.days.find((day) => day.dateKey === selectedDateKey) ??
@@ -77,8 +115,12 @@ export function JournalCalendarView({
   };
 
   const goToToday = () => {
-    setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-    setSelectedDateKey(createLocalDateKey(today));
+    const currentToday = new Date();
+
+    setVisibleMonth(
+      new Date(currentToday.getFullYear(), currentToday.getMonth(), 1),
+    );
+    setSelectedDateKey(createLocalDateKey(currentToday));
   };
 
   const handleTodayPressIn = () => {
@@ -151,12 +193,16 @@ export function JournalCalendarView({
         >
           <Pressable
             accessibilityRole="button"
-            className="h-10 items-center justify-center rounded-full bg-[#FFF1F5] px-4"
+            className="h-10 items-center justify-center rounded-full px-4"
             onPress={goToToday}
             onPressIn={handleTodayPressIn}
             onPressOut={handleTodayPressOut}
+            style={{ backgroundColor: colors.activityLow }}
           >
-            <Text className="text-[14px] font-bold leading-5 text-[#FF2056]">
+            <Text
+              className="text-[14px] font-bold leading-5"
+              style={{ color: colors.primary }}
+            >
               Today
             </Text>
           </Pressable>
@@ -226,12 +272,12 @@ function CalendarDayCell({
     ? colors.primary
     : getActivityHeatmapColor(day.entryCount);
   const textColor = isSelected
-    ? "white"
+    ? colors.selectedText
     : day.isCurrentMonth
       ? colors.text
-      : "#A1A1AA";
+      : colors.muted;
   const moodBadgeBackgroundColor = isSelected
-    ? "rgba(255,255,255,0.2)"
+    ? colors.selectedTextSubtle
     : mood?.backgroundColor ?? fallbackMoodMetadata.backgroundColor;
 
   return (
@@ -271,7 +317,11 @@ function CalendarDayCell({
             </View>
             <Text
               className="text-[10px] font-bold leading-3"
-              style={{ color: isSelected ? "white" : "#52525B" }}
+              style={{
+                color: isSelected
+                  ? colors.selectedText
+                  : colors.secondaryText,
+              }}
             >
               {day.entryCount}
             </Text>
@@ -284,7 +334,9 @@ function CalendarDayCell({
           {day.hasMorningIntention ? (
             <Text
               className="text-[8px] font-black leading-3"
-              style={{ color: isSelected ? "white" : colors.primary }}
+              style={{
+                color: isSelected ? colors.selectedText : colors.primary,
+              }}
             >
               M
             </Text>
@@ -292,7 +344,9 @@ function CalendarDayCell({
           {day.hasEveningReflection ? (
             <Text
               className="text-[8px] font-black leading-3"
-              style={{ color: isSelected ? "white" : "#7C3AED" }}
+              style={{
+                color: isSelected ? colors.selectedText : colors.evening,
+              }}
             >
               E
             </Text>
@@ -300,7 +354,9 @@ function CalendarDayCell({
           {day.hasEntriesWithoutMood ? (
             <Text
               className="text-[8px] font-black leading-3"
-              style={{ color: isSelected ? "white" : "#71717A" }}
+              style={{
+                color: isSelected ? colors.selectedText : colors.markerMuted,
+              }}
             >
               -
             </Text>
@@ -372,8 +428,14 @@ function MoodLegend({ days }: { days: CalendarDayStatus[] }) {
                 label={`${fallbackMoodMetadata.emoji} No mood`}
               />
             ) : null}
-            <LegendPill backgroundColor="#FFF1F5" label="M Morning intention" />
-            <LegendPill backgroundColor="#F5F3FF" label="E Evening reflection" />
+            <LegendPill
+              backgroundColor={colors.activityLow}
+              label="M Morning intention"
+            />
+            <LegendPill
+              backgroundColor={colors.eveningSoft}
+              label="E Evening reflection"
+            />
           </View>
         </View>
       </View>
@@ -439,11 +501,11 @@ function SelectedDaySummary({ day }: { day: CalendarDayStatus }) {
       </Text>
       <View className="mt-4 flex-row flex-wrap gap-2">
         <EntryCountPill
-          backgroundColor="#FFF1F5"
+          backgroundColor={colors.activityLow}
           count={day.entryCount}
         />
         <SummaryPill
-          backgroundColor={mood?.backgroundColor ?? "#F4F4F5"}
+          backgroundColor={mood?.backgroundColor ?? colors.softBackground}
           label={moodLabel}
         />
       </View>
@@ -454,7 +516,7 @@ function SelectedDaySummary({ day }: { day: CalendarDayStatus }) {
           label="Morning intention"
         />
         <CompletionRow
-          icon={<Moon color="#7C3AED" size={17} strokeWidth={2.2} />}
+          icon={<Moon color={colors.evening} size={17} strokeWidth={2.2} />}
           isComplete={day.hasEveningReflection}
           label="Evening reflection"
         />
@@ -531,14 +593,18 @@ function CompletionRow({
       </View>
       <View
         className="flex-row items-center gap-1 rounded-full px-2.5 py-1"
-        style={{ backgroundColor: isComplete ? "#DCFCE7" : "#F4F4F5" }}
+        style={{
+          backgroundColor: isComplete
+            ? colors.completeBackground
+            : colors.softBackground,
+        }}
       >
         {isComplete ? (
-          <Check color="#16A34A" size={14} strokeWidth={2.4} />
+          <Check color={colors.completeIcon} size={14} strokeWidth={2.4} />
         ) : null}
         <Text
           className="text-[12px] font-bold leading-6"
-          style={{ color: isComplete ? "#15803D" : colors.muted }}
+          style={{ color: isComplete ? colors.completeText : colors.muted }}
         >
           {isComplete ? "Done" : "Not yet"}
         </Text>

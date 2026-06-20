@@ -1,6 +1,6 @@
 import { Text, useWindowDimensions, View } from "react-native";
 
-import { reportColors } from "@/constants/report-theme";
+import { reportCardShadow, reportColors } from "@/constants/report-theme";
 import type { ReportAnalytics } from "@/types/aiInsightReport";
 
 type ReportStatGridProps = {
@@ -37,6 +37,7 @@ export function ReportStatGrid({ analytics }: ReportStatGridProps) {
           key={stat.title}
           style={{
             backgroundColor: reportColors.ivory,
+            boxShadow: reportCardShadow,
             flexBasis: useSingleColumn ? "100%" : "47%",
             flexGrow: 1,
           }}

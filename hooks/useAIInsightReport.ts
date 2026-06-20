@@ -42,8 +42,8 @@ export function useAIInsightReport(
   const entries = useJournalStore((state) => state.entries);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const cacheKey = useMemo(() => getReportCacheKey(period), [period]);
-  const getCachedReport = useAIInsightReportStore(
-    (state) => state.getCachedReport,
+  const cachedReport = useAIInsightReportStore((state) =>
+    userId ? state.reportsByUser[userId]?.[cacheKey] ?? null : null,
   );
   const removeCachedReport = useAIInsightReportStore(
     (state) => state.removeCachedReport,
@@ -51,9 +51,7 @@ export function useAIInsightReport(
   const setCachedReport = useAIInsightReportStore(
     (state) => state.setCachedReport,
   );
-  const [report, setReport] = useState<AIInsightReport | null>(() =>
-    getCachedReport(userId ?? null, cacheKey),
-  );
+  const [report, setReport] = useState<AIInsightReport | null>(cachedReport);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [legacyReportAvailable, setLegacyReportAvailable] = useState(false);
@@ -70,12 +68,7 @@ export function useAIInsightReport(
     [periodEntries],
   );
   const isStale = Boolean(
-    report &&
-      (report.sourceEntryCount !== localSource.count ||
-        !areSameTimestamp(
-          report.sourceLatestUpdatedAt,
-          localSource.latestUpdatedAt,
-        )),
+    report && isReportStale(report, localSource),
   );
 
   useEffect(() => {
@@ -91,13 +84,12 @@ export function useAIInsightReport(
       return;
     }
 
-    const cachedReport = getCachedReport(userId ?? null, cacheKey);
     setReport(cachedReport);
     setIsLoading(false);
     setIsGenerating(false);
     setLegacyReportAvailable(false);
     setError(null);
-  }, [cacheKey, enabled, getCachedReport, userId]);
+  }, [cacheKey, cachedReport, enabled, userId]);
 
   const isCurrentRequestContext = useCallback((requestVersion: number) => {
     return requestContextVersionRef.current === requestVersion;
@@ -298,6 +290,7 @@ function getEntriesInPeriod(entries: JournalEntry[], period: ReportPeriod) {
 }
 
 function getLocalSource(entries: JournalEntry[]) {
+  const entryIds = entries.map((entry) => entry.id).sort();
   const latestUpdatedAt =
     entries
       .map((entry) => entry.updatedAt)
@@ -307,16 +300,62 @@ function getLocalSource(entries: JournalEntry[]) {
 
   return {
     count: entries.length,
+    entryIds,
     latestUpdatedAt,
   };
 }
 
-function areSameTimestamp(firstTimestamp: string | null, secondTimestamp: string | null) {
-  if (firstTimestamp === secondTimestamp) {
+function getReportSourceEntryCount(report: AIInsightReport) {
+  const hasSourceMetadata =
+    report.sourceLatestUpdatedAt !== null ||
+    report.sourceSnapshotHash.trim().length > 0;
+
+  return hasSourceMetadata
+    ? report.sourceEntryCount
+    : report.analytics.totalEntries;
+}
+
+function isReportStale(
+  report: AIInsightReport,
+  localSource: {
+    count: number;
+    entryIds: string[];
+    latestUpdatedAt: string | null;
+  },
+) {
+  if (areSameStringSet(report.relatedEntryIds, localSource.entryIds)) {
+    return isTimestampAfter(localSource.latestUpdatedAt, report.updatedAt);
+  }
+
+  if (getReportSourceEntryCount(report) !== localSource.count) {
     return true;
   }
 
-  if (!firstTimestamp || !secondTimestamp) {
+  if (!report.sourceLatestUpdatedAt) {
+    return false;
+  }
+
+  return isTimestampAfter(
+    localSource.latestUpdatedAt,
+    report.sourceLatestUpdatedAt,
+  );
+}
+
+function areSameStringSet(firstValues: string[], secondValues: string[]) {
+  if (firstValues.length !== secondValues.length) {
+    return false;
+  }
+
+  const firstSortedValues = [...firstValues].sort();
+
+  return secondValues.every((value, index) => value === firstSortedValues[index]);
+}
+
+function isTimestampAfter(
+  firstTimestamp: string | null,
+  secondTimestamp: string,
+) {
+  if (!firstTimestamp) {
     return false;
   }
 
@@ -326,7 +365,7 @@ function areSameTimestamp(firstTimestamp: string | null, secondTimestamp: string
   return (
     Number.isFinite(firstTime) &&
     Number.isFinite(secondTime) &&
-    firstTime === secondTime
+    firstTime > secondTime
   );
 }
 
