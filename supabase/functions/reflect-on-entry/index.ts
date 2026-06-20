@@ -34,7 +34,9 @@ Keep the tone warm, calm, specific, and non-judgmental.
 Every string field must be complete. Do not leave any sentence or question unfinished.
 Keep every prose field concise enough for a mobile card.
 
-Return only valid JSON.`;
+Return only one valid JSON object.
+Do not wrap the JSON in markdown.
+Do not include explanatory text before or after the JSON object.`;
 
 const journalEntrySelectWithTags =
   "id,title,content,mood,type,prompt,tags,created_at,updated_at";
@@ -45,6 +47,7 @@ const maxTagCount = 10;
 const maxEmotionsCount = 6;
 const maxThemesCount = 6;
 const maxReflectionAttempts = 3;
+const maxReflectionTextLength = 220;
 
 type ReflectOnEntryRequest = {
   entryId: string;
@@ -92,6 +95,17 @@ type ValidReflectionResult = {
   suggestion: string;
   summary: string;
   themes: string[];
+};
+
+type ChatCompletionRequestBody = {
+  max_tokens: number;
+  messages: Array<{
+    content: string;
+    role: "system" | "user";
+  }>;
+  model: string;
+  response_format?: { type: "json_object" };
+  temperature: number;
 };
 
 class AIProviderError extends Error {
@@ -536,7 +550,10 @@ async function generateValidReflection(entry: JournalEntryRow) {
       return parsedReflection.result;
     }
 
-    console.error("reflect-on-entry invalid_ai_json", { attempt });
+    console.error("reflect-on-entry invalid_ai_json", {
+      attempt,
+      reason: parsedReflection.reason,
+    });
   }
 
   throw new AIProviderError(
@@ -570,16 +587,23 @@ async function callAIProvider(finalPrompt: string) {
   const timeout = setTimeout(() => controller.abort(), 30000);
 
   try {
+    const requestBody: ChatCompletionRequestBody = {
+      messages: [
+        { content: systemPrompt, role: "system" },
+        { content: finalPrompt, role: "user" },
+      ],
+      max_tokens: 1000,
+      model,
+      temperature: 0.2,
+    };
+
+    if (supportsJsonObjectResponseFormat(baseUrl)) {
+      // Only send JSON mode to providers that document this OpenAI-compatible parameter.
+      requestBody.response_format = { type: "json_object" };
+    }
+
     const response = await fetch(`${baseUrl}/chat/completions`, {
-      body: JSON.stringify({
-        messages: [
-          { content: systemPrompt, role: "system" },
-          { content: finalPrompt, role: "user" },
-        ],
-        max_tokens: 1000,
-        model,
-        temperature: 0.45,
-      }),
+      body: JSON.stringify(requestBody),
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -622,25 +646,47 @@ async function callAIProvider(finalPrompt: string) {
   }
 }
 
+function supportsJsonObjectResponseFormat(baseUrl: string) {
+  const hostname = getProviderHostname(baseUrl);
+
+  return (
+    hostname === "api.openai.com" ||
+    hostname === "api.groq.com" ||
+    hostname === "api.openrouter.ai" ||
+    hostname === "openrouter.ai" ||
+    hostname.endsWith(".openai.azure.com")
+  );
+}
+
+function getProviderHostname(baseUrl: string) {
+  try {
+    return new URL(baseUrl).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
 function parseReflectionResult(
   value: string,
-): { ok: true; result: ValidReflectionResult } | { ok: false } {
-  let parsedValue: unknown;
+):
+  | { ok: true; result: ValidReflectionResult }
+  | { ok: false; reason: string } {
+  const parsedValue = parseJsonObjectFromText(value);
 
-  try {
-    parsedValue = JSON.parse(stripJsonCodeFence(value));
-  } catch {
-    return { ok: false };
+  if (!parsedValue) {
+    return { ok: false, reason: "invalid_json" };
   }
 
-  if (!isRecord(parsedValue)) {
-    return { ok: false };
-  }
-
-  const summary = getTrimmedString(parsedValue.summary);
-  const observation = getTrimmedString(parsedValue.observation);
-  const followUpQuestion = getTrimmedString(parsedValue.followUpQuestion);
-  const suggestion = getTrimmedString(parsedValue.suggestion);
+  const summary = getReflectionText(parsedValue.summary, "punctuation");
+  const observation = getReflectionText(
+    parsedValue.observation,
+    "punctuation",
+  );
+  const followUpQuestion = getReflectionText(
+    parsedValue.followUpQuestion ?? parsedValue.follow_up_question,
+    "question",
+  );
+  const suggestion = getReflectionText(parsedValue.suggestion, "punctuation");
   const emotions = getTrimmedStringArray(parsedValue.emotions).slice(
     0,
     maxEmotionsCount,
@@ -650,23 +696,20 @@ function parseReflectionResult(
     maxThemesCount,
   );
 
-  if (
-    !summary ||
-    observation === null ||
-    followUpQuestion === null ||
-    suggestion === null ||
-    !hasTerminalPunctuation(summary) ||
-    !hasTerminalPunctuation(observation) ||
-    !followUpQuestion.endsWith("?") ||
-    !hasTerminalPunctuation(suggestion) ||
-    isIncompleteReflectionText(summary) ||
-    isIncompleteReflectionText(observation) ||
-    isIncompleteReflectionText(followUpQuestion) ||
-    isIncompleteReflectionText(suggestion) ||
-    !Array.isArray(parsedValue.emotions) ||
-    !Array.isArray(parsedValue.themes)
-  ) {
-    return { ok: false };
+  if (!summary) {
+    return { ok: false, reason: "invalid_summary" };
+  }
+
+  if (!observation) {
+    return { ok: false, reason: "invalid_observation" };
+  }
+
+  if (!followUpQuestion) {
+    return { ok: false, reason: "invalid_follow_up_question" };
+  }
+
+  if (!suggestion) {
+    return { ok: false, reason: "invalid_suggestion" };
   }
 
   return {
@@ -680,6 +723,33 @@ function parseReflectionResult(
       themes,
     },
   };
+}
+
+function parseJsonObjectFromText(value: string) {
+  const cleanedValue = stripJsonCodeFence(value);
+
+  try {
+    const parsedValue: unknown = JSON.parse(cleanedValue);
+
+    return isRecord(parsedValue) ? parsedValue : null;
+  } catch {
+    const objectStartIndex = cleanedValue.indexOf("{");
+    const objectEndIndex = cleanedValue.lastIndexOf("}");
+
+    if (objectStartIndex < 0 || objectEndIndex <= objectStartIndex) {
+      return null;
+    }
+
+    try {
+      const parsedValue: unknown = JSON.parse(
+        cleanedValue.slice(objectStartIndex, objectEndIndex + 1),
+      );
+
+      return isRecord(parsedValue) ? parsedValue : null;
+    } catch {
+      return null;
+    }
+  }
 }
 
 async function getProviderErrorCode(response: Response) {
@@ -847,19 +917,103 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function getTrimmedString(value: unknown) {
-  return typeof value === "string" ? value.trim() : null;
+function getTrimmedStringArray(value: unknown) {
+  const sourceValues =
+    typeof value === "string"
+      ? value.split(",")
+      : Array.isArray(value)
+        ? value
+        : [];
+
+  return sourceValues
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => cleanSingleLine(item))
+    .filter(Boolean);
 }
 
-function getTrimmedStringArray(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [];
+function getReflectionText(
+  value: unknown,
+  terminal: "punctuation" | "question",
+) {
+  if (typeof value !== "string") {
+    return null;
   }
 
-  return value
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const trimmedValue = cleanSingleLine(value);
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const sanitizedValue = ensureReflectionTerminal(
+    truncateReflectionText(trimmedValue, maxReflectionTextLength),
+    terminal,
+  );
+
+  if (!sanitizedValue || isIncompleteReflectionText(sanitizedValue)) {
+    return null;
+  }
+
+  return sanitizedValue;
+}
+
+function truncateReflectionText(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  const sentenceEndMatch = value
+    .slice(0, maxLength + 1)
+    .match(/^([\s\S]*[.!?।])(?:\s|$)/);
+
+  if (sentenceEndMatch?.[1]) {
+    return sentenceEndMatch[1].trim();
+  }
+
+  const truncatedValue = value.slice(0, maxLength).trimEnd();
+  const lastSpaceIndex = truncatedValue.lastIndexOf(" ");
+
+  if (lastSpaceIndex > Math.floor(maxLength * 0.7)) {
+    return truncatedValue.slice(0, lastSpaceIndex).trimEnd();
+  }
+
+  return truncatedValue;
+}
+
+function ensureReflectionTerminal(
+  value: string,
+  terminal: "punctuation" | "question",
+) {
+  if (terminal === "question") {
+    if (value.endsWith("?")) {
+      return value;
+    }
+
+    if (hasTerminalPunctuation(value)) {
+      return null;
+    }
+
+    return looksLikeQuestion(value) ? appendTerminal(value, "?") : null;
+  }
+
+  return hasTerminalPunctuation(value) ? value : appendTerminal(value, ".");
+}
+
+function appendTerminal(value: string, terminal: "." | "?") {
+  if (value.length < maxReflectionTextLength) {
+    return `${value}${terminal}`;
+  }
+
+  return `${truncateReflectionText(
+    value,
+    maxReflectionTextLength - terminal.length,
+  )}${terminal}`;
+}
+
+function looksLikeQuestion(value: string) {
+  return /^(what|when|where|why|how|who|which|could|would|can|do|does|did|is|are|was|were|have|has|had|might|may|will|should)\b/i.test(
+    value,
+  );
 }
 
 function hasTerminalPunctuation(value: string) {
@@ -870,7 +1024,7 @@ function isIncompleteReflectionText(value: string) {
   const trimmedValue = value.trim();
 
   if (
-    trimmedValue.length > 220 ||
+    trimmedValue.length > maxReflectionTextLength ||
     /(\.\.\.|…)$/.test(trimmedValue) ||
     /[,;:]$/.test(trimmedValue)
   ) {

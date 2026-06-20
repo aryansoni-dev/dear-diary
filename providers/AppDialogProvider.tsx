@@ -76,6 +76,7 @@ export const AppDialogContext =
 export function AppDialogProvider({ children }: { children: ReactNode }) {
   const [dialogs, setDialogs] = useState<AppDialogOptions[]>([]);
   const [isDismissing, setIsDismissing] = useState(false);
+  const isDismissingRef = useRef(false);
   const dialogAnimation = useRef(new Animated.Value(0)).current;
   const dialog = dialogs[0] ?? null;
 
@@ -111,6 +112,7 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    isDismissingRef.current = false;
     setIsDismissing(false);
     dialogAnimation.setValue(0);
     Animated.timing(dialogAnimation, {
@@ -123,10 +125,11 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
 
   const dismissDialog = useCallback(
     (onDismiss?: () => void) => {
-      if (isDismissing) {
+      if (isDismissingRef.current) {
         return;
       }
 
+      isDismissingRef.current = true;
       setIsDismissing(true);
       Animated.timing(dialogAnimation, {
         duration: 180,
@@ -135,15 +138,18 @@ export function AppDialogProvider({ children }: { children: ReactNode }) {
         useNativeDriver: true,
       }).start(({ finished }) => {
         if (!finished) {
+          isDismissingRef.current = false;
+          setIsDismissing(false);
           return;
         }
 
         hideDialog();
+        isDismissingRef.current = false;
         setIsDismissing(false);
         onDismiss?.();
       });
     },
-    [dialogAnimation, hideDialog, isDismissing],
+    [dialogAnimation, hideDialog],
   );
 
   function handleCancel() {

@@ -285,19 +285,23 @@ function ReflectionReportCard({
   }));
 
   function handleButtonPressIn() {
-    buttonScale.value = withSpring(0.96, {
-      damping: 18,
-      mass: 0.7,
-      stiffness: 240,
-    });
+    buttonScale.set(
+      withSpring(0.96, {
+        damping: 18,
+        mass: 0.7,
+        stiffness: 240,
+      }),
+    );
   }
 
   function handleButtonPressOut() {
-    buttonScale.value = withSpring(1, {
-      damping: 20,
-      mass: 0.8,
-      stiffness: 170,
-    });
+    buttonScale.set(
+      withSpring(1, {
+        damping: 20,
+        mass: 0.8,
+        stiffness: 170,
+      }),
+    );
   }
 
   return (

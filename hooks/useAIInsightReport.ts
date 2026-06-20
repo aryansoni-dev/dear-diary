@@ -323,8 +323,8 @@ function isReportStale(
     latestUpdatedAt: string | null;
   },
 ) {
-  if (areSameStringSet(report.relatedEntryIds, localSource.entryIds)) {
-    return isTimestampAfter(localSource.latestUpdatedAt, report.updatedAt);
+  if (!areSameStringSet(report.relatedEntryIds, localSource.entryIds)) {
+    return true;
   }
 
   if (getReportSourceEntryCount(report) !== localSource.count) {
@@ -332,7 +332,7 @@ function isReportStale(
   }
 
   if (!report.sourceLatestUpdatedAt) {
-    return false;
+    return isTimestampAfter(localSource.latestUpdatedAt, report.updatedAt);
   }
 
   return isTimestampAfter(
@@ -347,8 +347,11 @@ function areSameStringSet(firstValues: string[], secondValues: string[]) {
   }
 
   const firstSortedValues = [...firstValues].sort();
+  const secondSortedValues = [...secondValues].sort();
 
-  return secondValues.every((value, index) => value === firstSortedValues[index]);
+  return firstSortedValues.every(
+    (value, index) => value === secondSortedValues[index],
+  );
 }
 
 function isTimestampAfter(
