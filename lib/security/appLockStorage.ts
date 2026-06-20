@@ -2,6 +2,15 @@ import * as SecureStore from "expo-secure-store";
 
 import type { AppLockConfig, AppLockDelay } from "@/types/appLock";
 
+export type AppLockConfigLoadError = {
+  status: "error";
+};
+
+export type AppLockConfigLoadResult =
+  | AppLockConfig
+  | AppLockConfigLoadError
+  | null;
+
 const appLockDelays: AppLockDelay[] = [
   "immediately",
   "after_1_minute",
@@ -17,12 +26,12 @@ const getAppLockStorageKey = (userId: string) =>
 
 export const getAppLockConfig = async (
   userId: string,
-): Promise<AppLockConfig | null> => {
+): Promise<AppLockConfigLoadResult> => {
   try {
     const isAvailable = await SecureStore.isAvailableAsync();
 
     if (!isAvailable) {
-      return null;
+      return { status: "error" };
     }
 
     const storedValue = await SecureStore.getItemAsync(
@@ -36,14 +45,20 @@ export const getAppLockConfig = async (
     const parsedValue: unknown = JSON.parse(storedValue);
 
     if (!isAppLockConfig(parsedValue)) {
-      return null;
+      return { status: "error" };
     }
 
     return parsedValue;
   } catch {
-    return null;
+    return { status: "error" };
   }
 };
+
+export function isAppLockConfigLoadError(
+  result: AppLockConfigLoadResult,
+): result is AppLockConfigLoadError {
+  return isRecord(result) && "status" in result && result.status === "error";
+}
 
 export const saveAppLockConfig = async (
   userId: string,

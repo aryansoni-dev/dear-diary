@@ -29,6 +29,16 @@ export function useAppLockLifecycle({
 }: UseAppLockLifecycleParams) {
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const backgroundedAtRef = useRef<number | null>(null);
+  const visibilityRef = useRef(AppState.currentState === "active");
+  const configRef = useRef(config);
+  const isEnabledRef = useRef(isEnabled);
+  const statusRef = useRef(status);
+
+  useEffect(() => {
+    configRef.current = config;
+    isEnabledRef.current = isEnabled;
+    statusRef.current = status;
+  }, [config, isEnabled, status]);
 
   useEffect(() => {
     function handleLoseVisibility() {
@@ -36,11 +46,19 @@ export function useAppLockLifecycle({
         return;
       }
 
-      if (isEnabled && status === "unlocked") {
+      if (!visibilityRef.current) {
+        return;
+      }
+
+      visibilityRef.current = false;
+
+      const latestConfig = configRef.current;
+
+      if (isEnabledRef.current && statusRef.current === "unlocked") {
         backgroundedAtRef.current = Date.now();
         setPrivacyCoverVisible(true);
 
-        if (config?.lockDelay === "immediately") {
+        if (latestConfig?.lockDelay === "immediately") {
           lockNow();
         }
       }
@@ -51,17 +69,24 @@ export function useAppLockLifecycle({
         return;
       }
 
+      if (visibilityRef.current) {
+        return;
+      }
+
+      visibilityRef.current = true;
+
       const backgroundedAt = backgroundedAtRef.current;
       backgroundedAtRef.current = null;
+      const latestConfig = configRef.current;
 
       if (
-        isEnabled &&
-        status === "unlocked" &&
+        isEnabledRef.current &&
+        statusRef.current === "unlocked" &&
         backgroundedAt !== null &&
-        config
+        latestConfig
       ) {
         const elapsedMs = Date.now() - backgroundedAt;
-        const delayMs = APP_LOCK_DELAY_MS[config.lockDelay];
+        const delayMs = APP_LOCK_DELAY_MS[latestConfig.lockDelay];
 
         if (elapsedMs >= delayMs) {
           lockNow();
@@ -73,17 +98,13 @@ export function useAppLockLifecycle({
     }
 
     const changeSubscription = AppState.addEventListener("change", (nextState) => {
-      const previousState = appStateRef.current;
       appStateRef.current = nextState;
 
       if (isAuthenticatingRef.current) {
         return;
       }
 
-      if (
-        previousState === "active" &&
-        (nextState === "inactive" || nextState === "background")
-      ) {
+      if (nextState === "inactive" || nextState === "background") {
         handleLoseVisibility();
         return;
       }
@@ -109,12 +130,9 @@ export function useAppLockLifecycle({
       focusSubscription.remove();
     };
   }, [
-    config,
     isAuthenticatingRef,
-    isEnabled,
     lockNow,
     setPrivacyCoverVisible,
-    status,
   ]);
 
   useEffect(() => {

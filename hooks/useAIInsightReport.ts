@@ -58,6 +58,7 @@ export function useAIInsightReport(
   const [isGenerating, setIsGenerating] = useState(false);
   const [legacyReportAvailable, setLegacyReportAvailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestContextVersionRef = useRef(0);
   const requestInFlightRef = useRef(false);
 
   const periodEntries = useMemo(
@@ -78,8 +79,10 @@ export function useAIInsightReport(
   );
 
   useEffect(() => {
+    requestContextVersionRef.current += 1;
+    requestInFlightRef.current = false;
+
     if (!enabled) {
-      requestInFlightRef.current = false;
       setReport(null);
       setIsLoading(false);
       setIsGenerating(false);
@@ -90,9 +93,15 @@ export function useAIInsightReport(
 
     const cachedReport = getCachedReport(userId ?? null, cacheKey);
     setReport(cachedReport);
+    setIsLoading(false);
+    setIsGenerating(false);
     setLegacyReportAvailable(false);
     setError(null);
   }, [cacheKey, enabled, getCachedReport, userId]);
+
+  const isCurrentRequestContext = useCallback((requestVersion: number) => {
+    return requestContextVersionRef.current === requestVersion;
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!enabled) {
@@ -104,11 +113,17 @@ export function useAIInsightReport(
       return;
     }
 
+    const requestVersion = requestContextVersionRef.current;
     setIsLoading(true);
     setError(null);
 
     try {
       const result = await fetchAIInsightReport({ period });
+
+      if (!isCurrentRequestContext(requestVersion)) {
+        return;
+      }
+
       setLegacyReportAvailable(result.legacyReportAvailable);
 
       if (result.report) {
@@ -119,11 +134,25 @@ export function useAIInsightReport(
         removeCachedReport(userId, cacheKey);
       }
     } catch (refreshError) {
+      if (!isCurrentRequestContext(requestVersion)) {
+        return;
+      }
+
       setError(getErrorMessage(refreshError));
     } finally {
-      setIsLoading(false);
+      if (isCurrentRequestContext(requestVersion)) {
+        setIsLoading(false);
+      }
     }
-  }, [cacheKey, enabled, period, removeCachedReport, setCachedReport, userId]);
+  }, [
+    cacheKey,
+    enabled,
+    isCurrentRequestContext,
+    period,
+    removeCachedReport,
+    setCachedReport,
+    userId,
+  ]);
 
   useEffect(() => {
     if (enabled && hasHydrated) {
@@ -146,6 +175,7 @@ export function useAIInsightReport(
         return;
       }
 
+      const requestVersion = requestContextVersionRef.current;
       requestInFlightRef.current = true;
       setIsGenerating(true);
       setError(null);
@@ -156,6 +186,10 @@ export function useAIInsightReport(
           runAutoSync,
           userId,
         });
+
+        if (!isCurrentRequestContext(requestVersion)) {
+          return;
+        }
 
         if (!entriesAreSynced) {
           setError(
@@ -169,17 +203,35 @@ export function useAIInsightReport(
           regenerate,
         });
 
+        if (!isCurrentRequestContext(requestVersion)) {
+          return;
+        }
+
         setReport(generatedReport);
         setLegacyReportAvailable(false);
         setCachedReport(userId, cacheKey, generatedReport);
       } catch (generationError) {
+        if (!isCurrentRequestContext(requestVersion)) {
+          return;
+        }
+
         setError(getErrorMessage(generationError));
       } finally {
-        requestInFlightRef.current = false;
-        setIsGenerating(false);
+        if (isCurrentRequestContext(requestVersion)) {
+          requestInFlightRef.current = false;
+          setIsGenerating(false);
+        }
       }
     },
-    [cacheKey, enabled, period, runAutoSync, setCachedReport, userId],
+    [
+      cacheKey,
+      enabled,
+      isCurrentRequestContext,
+      period,
+      runAutoSync,
+      setCachedReport,
+      userId,
+    ],
   );
 
   return {

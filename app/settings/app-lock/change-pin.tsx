@@ -76,9 +76,34 @@ export default function ChangeAppLockPinScreen() {
       setNextPin("");
       setConfirmedPin("");
       router.replace(privacyHref);
+    } catch (error) {
+      if (__DEV__) {
+        console.warn(
+          "App Lock PIN change failed",
+          error instanceof Error ? error.message : "Unknown error",
+        );
+      }
+
+      setCurrentPin("");
+      setMessage("We couldn't change your PIN. Please try again.");
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleCurrentPinChange(pin: string) {
+    setCurrentPin(pin);
+    setMessage(null);
+  }
+
+  function handleNextPinChange(pin: string) {
+    setNextPin(pin);
+    setMessage(null);
+  }
+
+  function handleConfirmedPinChange(pin: string) {
+    setConfirmedPin(pin);
+    setMessage(null);
   }
 
   return (
@@ -117,7 +142,7 @@ export default function ChangeAppLockPinScreen() {
             <PinInput
               accessibilityLabel="Enter your current six-digit App Lock PIN"
               disabled={isSaving}
-              onChangePin={setCurrentPin}
+              onChangePin={handleCurrentPinChange}
               pin={currentPin}
             />
           </View>
@@ -129,7 +154,7 @@ export default function ChangeAppLockPinScreen() {
             <PinInput
               accessibilityLabel="Enter your new six-digit App Lock PIN"
               disabled={isSaving}
-              onChangePin={setNextPin}
+              onChangePin={handleNextPinChange}
               pin={nextPin}
             />
           </View>
@@ -141,7 +166,7 @@ export default function ChangeAppLockPinScreen() {
             <PinInput
               accessibilityLabel="Confirm your new six-digit App Lock PIN"
               disabled={isSaving}
-              onChangePin={setConfirmedPin}
+              onChangePin={handleConfirmedPinChange}
               onSubmit={() => void handleSave(false)}
               pin={confirmedPin}
             />

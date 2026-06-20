@@ -15,7 +15,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PinInput } from "@/components/app-lock/PinInput";
 import { useAppLock } from "@/hooks/useAppLock";
-import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
+import {
+  getSupabaseAccessTokenProvider,
+  setSupabaseAccessTokenProvider,
+} from "@/lib/supabase";
 import { useJournalStore } from "@/store/journal-store";
 
 export function AppLockScreen() {
@@ -151,13 +154,24 @@ export function AppLockScreen() {
       return;
     }
 
+    const previousActiveUserId = useJournalStore.getState().activeUserId;
+    const previousAccessTokenProvider = getSupabaseAccessTokenProvider();
+
     setSigningOut(true);
-    setActiveUserId(null);
-    setSupabaseAccessTokenProvider(null);
 
     try {
       await signOut();
+      setActiveUserId(null);
+      setSupabaseAccessTokenProvider(null);
       router.replace("/login");
+    } catch (error) {
+      setActiveUserId(previousActiveUserId);
+      setSupabaseAccessTokenProvider(previousAccessTokenProvider);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "We could not sign you out. Please try again.",
+      );
     } finally {
       setSigningOut(false);
     }
@@ -180,27 +194,12 @@ export function AppLockScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View className="items-center gap-8">
-          <View className="items-center gap-4">
+          <View className="items-center">
             <View
               className="size-20 items-center justify-center rounded-[28px] bg-[#FFDDE8]"
               style={{ boxShadow: "0 10px 26px rgba(255, 32, 86, 0.18)" }}
             >
               <Feather name="lock" size={34} color="#FF2056" />
-            </View>
-
-            <View className="items-center gap-2">
-              <Text className="text-center text-[28px] font-bold leading-9 text-[#27272A]">
-                Your journal is private.
-              </Text>
-              <Text
-                allowFontScaling={false}
-                adjustsFontSizeToFit
-                className="w-full min-w-[220px] text-center text-[16px] leading-7 text-[#71717B]"
-                minimumFontScale={0.85}
-                numberOfLines={1}
-              >
-                Unlock to continue.
-              </Text>
             </View>
           </View>
 

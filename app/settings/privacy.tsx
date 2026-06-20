@@ -1,6 +1,5 @@
 import { Feather } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -11,12 +10,15 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PinInput } from "@/components/app-lock/PinInput";
+import {
+  Divider,
+  SettingsCard,
+  SettingsRow,
+} from "@/components/app-lock/AppLockSettingsComponents";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
-import { useAppDialog } from "@/hooks/useAppDialog";
-import { useAppLock } from "@/hooks/useAppLock";
+import { useAppLockSettings } from "@/hooks/useAppLockSettings";
 import type { AppLockDelay } from "@/types/appLock";
 
-const setupHref = "/settings/app-lock/setup" as Href;
 const changePinHref = "/settings/app-lock/change-pin" as Href;
 
 const delayOptions: { label: string; value: AppLockDelay }[] = [
@@ -26,28 +28,27 @@ const delayOptions: { label: string; value: AppLockDelay }[] = [
   { label: "After 15 minutes", value: "after_15_minutes" },
 ];
 
-type PendingAction = "disable-lock" | "disable-biometrics" | null;
-
 export default function PrivacySettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { showDialog } = useAppDialog();
   const {
     biometricAvailability,
+    biometricLabel,
+    busyAction,
+    canUseBiometrics,
+    completePendingAction,
     config,
-    disableAppLock,
+    handleAppLockPress,
+    handleCancelPendingAction,
+    handleDelayPress,
+    handleDisableBiometricsPress,
+    handleEnableBiometrics,
+    handlePinChange,
     isEnabled,
     lockNow,
-    setBiometricEnabled,
-    setLockDelay,
-  } = useAppLock();
-  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
-  const [pin, setPin] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
-  const [busyAction, setBusyAction] = useState<string | null>(null);
-  const biometricLabel = biometricAvailability?.displayName ?? "Biometrics";
-  const canUseBiometrics =
-    config?.biometricEnabled === true &&
-    biometricAvailability?.isAvailable === true;
+    message,
+    pendingAction,
+    pin,
+  } = useAppLockSettings();
 
   function handleBackPress() {
     if (router.canGoBack()) {
@@ -56,130 +57,6 @@ export default function PrivacySettingsScreen() {
     }
 
     router.replace("/profile-tab");
-  }
-
-  function handleAppLockPress() {
-    if (!isEnabled) {
-      router.push(setupHref);
-      return;
-    }
-
-    showDialog({
-      actions: [
-        {
-          onPress: () => {
-            setPendingAction("disable-lock");
-            setPin("");
-            setMessage(null);
-          },
-          text: "Continue",
-          variant: "destructive",
-        },
-      ],
-      cancelText: "Cancel",
-      message:
-        "Your journal will open without requiring your PIN or biometrics on this device.",
-      showCancel: true,
-      title: "Turn off App Lock?",
-      variant: "destructive",
-    });
-  }
-
-  async function handleEnableBiometrics() {
-    setBusyAction("enable-biometrics");
-    setMessage(null);
-
-    try {
-      const didEnable = await setBiometricEnabled(true);
-
-      showDialog({
-        confirmText: "OK",
-        message: didEnable
-          ? `${biometricLabel} can now unlock DearDiary on this device.`
-          : "Biometrics could not be enabled. You can keep using your PIN.",
-        title: didEnable ? "Biometrics enabled" : "Biometrics unavailable",
-        variant: didEnable ? "success" : "destructive",
-      });
-    } finally {
-      setBusyAction(null);
-    }
-  }
-
-  function handleDisableBiometricsPress() {
-    showDialog({
-      actions: [
-        {
-          onPress: () => {
-            setPendingAction("disable-biometrics");
-            setPin("");
-            setMessage(null);
-          },
-          text: "Continue",
-          variant: "destructive",
-        },
-      ],
-      cancelText: "Cancel",
-      message:
-        "Your PIN will remain available. Biometrics can be enabled again later.",
-      showCancel: true,
-      title: `Turn off ${biometricLabel}?`,
-    });
-  }
-
-  async function completePendingAction(useBiometric: boolean) {
-    if (!pendingAction || busyAction) {
-      return;
-    }
-
-    if (!useBiometric && pin.length !== 6) {
-      setMessage("Enter your six-digit PIN.");
-      return;
-    }
-
-    setBusyAction(pendingAction);
-    setMessage(null);
-
-    try {
-      const didComplete =
-        pendingAction === "disable-lock"
-          ? await disableAppLock({ pin, useBiometric })
-          : await setBiometricEnabled(false, { pin, useBiometric });
-
-      if (!didComplete) {
-        setMessage("Authentication failed. Please try again.");
-        setPin("");
-        return;
-      }
-
-      const completedAction = pendingAction;
-      setPendingAction(null);
-      setPin("");
-
-      showDialog({
-        confirmText: "OK",
-        message:
-          completedAction === "disable-lock"
-            ? "DearDiary will open without App Lock on this device."
-            : `${biometricLabel} has been turned off for App Lock.`,
-        title:
-          completedAction === "disable-lock"
-            ? "App Lock disabled"
-            : "Biometrics disabled",
-        variant: "success",
-      });
-    } finally {
-      setBusyAction(null);
-    }
-  }
-
-  async function handleDelayPress(delay: AppLockDelay) {
-    setBusyAction(delay);
-
-    try {
-      await setLockDelay(delay);
-    } finally {
-      setBusyAction(null);
-    }
   }
 
   return (
@@ -191,6 +68,7 @@ export default function PrivacySettingsScreen() {
           paddingHorizontal: 24,
           paddingTop: Math.max(insets.top + 28, 52),
         }}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View className="flex-row items-center justify-between">
@@ -271,7 +149,7 @@ export default function PrivacySettingsScreen() {
             <PinInput
               accessibilityLabel="Enter your six-digit App Lock PIN"
               disabled={busyAction !== null}
-              onChangePin={setPin}
+              onChangePin={handlePinChange}
               onSubmit={() => void completePendingAction(false)}
               pin={pin}
             />
@@ -318,11 +196,7 @@ export default function PrivacySettingsScreen() {
               <Pressable
                 accessibilityRole="button"
                 className="h-11 items-center justify-center rounded-full bg-[#F4F4F5]"
-                onPress={() => {
-                  setPendingAction(null);
-                  setPin("");
-                  setMessage(null);
-                }}
+                onPress={handleCancelPendingAction}
               >
                 <Text className="text-[14px] font-semibold leading-5 text-[#51515B]">
                   Cancel
@@ -390,60 +264,3 @@ function SectionTitle({ children }: { children: string }) {
     </Text>
   );
 }
-
-function SettingsCard({ children }: { children: React.ReactNode }) {
-  return (
-    <View
-      className="rounded-[24px] bg-white p-2"
-      style={{ boxShadow: "0 2px 8px rgba(39, 39, 42, 0.12)" }}
-    >
-      {children}
-    </View>
-  );
-}
-
-function Divider() {
-  return <View className="mx-3 h-px bg-[#E4E4E7]" />;
-}
-
-function SettingsRow({
-  icon,
-  isBusy = false,
-  label,
-  onPress,
-  value,
-}: {
-  icon: keyof typeof Feather.glyphMap;
-  isBusy?: boolean;
-  label: string;
-  onPress: () => void;
-  value: string;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      className="min-h-[58px] flex-row items-center justify-between gap-3 rounded-[18px] p-3"
-      onPress={onPress}
-    >
-      <View className="flex-1 flex-row items-center gap-4">
-        <View className="size-10 items-center justify-center rounded-[13px] bg-[#FFE1EE]">
-          <Feather name={icon} size={20} color="#FF2056" />
-        </View>
-        <Text className="flex-1 text-[15px] font-medium leading-5 text-[#27272A]">
-          {label}
-        </Text>
-      </View>
-
-      {isBusy ? (
-        <ActivityIndicator color="#A1A1AA" size="small" />
-      ) : value ? (
-        <Text className="text-[13px] font-semibold leading-5 text-[#71717B]">
-          {value}
-        </Text>
-      ) : (
-        <Feather name="chevron-right" size={21} color="#A1A1AA" />
-      )}
-    </Pressable>
-  );
-}
-

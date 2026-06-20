@@ -13,6 +13,7 @@ import { useAppLockLifecycle } from "@/hooks/useAppLockLifecycle";
 import {
   deleteAppLockConfig,
   getAppLockConfig,
+  isAppLockConfigLoadError,
   saveAppLockConfig,
 } from "@/lib/security/appLockStorage";
 import {
@@ -91,9 +92,15 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
     useState(false);
   const [isPrivacyCoverVisible, setPrivacyCoverVisible] = useState(false);
   const isAuthenticatingRef = useRef(false);
+  const configRef = useRef<AppLockConfig | null>(null);
+  const pinVerificationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const userIdRef = useRef<string | null>(null);
 
   userIdRef.current = userId ?? null;
+
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
 
   const loadBiometricAvailability = useCallback(async () => {
     const availability = await getBiometricAvailability();
@@ -130,6 +137,14 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (isAppLockConfigLoadError(storedConfig)) {
+      setConfig(null);
+      setStatus("checking");
+      setActiveUserId(null);
+      setHasOpenedPrivateContent(false);
+      return;
+    }
+
     if (!storedConfig?.enabled) {
       setConfig(storedConfig);
       setStatus("disabled");
@@ -153,73 +168,111 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
       }
 
       await saveAppLockConfig(userId, nextConfig);
+      configRef.current = nextConfig;
       setConfig(nextConfig);
     },
     [userId],
   );
 
   const lockNow = useCallback(() => {
-    if (!config?.enabled) {
+    if (!configRef.current?.enabled) {
       return;
     }
 
     setStatus("locked");
-  }, [config?.enabled]);
+  }, []);
+
+  const runQueuedPinVerification = useCallback(
+    async (
+      operation: () => Promise<AppLockUnlockResult>,
+    ): Promise<AppLockUnlockResult> => {
+      const previousAttempt = pinVerificationQueueRef.current;
+      let releaseCurrentAttempt = () => {};
+      const currentAttempt = new Promise<void>((resolve) => {
+        releaseCurrentAttempt = resolve;
+      });
+
+      pinVerificationQueueRef.current = previousAttempt.then(
+        () => currentAttempt,
+        () => currentAttempt,
+      );
+
+      await previousAttempt.catch(() => undefined);
+
+      try {
+        return await operation();
+      } finally {
+        releaseCurrentAttempt();
+      }
+    },
+    [],
+  );
 
   const verifyPinForConfig = useCallback(
     async (
       pin: string,
       options: { unlockOnSuccess: boolean },
-    ): Promise<AppLockUnlockResult> => {
-      if (!userId || !config?.enabled) {
-        return { reason: "not_available", success: false };
-      }
+    ): Promise<AppLockUnlockResult> =>
+      runQueuedPinVerification(async () => {
+        if (!userId || userIdRef.current !== userId) {
+          return { reason: "not_available", success: false };
+        }
 
-      if (!isValidPin(pin)) {
-        return { reason: "invalid_pin", success: false };
-      }
+        const currentConfig = configRef.current;
 
-      const now = Date.now();
+        if (!currentConfig?.enabled) {
+          return { reason: "not_available", success: false };
+        }
 
-      if (isTemporarilyLocked(config, now)) {
-        return { reason: "temporarily_locked", success: false };
-      }
+        if (!isValidPin(pin)) {
+          return { reason: "invalid_pin", success: false };
+        }
 
-      const isMatch = await verifyPin(pin, config.pinSalt, config.pinHash);
+        const now = Date.now();
 
-      if (isMatch) {
-        const unlockedConfig = {
-          ...config,
-          failedAttempts: 0,
-          lockedUntil: null,
+        if (isTemporarilyLocked(currentConfig, now)) {
+          return { reason: "temporarily_locked", success: false };
+        }
+
+        const isMatch = await verifyPin(
+          pin,
+          currentConfig.pinSalt,
+          currentConfig.pinHash,
+        );
+
+        if (isMatch) {
+          const unlockedConfig = {
+            ...currentConfig,
+            failedAttempts: 0,
+            lockedUntil: null,
+            updatedAt: new Date().toISOString(),
+          };
+
+          await saveCurrentConfig(unlockedConfig);
+
+          if (options.unlockOnSuccess) {
+            setActiveUserId(userId);
+            setHasOpenedPrivateContent(true);
+            setStatus("unlocked");
+          }
+
+          return { success: true };
+        }
+
+        const failedAttempts = currentConfig.failedAttempts + 1;
+        const lockedUntil = getLockoutUntil(failedAttempts, now);
+        const failedConfig = {
+          ...currentConfig,
+          failedAttempts,
+          lockedUntil,
           updatedAt: new Date().toISOString(),
         };
 
-        await saveCurrentConfig(unlockedConfig);
+        await saveCurrentConfig(failedConfig);
 
-        if (options.unlockOnSuccess) {
-          setActiveUserId(userId);
-          setHasOpenedPrivateContent(true);
-          setStatus("unlocked");
-        }
-
-        return { success: true };
-      }
-
-      const failedAttempts = config.failedAttempts + 1;
-      const lockedUntil = getLockoutUntil(failedAttempts, now);
-      const failedConfig = {
-        ...config,
-        failedAttempts,
-        lockedUntil,
-        updatedAt: new Date().toISOString(),
-      };
-
-      await saveCurrentConfig(failedConfig);
-
-      return { reason: "invalid_pin", success: false };
-    },
-    [config, saveCurrentConfig, setActiveUserId, userId],
+        return { reason: "invalid_pin", success: false };
+      }),
+    [runQueuedPinVerification, saveCurrentConfig, setActiveUserId, userId],
   );
 
   const unlockWithPin = useCallback(
@@ -319,8 +372,13 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
         }
 
         isAuthenticatingRef.current = true;
-        const result = await authenticateWithBiometrics();
-        isAuthenticatingRef.current = false;
+        let result: AppLockUnlockResult;
+
+        try {
+          result = await authenticateWithBiometrics();
+        } finally {
+          isAuthenticatingRef.current = false;
+        }
 
         if (!result.success) {
           throw new Error("Biometric authentication was not completed.");
@@ -432,8 +490,13 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
         }
 
         isAuthenticatingRef.current = true;
-        const result = await authenticateWithBiometrics();
-        isAuthenticatingRef.current = false;
+        let result: AppLockUnlockResult;
+
+        try {
+          result = await authenticateWithBiometrics();
+        } finally {
+          isAuthenticatingRef.current = false;
+        }
 
         if (!result.success) {
           return false;
