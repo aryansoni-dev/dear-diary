@@ -3,6 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Check, ChevronLeft, Sparkles, Trash2, X } from "lucide-react-native";
+import LottieView from "lottie-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -24,6 +25,7 @@ import {
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { EntryAIReflectionCard } from "@/components/journal-editor/entry-ai-reflection-card";
 import { TagInputModal } from "@/components/tags/tag-input-modal";
+import { animatedMoodEmojis } from "@/constants/animated-emojis";
 import { journalEditorMoods } from "@/data/journal-editor";
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { useAutoSync } from "@/hooks/useAutoSync";
@@ -562,7 +564,10 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
                       : undefined,
                   }}
                 >
-                  <Text className="text-[18px] leading-6">{mood.emoji}</Text>
+                  <AnimatedMoodEmoji
+                    isSelected={isSelected}
+                    moodId={mood.id}
+                  />
                   <Text
                     className="text-[17px] leading-6"
                     style={{
@@ -701,6 +706,36 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
 
 function isEntryType(value: string | undefined): value is EntryType {
   return entryTypes.includes(value as EntryType);
+}
+
+function AnimatedMoodEmoji({
+  isSelected,
+  moodId,
+}: {
+  isSelected: boolean;
+  moodId: MoodId;
+}) {
+  const animationRef = useRef<LottieView>(null);
+
+  useEffect(() => {
+    if (!isSelected) {
+      return;
+    }
+
+    animationRef.current?.reset();
+    animationRef.current?.play();
+  }, [isSelected]);
+
+  return (
+    <LottieView
+      ref={animationRef}
+      autoPlay={isSelected}
+      loop={false}
+      resizeMode="contain"
+      source={animatedMoodEmojis[moodId]}
+      style={{ height: 24, width: 24 }}
+    />
+  );
 }
 
 function getSavedTitle({

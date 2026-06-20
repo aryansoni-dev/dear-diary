@@ -132,12 +132,21 @@ export function JournalHistoryScreen() {
   };
 
   useEffect(() => {
+    contentSlideAnimation.stopAnimation();
     contentSlideAnimation.setValue(0);
-    Animated.timing(contentSlideAnimation, {
+    const animation = Animated.timing(contentSlideAnimation, {
       duration: 230,
       toValue: 1,
       useNativeDriver: true,
-    }).start();
+    });
+
+    animation.start(({ finished }) => {
+      if (finished) {
+        contentSlideAnimation.setValue(1);
+      }
+    });
+
+    return () => animation.stop();
   }, [contentSlideAnimation, slideDirection, viewMode]);
 
   return (
@@ -186,8 +195,8 @@ export function JournalHistoryScreen() {
         </View>
 
         <Animated.View
+          collapsable={false}
           style={{
-            opacity: contentSlideAnimation,
             transform: [{ translateX: contentTranslateX }],
           }}
         >

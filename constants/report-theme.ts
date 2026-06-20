@@ -19,6 +19,8 @@ export const reportColors = {
   text: "#3F3F46",
 } as const;
 
+export const reportCardShadow = "0 10px 30px rgba(160, 140, 200, 0.16)";
+
 export const moodDistributionColors = {
   emptyText: reportColors.muted,
   labelText: reportColors.text,

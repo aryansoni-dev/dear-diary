@@ -31,8 +31,8 @@ import {
   LoadingState,
   OlderFormatState,
   PrimaryButton,
+  ReportRegenerateCard,
   ReportShell,
-  StaleBanner,
   UpdatingBanner,
 } from "@/components/insights/report/ReportScreenStates";
 import { ReportStatGrid } from "@/components/insights/report/ReportStatGrid";
@@ -73,15 +73,15 @@ export default function AIInsightReportScreen() {
   function handleRegenerate() {
     showDialog({
       cancelText: "Keep Current",
-      confirmText: "Update Reflection",
+      confirmText: "Regenerate",
       icon: "✦",
       message:
-        "DearDiary will analyze the latest journal entries for this period and replace this visual reflection.",
+        "DearDiary will analyze this period again and replace the current visual reflection.",
       onConfirm: () => {
         void reportState.regenerate();
       },
       showCancel: true,
-      title: "Update reflection?",
+      title: "Regenerate reflection?",
     });
   }
 
@@ -170,12 +170,11 @@ export default function AIInsightReportScreen() {
               label={period.label}
               report={reportState.report}
             />
-            {reportState.isStale ? (
-              <StaleBanner
-                disabled={reportState.isGenerating || !hasEnoughEntries}
-                onPress={handleRegenerate}
-              />
-            ) : null}
+            <ReportRegenerateCard
+              disabled={reportState.isGenerating || !hasEnoughEntries}
+              isStale={reportState.isStale}
+              onPress={handleRegenerate}
+            />
             <ReportSection title="AI Overview">
               <Text
                 allowFontScaling={false}

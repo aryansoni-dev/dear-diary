@@ -7,6 +7,7 @@ import {
 import {
   moodJourneyColors,
   moodReportColors,
+  reportCardShadow,
   reportColors,
 } from "@/constants/report-theme";
 import type { MoodTimelineItem } from "@/types/aiInsightReport";
@@ -49,7 +50,10 @@ export function MoodJourneyChart({ data, explanation }: MoodJourneyChartProps) {
           <View
             className="min-w-[112px] rounded-[22px] px-4 py-4"
             key={item.date}
-            style={{ backgroundColor: reportColors.lavender }}
+            style={{
+              backgroundColor: reportColors.lavender,
+              boxShadow: reportCardShadow,
+            }}
           >
             <Text
               allowFontScaling={false}

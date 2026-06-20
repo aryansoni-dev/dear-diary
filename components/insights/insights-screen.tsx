@@ -12,9 +12,11 @@ import {
 } from "react-native";
 import Animated, {
   Easing,
+  useAnimatedStyle,
   useAnimatedProps,
   useSharedValue,
   withDelay,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -39,11 +41,13 @@ import {
   type MoodJourneyPoint,
 } from "@/data/insights";
 import { useAIInsightReport } from "@/hooks/useAIInsightReport";
+import type { UseAIInsightReportResult } from "@/hooks/useAIInsightReport";
 import {
   getCurrentReportPeriod,
+  type ReportPeriod,
 } from "@/lib/insights/reportPeriods";
 import { useJournalStore } from "@/store/journal-store";
-import type { AIInsightPeriodType } from "@/types/aiInsightReport";
+import type { AIInsightReport } from "@/types/aiInsightReport";
 import type { JournalEntry, MoodId } from "@/types/journal";
 
 const primaryColor = "#FF2056";
@@ -59,8 +63,6 @@ const fallbackMoodEmoji = "😐";
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const reflectionReportCardStyles = {
-  buttonClassName:
-    "mt-5 h-12 items-center justify-center rounded-full bg-[#FF2056]",
   cardClassName: "rounded-[28px] bg-white/85 px-5 py-5",
   iconClassName:
     "size-11 items-center justify-center rounded-full bg-[#FFDDE8]",
@@ -95,34 +97,6 @@ const moodLabels: Record<MoodId, string> = {
   sad: "Sad",
 };
 
-const stopWords = [
-  "the",
-  "and",
-  "for",
-  "you",
-  "your",
-  "with",
-  "that",
-  "this",
-  "was",
-  "are",
-  "but",
-  "have",
-  "had",
-  "today",
-  "feel",
-  "felt",
-  "from",
-  "just",
-  "about",
-  "what",
-  "when",
-  "where",
-  "into",
-] as const;
-
-const stopWordSet = new Set<string>(stopWords);
-
 type ChartPoint = MoodJourneyPoint & {
   x: number;
   y: number;
@@ -133,11 +107,45 @@ export function InsightsScreen() {
   const entries = useJournalStore((state) => state.entries);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
+  const todayKey = useTodayKey();
+  const reportDate = useMemo(() => getLocalDateFromKey(todayKey), [todayKey]);
+  const weeklyPeriod = useMemo(
+    () => getCurrentReportPeriod("weekly", reportDate),
+    [reportDate],
+  );
+  const monthlyPeriod = useMemo(
+    () => getCurrentReportPeriod("monthly", reportDate),
+    [reportDate],
+  );
+  const weeklyReportState = useAIInsightReport(weeklyPeriod);
+  const monthlyReportState = useAIInsightReport(monthlyPeriod);
   const insights = useMemo(
     () => getLocalInsights(entries, hasHydrated),
     [entries, hasHydrated],
   );
-  const todayKey = useTodayKey();
+  const aiInsightCards = useMemo(
+    () =>
+      getAIInsightCards({
+        hasHydrated,
+        localCards: insights.cards,
+        monthlyReport: monthlyReportState.report,
+        monthlyReportIsLoading:
+          monthlyReportState.isLoading || monthlyReportState.isGenerating,
+        weeklyReport: weeklyReportState.report,
+        weeklyReportIsLoading:
+          weeklyReportState.isLoading || weeklyReportState.isGenerating,
+      }),
+    [
+      hasHydrated,
+      insights.cards,
+      monthlyReportState.isGenerating,
+      monthlyReportState.isLoading,
+      monthlyReportState.report,
+      weeklyReportState.isGenerating,
+      weeklyReportState.isLoading,
+      weeklyReportState.report,
+    ],
+  );
 
   return (
     <View className="flex-1 bg-[#FAF7F2]">
@@ -217,7 +225,7 @@ export function InsightsScreen() {
         </View>
 
         <View className="mt-7 gap-4">
-          {insights.cards.map((card) => (
+          {aiInsightCards.map((card) => (
             <InsightMessageCard card={card} key={card.title} />
           ))}
         </View>
@@ -230,8 +238,14 @@ export function InsightsScreen() {
             Reflection Reports
           </Text>
           <View className="mt-4 gap-4">
-            <ReflectionReportCard periodType="weekly" todayKey={todayKey} />
-            <ReflectionReportCard periodType="monthly" todayKey={todayKey} />
+            <ReflectionReportCard
+              period={weeklyPeriod}
+              reportState={weeklyReportState}
+            />
+            <ReflectionReportCard
+              period={monthlyPeriod}
+              reportState={monthlyReportState}
+            />
           </View>
         </View>
       </ScrollView>
@@ -242,17 +256,13 @@ export function InsightsScreen() {
 }
 
 function ReflectionReportCard({
-  periodType,
-  todayKey,
+  period,
+  reportState,
 }: {
-  periodType: AIInsightPeriodType;
-  todayKey: string;
+  period: ReportPeriod;
+  reportState: UseAIInsightReportResult;
 }) {
-  const period = useMemo(
-    () => getCurrentReportPeriod(periodType, getLocalDateFromKey(todayKey)),
-    [periodType, todayKey],
-  );
-  const reportState = useAIInsightReport(period);
+  const periodType = period.type;
   const minimumEntries = periodType === "weekly" ? 2 : 3;
   const hasEnoughEntries = reportState.availableEntryCount >= minimumEntries;
   const title =
@@ -269,6 +279,26 @@ function ReflectionReportCard({
     reportExists: Boolean(reportState.report),
   });
   const buttonLabel = reportState.report ? "View" : "Open";
+  const buttonScale = useSharedValue(1);
+  const animatedButtonStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+  }));
+
+  function handleButtonPressIn() {
+    buttonScale.value = withSpring(0.96, {
+      damping: 18,
+      mass: 0.7,
+      stiffness: 240,
+    });
+  }
+
+  function handleButtonPressOut() {
+    buttonScale.value = withSpring(1, {
+      damping: 20,
+      mass: 0.8,
+      stiffness: 170,
+    });
+  }
 
   return (
     <View
@@ -324,14 +354,29 @@ function ReflectionReportCard({
       >
         <Pressable
           accessibilityRole="button"
-          className={reflectionReportCardStyles.buttonClassName}
+          className="mt-5 h-12"
+          onPressIn={handleButtonPressIn}
+          onPressOut={handleButtonPressOut}
         >
-          <Text
-            allowFontScaling={false}
-            className="text-[15px] font-bold leading-5 text-white"
+          <Animated.View
+            style={[
+              {
+                alignItems: "center",
+                backgroundColor: primaryColor,
+                borderRadius: 999,
+                height: "100%",
+                justifyContent: "center",
+              },
+              animatedButtonStyle,
+            ]}
           >
-            {buttonLabel}
-          </Text>
+            <Text
+              allowFontScaling={false}
+              className="text-[15px] font-bold leading-5 text-white"
+            >
+              {buttonLabel}
+            </Text>
+          </Animated.View>
         </Pressable>
       </Link>
     </View>
@@ -397,7 +442,7 @@ function getLocalInsights(
   return {
     cards: insightCardStyles.map((card) => ({
       ...card,
-      body: getInsightCardBody(card.title, entries, hasHydrated, topMood),
+      body: getAIInsightUnavailableBody(card.title, hasHydrated),
     })),
     moodJourney: getWeeklyMoodJourney(entries),
     stats: insightStatStyles.map((stat) => ({
@@ -432,25 +477,110 @@ function useTodayKey() {
   return todayKey;
 }
 
-function getInsightCardBody(
-  title: InsightCard["title"],
-  entries: JournalEntry[],
+function getAIInsightCards({
+  hasHydrated,
+  localCards,
+  monthlyReport,
+  monthlyReportIsLoading,
+  weeklyReport,
+  weeklyReportIsLoading,
+}: {
+  hasHydrated: boolean;
+  localCards: InsightCard[];
+  monthlyReport: AIInsightReport | null;
+  monthlyReportIsLoading: boolean;
+  weeklyReport: AIInsightReport | null;
+  weeklyReportIsLoading: boolean;
+}) {
+  const report = monthlyReport ?? weeklyReport;
+  const isLoading = monthlyReportIsLoading || weeklyReportIsLoading;
+
+  return localCards.map((card) => ({
+    ...card,
+    body: getAIInsightCardBody({
+      cardTitle: card.title,
+      hasHydrated,
+      isLoading,
+      report,
+    }),
+  }));
+}
+
+function getAIInsightCardBody({
+  cardTitle,
+  hasHydrated,
+  isLoading,
+  report,
+}: {
+  cardTitle: InsightCard["title"];
+  hasHydrated: boolean;
+  isLoading: boolean;
+  report: AIInsightReport | null;
+}) {
+  if (!hasHydrated || isLoading) {
+    return "Loading AI insights from your latest reflection report...";
+  }
+
+  if (!report) {
+    return getAIInsightUnavailableBody(cardTitle, hasHydrated);
+  }
+
+  if (cardTitle === "DearDiary AI Says") {
+    return getCompactInsightText(report.narrative.overview);
+  }
+
+  if (cardTitle === "Pattern Found") {
+    return (
+      report.narrative.patterns[0] ??
+      report.narrative.improvements[0] ??
+      report.narrative.nextFocus
+    );
+  }
+
+  const recurringTheme = report.analytics.recurringThemes[0];
+
+  if (recurringTheme) {
+    return `${recurringTheme.name} appears as a recurring topic across ${recurringTheme.count} ${recurringTheme.count === 1 ? "entry" : "entries"}.`;
+  }
+
+  return (
+    report.narrative.activities[0] ??
+    "Recurring topics will appear here after DearDiary has enough AI report evidence."
+  );
+}
+
+function getAIInsightUnavailableBody(
+  cardTitle: InsightCard["title"],
   hasHydrated: boolean,
-  topMood: MoodId | null,
 ) {
   if (!hasHydrated) {
-    return "Loading your local insights...";
+    return "Loading AI insights from your journal...";
   }
 
-  if (title === "DearDiary AI Says") {
-    return getLocalAiInsight(entries, topMood);
+  if (cardTitle === "DearDiary AI Says") {
+    return "Generate a weekly or monthly reflection report to unlock AI insights here.";
   }
 
-  if (title === "Pattern Found") {
-    return getPatternInsight(entries);
+  if (cardTitle === "Pattern Found") {
+    return "AI-detected patterns will appear after a reflection report is generated.";
   }
 
-  return getRecurringTopicInsight(entries);
+  return "AI recurring topics will appear after a reflection report is generated.";
+}
+
+function getCompactInsightText(value: string) {
+  const normalizedText = value.replace(/\s+/g, " ").trim();
+
+  if (!normalizedText) {
+    return "DearDiary will summarize your reflection report here after it is generated.";
+  }
+
+  const sentenceMatch = normalizedText.match(/^.*?[.!?](?:\s|$)/);
+  const firstSentence = sentenceMatch?.[0].trim() ?? normalizedText;
+
+  return firstSentence.length > 180
+    ? `${firstSentence.slice(0, 177).trim()}...`
+    : firstSentence;
 }
 
 function getWeeklyMoodJourney(entries: JournalEntry[]) {
@@ -502,97 +632,6 @@ function getTopMood(entries: JournalEntry[]) {
     },
     null,
   );
-}
-
-function getLocalAiInsight(entries: JournalEntry[], topMood: MoodId | null) {
-  if (entries.length === 0) {
-    return "Write a few reflections to unlock deeper insights.";
-  }
-
-  if (hasGratitudeEntry(entries)) {
-    return "Gratitude has appeared in your reflections recently.";
-  }
-
-  if (topMood) {
-    return `You've been noticing ${moodLabels[topMood].toLowerCase()} often in your recent reflections.`;
-  }
-
-  return "Write a few more reflections to unlock deeper insights.";
-}
-
-function hasGratitudeEntry(entries: JournalEntry[]) {
-  return entries.some((entry) => {
-    const searchableText = `${entry.title} ${entry.content} ${entry.prompt ?? ""}`;
-
-    return (
-      entry.type === "gratitude" ||
-      /\b(gratitude|grateful|thankful)\b/i.test(searchableText)
-    );
-  });
-}
-
-function getPatternInsight(entries: JournalEntry[]) {
-  if (entries.length < 3) {
-    return "Patterns will appear as you write more reflections.";
-  }
-
-  const calmEntries = entries.filter((entry) => entry.mood === "calm").length;
-  const moodEntries = entries.filter((entry) => entry.mood).length;
-  const entriesBeforeTen = entries.filter(
-    (entry) => new Date(entry.createdAt).getHours() < 22,
-  ).length;
-
-  if (moodEntries > 0 && calmEntries >= Math.ceil(moodEntries / 2)) {
-    return "Calm appears often in your reflections.";
-  }
-
-  if (entriesBeforeTen > entries.length / 2) {
-    return "You seem more consistent when you write before 10 PM.";
-  }
-
-  return "You are building a steady reflection habit.";
-}
-
-function getRecurringTopicInsight(entries: JournalEntry[]) {
-  const recurringTopic = getRecurringTopic(entries);
-
-  if (!recurringTopic) {
-    return "Recurring topics will appear as you write more.";
-  }
-
-  return `${recurringTopic} appeared often in your entries.`;
-}
-
-function getRecurringTopic(entries: JournalEntry[]) {
-  const wordCounts = entries.reduce<Record<string, number>>((counts, entry) => {
-    const words =
-      `${entry.tags.join(" ")} ${entry.content}`
-        .toLowerCase()
-        .match(/[a-z']+/g) ?? [];
-
-    words.forEach((word) => {
-      if (word.length < 4 || stopWordSet.has(word)) {
-        return;
-      }
-
-      counts[word] = (counts[word] ?? 0) + 1;
-    });
-
-    return counts;
-  }, {});
-
-  const [word, count] =
-    Object.entries(wordCounts).sort((topicA, topicB) => {
-      const countDifference = topicB[1] - topicA[1];
-
-      if (countDifference !== 0) {
-        return countDifference;
-      }
-
-      return topicA[0].localeCompare(topicB[0]);
-    })[0] ?? [];
-
-  return count && count > 1 ? word : null;
 }
 
 function getReflectionStreak(entries: JournalEntry[]) {

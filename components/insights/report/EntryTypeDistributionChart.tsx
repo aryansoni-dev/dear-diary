@@ -1,7 +1,7 @@
 import { Text, View } from "react-native";
 
 import { formatEntryTypeLabel } from "@/components/insights/report/report-formatters";
-import { reportColors } from "@/constants/report-theme";
+import { reportCardShadow, reportColors } from "@/constants/report-theme";
 import type { EntryTypeDistributionItem } from "@/types/aiInsightReport";
 
 type EntryTypeDistributionChartProps = {
@@ -25,7 +25,10 @@ export function EntryTypeDistributionChart({
         <View
           className="rounded-[20px] px-4 py-3"
           key={item.type}
-          style={{ backgroundColor: reportColors.ivory }}
+          style={{
+            backgroundColor: reportColors.ivory,
+            boxShadow: reportCardShadow,
+          }}
         >
           <View className="flex-row items-center justify-between gap-3">
             <Text
