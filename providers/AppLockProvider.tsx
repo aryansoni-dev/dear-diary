@@ -96,11 +96,10 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
   const pinVerificationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const userIdRef = useRef<string | null>(null);
 
-  userIdRef.current = userId ?? null;
-
   useEffect(() => {
     configRef.current = config;
-  }, [config]);
+    userIdRef.current = userId ?? null;
+  }, [config, userId]);
 
   const loadBiometricAvailability = useCallback(async () => {
     const availability = await getBiometricAvailability();
@@ -214,63 +213,74 @@ export function AppLockProvider({ children }: { children: ReactNode }) {
       options: { unlockOnSuccess: boolean },
     ): Promise<AppLockUnlockResult> =>
       runQueuedPinVerification(async () => {
-        if (!userId || userIdRef.current !== userId) {
-          return { reason: "not_available", success: false };
-        }
+        try {
+          if (!userId || userIdRef.current !== userId) {
+            return { reason: "not_available", success: false };
+          }
 
-        const currentConfig = configRef.current;
+          const currentConfig = configRef.current;
 
-        if (!currentConfig?.enabled) {
-          return { reason: "not_available", success: false };
-        }
+          if (!currentConfig?.enabled) {
+            return { reason: "not_available", success: false };
+          }
 
-        if (!isValidPin(pin)) {
-          return { reason: "invalid_pin", success: false };
-        }
+          if (!isValidPin(pin)) {
+            return { reason: "invalid_pin", success: false };
+          }
 
-        const now = Date.now();
+          const now = Date.now();
 
-        if (isTemporarilyLocked(currentConfig, now)) {
-          return { reason: "temporarily_locked", success: false };
-        }
+          if (isTemporarilyLocked(currentConfig, now)) {
+            return { reason: "temporarily_locked", success: false };
+          }
 
-        const isMatch = await verifyPin(
-          pin,
-          currentConfig.pinSalt,
-          currentConfig.pinHash,
-        );
+          const isMatch = await verifyPin(
+            pin,
+            currentConfig.pinSalt,
+            currentConfig.pinHash,
+          );
 
-        if (isMatch) {
-          const unlockedConfig = {
+          if (isMatch) {
+            const unlockedConfig = {
+              ...currentConfig,
+              failedAttempts: 0,
+              lockedUntil: null,
+              updatedAt: new Date().toISOString(),
+            };
+
+            await saveCurrentConfig(unlockedConfig);
+
+            if (options.unlockOnSuccess) {
+              setActiveUserId(userId);
+              setHasOpenedPrivateContent(true);
+              setStatus("unlocked");
+            }
+
+            return { success: true };
+          }
+
+          const failedAttempts = currentConfig.failedAttempts + 1;
+          const lockedUntil = getLockoutUntil(failedAttempts, now);
+          const failedConfig = {
             ...currentConfig,
-            failedAttempts: 0,
-            lockedUntil: null,
+            failedAttempts,
+            lockedUntil,
             updatedAt: new Date().toISOString(),
           };
 
-          await saveCurrentConfig(unlockedConfig);
+          await saveCurrentConfig(failedConfig);
 
-          if (options.unlockOnSuccess) {
-            setActiveUserId(userId);
-            setHasOpenedPrivateContent(true);
-            setStatus("unlocked");
+          return { reason: "invalid_pin", success: false };
+        } catch (error) {
+          if (__DEV__) {
+            console.warn(
+              "App Lock PIN verification failed",
+              error instanceof Error ? error.message : "Unknown error",
+            );
           }
 
-          return { success: true };
+          return { reason: "unknown", success: false };
         }
-
-        const failedAttempts = currentConfig.failedAttempts + 1;
-        const lockedUntil = getLockoutUntil(failedAttempts, now);
-        const failedConfig = {
-          ...currentConfig,
-          failedAttempts,
-          lockedUntil,
-          updatedAt: new Date().toISOString(),
-        };
-
-        await saveCurrentConfig(failedConfig);
-
-        return { reason: "invalid_pin", success: false };
       }),
     [runQueuedPinVerification, saveCurrentConfig, setActiveUserId, userId],
   );

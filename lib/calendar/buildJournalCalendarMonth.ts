@@ -97,17 +97,15 @@ const groupEntriesByLocalDate = (
       const dateKey = createLocalDateKey(new Date(entry.createdAt));
       const dateEntries = entriesByDateKey.get(dateKey) ?? [];
 
-      entriesByDateKey.set(dateKey, [...dateEntries, entry]);
+      dateEntries.push(entry);
+      entriesByDateKey.set(dateKey, dateEntries);
     });
 
-  entriesByDateKey.forEach((dateEntries, dateKey) => {
-    entriesByDateKey.set(
-      dateKey,
-      [...dateEntries].sort(
-        (first, second) =>
-          new Date(first.createdAt).getTime() -
-          new Date(second.createdAt).getTime(),
-      ),
+  entriesByDateKey.forEach((dateEntries) => {
+    dateEntries.sort(
+      (first, second) =>
+        new Date(first.createdAt).getTime() -
+        new Date(second.createdAt).getTime(),
     );
   });
 

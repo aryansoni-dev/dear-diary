@@ -47,8 +47,10 @@ export function AchievementsScreen() {
     useState<AchievementFilter>("all");
   const [filterToggleWidth, setFilterToggleWidth] = useState(0);
   const [slideDirection, setSlideDirection] = useState(1);
-  const thumbAnimation = useRef(new Animated.Value(0)).current;
-  const listAnimation = useRef(new Animated.Value(1)).current;
+  const thumbAnimationRef = useRef(new Animated.Value(0));
+  const listAnimationRef = useRef(new Animated.Value(1));
+  const thumbAnimation = thumbAnimationRef.current;
+  const listAnimation = listAnimationRef.current;
   const currentStreak = useMemo(() => getReflectionStreak(entries), [entries]);
   const achievements = useMemo(
     () => getAchievements(entries, currentStreak),
@@ -81,19 +83,19 @@ export function AchievementsScreen() {
   });
 
   useEffect(() => {
-    Animated.timing(thumbAnimation, {
+    Animated.timing(thumbAnimationRef.current, {
       duration: 220,
       toValue: selectedFilterIndex,
       useNativeDriver: true,
     }).start();
 
-    listAnimation.setValue(0);
-    Animated.timing(listAnimation, {
+    listAnimationRef.current.setValue(0);
+    Animated.timing(listAnimationRef.current, {
       duration: 230,
       toValue: 1,
       useNativeDriver: true,
     }).start();
-  }, [listAnimation, selectedFilterIndex, thumbAnimation]);
+  }, [selectedFilterIndex]);
 
   function handleFilterLayout(event: LayoutChangeEvent) {
     setFilterToggleWidth(event.nativeEvent.layout.width);

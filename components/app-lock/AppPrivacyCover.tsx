@@ -3,12 +3,18 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { appLockPrivacyCover } from "@/constants/app-lock-theme";
 
-export function AppPrivacyCover() {
+export function AppPrivacyCover({
+  className = "absolute inset-0",
+  title = "Your journal is private.",
+}: {
+  className?: string;
+  title?: string;
+}) {
   const insets = useSafeAreaInsets();
 
   return (
     <View
-      className="absolute inset-0 items-center justify-center"
+      className={`${className} items-center justify-center`}
       style={{
         backgroundColor: appLockPrivacyCover.backgroundColor,
         paddingBottom: Math.max(
@@ -51,7 +57,7 @@ export function AppPrivacyCover() {
             lineHeight: appLockPrivacyCover.titleLineHeight,
           }}
         >
-          Your journal is private.
+          {title}
         </Text>
       </View>
     </View>

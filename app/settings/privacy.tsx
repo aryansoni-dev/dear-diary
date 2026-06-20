@@ -49,6 +49,7 @@ export default function PrivacySettingsScreen() {
     pendingAction,
     pin,
   } = useAppLockSettings();
+  const isPendingActionExecuting = pendingAction !== null && busyAction === pendingAction;
 
   function handleBackPress() {
     if (router.canGoBack()) {
@@ -195,8 +196,11 @@ export default function PrivacySettingsScreen() {
 
               <Pressable
                 accessibilityRole="button"
+                accessibilityState={{ disabled: busyAction !== null }}
                 className="h-11 items-center justify-center rounded-full bg-[#F4F4F5]"
+                disabled={busyAction !== null}
                 onPress={handleCancelPendingAction}
+                style={{ opacity: isPendingActionExecuting ? 0.55 : 1 }}
               >
                 <Text className="text-[14px] font-semibold leading-5 text-[#51515B]">
                   Cancel

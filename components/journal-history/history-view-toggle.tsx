@@ -19,6 +19,13 @@ const toggleOptions: {
   { icon: CalendarDays, label: "Calendar", value: "calendar" },
 ];
 
+const viewToggleColors = {
+  iconInactive: "#71717A",
+  labelInactive: "#52525B",
+  selectedContent: "#FFFFFF",
+  selectedTrack: "#FF2056",
+} as const;
+
 export function HistoryViewToggle({
   onChange,
   value,
@@ -58,8 +65,9 @@ export function HistoryViewToggle({
       {thumbWidth > 0 ? (
         <Animated.View
           pointerEvents="none"
-          className="absolute left-1 top-1 h-10 rounded-full bg-[#FF2056]"
+          className="absolute left-1 top-1 h-10 rounded-full"
           style={{
+            backgroundColor: viewToggleColors.selectedTrack,
             transform: [{ translateX: thumbTranslateX }],
             width: thumbWidth,
           }}
@@ -78,14 +86,20 @@ export function HistoryViewToggle({
             onPress={() => onChange(option.value)}
           >
             <Icon
-              color={isSelected ? "white" : "#71717A"}
+              color={
+                isSelected
+                  ? viewToggleColors.selectedContent
+                  : viewToggleColors.iconInactive
+              }
               size={17}
               strokeWidth={2.2}
             />
             <Text
               className="text-[14px] leading-5"
               style={{
-                color: isSelected ? "white" : "#52525B",
+                color: isSelected
+                  ? viewToggleColors.selectedContent
+                  : viewToggleColors.labelInactive,
                 fontWeight: isSelected ? "700" : "600",
               }}
             >
