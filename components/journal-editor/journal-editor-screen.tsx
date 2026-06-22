@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EntryAIReflectionCard } from "@/components/journal-editor/entry-ai-reflection-card";
+import { FeatureErrorBoundary } from "@/components/errors/FeatureErrorBoundary";
 import {
   BottomTabBar,
   bottomTabBarBaseHeight,
@@ -29,11 +30,20 @@ import { animatedMoodEmojis } from "@/constants/animated-emojis";
 import { journalEditorMoods } from "@/data/journal-editor";
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { useAutoSync } from "@/hooks/useAutoSync";
+import { useConnectivity } from "@/hooks/useConnectivity";
 import { useEntryReflection } from "@/hooks/useEntryReflection";
+import { normalizeAppError } from "@/lib/errors/normalizeAppError";
+import { reportAppError } from "@/lib/errors/reportAppError";
 import { formatTagLabel, normalizeTag, normalizeTags } from "@/lib/tags";
 import { useJournalStore } from "@/store/journal-store";
 import { useEntryReflectionStore } from "@/store/useEntryReflectionStore";
-import type { EntryType, MoodId } from "@/types/journal";
+import { useSyncStore } from "@/store/useSyncStore";
+import type { ConnectivityStatus } from "@/types/connectivity";
+import type {
+  EntryType,
+  JournalSyncStatus,
+  MoodId,
+} from "@/types/journal";
 
 const colors = {
   heading: "#09090B",
@@ -60,6 +70,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const router = useRouter();
   const { runAutoSync } = useAutoSync();
   const { showDialog } = useAppDialog();
+  const connectivity = useConnectivity();
   const scrollViewRef = useRef<ScrollView | null>(null);
   const writingContentHeightRef = useRef(0);
   const writingAreaYRef = useRef(0);
@@ -84,6 +95,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   );
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const activeUserId = useJournalStore((state) => state.activeUserId);
+  const isSyncing = useSyncStore((state) => state.isSyncing);
   const [content, setContent] = useState("");
   const [selectedMood, setSelectedMood] = useState<MoodId | null>("happy");
   const [tags, setTags] = useState<string[]>([]);
@@ -118,6 +130,13 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const isMissingEntry = hasHydrated && isEditing && !entry;
   const canSave =
     hasPromptTitle || title.trim().length > 0 || content.trim().length > 0;
+  const saveButtonLabel = getSaveButtonLabel({
+    canSave,
+    connectivityStatus: connectivity.status,
+    entrySyncStatus: entry?.syncStatus,
+    isSyncing,
+    wasSaved,
+  });
   const dateLabel = useMemo(() => {
     const date = entry?.createdAt ? new Date(entry.createdAt) : new Date();
 
@@ -250,19 +269,39 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       ...(promptTitle ? { prompt: promptTitle } : {}),
     };
 
-    if (entryId) {
-      updateEntry(entryId, savedEntry);
+    try {
+      if (entryId) {
+        updateEntry(entryId, savedEntry);
+        setWasSaved(true);
+        void runAutoSync("journal_change");
+        return;
+      }
+
+      const newEntry = addEntry(savedEntry);
       setWasSaved(true);
       void runAutoSync("journal_change");
-      return;
-    }
+      router.replace({
+        pathname: "/journal/[id]",
+        params: { id: newEntry.id, source: source ?? "home" },
+      });
+    } catch (error) {
+      const appError = normalizeAppError(error, {
+        operation: "local_save_journal_entry",
+      });
 
-    const newEntry = addEntry(savedEntry);
-    void runAutoSync("journal_change");
-    router.replace({
-      pathname: "/journal/[id]",
-      params: { id: newEntry.id, source: source ?? "home" },
-    });
+      reportAppError(appError, {
+        errorCode: appError.code,
+        feature: "journal",
+        operation: "local_save_journal_entry",
+        screen: "journal_editor",
+      });
+      showDialog({
+        confirmText: "OK",
+        message: appError.userMessage,
+        title: "Save failed",
+        variant: "destructive",
+      });
+    }
   }
 
   function handleAddTag(tag: string) {
@@ -315,6 +354,15 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   }
 
   async function syncEntryBeforeReflection() {
+    if (connectivity.status === "offline") {
+      showDialog({
+        confirmText: "OK",
+        message: "Connect to the internet to generate a reflection.",
+        title: "Internet required",
+      });
+      return false;
+    }
+
     if (!entry || entry.syncStatus === "synced") {
       return true;
     }
@@ -491,7 +539,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
                   className="text-[17px] font-semibold leading-6"
                   style={{ color: canSave ? "white" : colors.placeholder }}
                 >
-                  {wasSaved ? "Saved" : "Save"}
+                  {saveButtonLabel}
                 </Text>
               </Animated.View>
             </Pressable>
@@ -680,17 +728,22 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
         </View>
 
         {entry ? (
-          <View>
-            <EntryAIReflectionCard
-              error={entryReflection.error}
-              isGenerating={entryReflection.isGenerating}
-              isLoading={entryReflection.isLoading}
-              isStale={entryReflection.isStale}
-              onGenerate={handleGenerateReflection}
-              onRegenerate={handleRegenerateReflection}
-              reflection={entryReflection.reflection}
-            />
-          </View>
+          <FeatureErrorBoundary
+            fallbackMessage="The entry stays editable. Try this reflection again in a moment."
+            featureName="AI Reflection"
+          >
+            <View>
+              <EntryAIReflectionCard
+                error={entryReflection.error}
+                isGenerating={entryReflection.isGenerating}
+                isLoading={entryReflection.isLoading}
+                isStale={entryReflection.isStale}
+                onGenerate={handleGenerateReflection}
+                onRegenerate={handleRegenerateReflection}
+                reflection={entryReflection.reflection}
+              />
+            </View>
+          </FeatureErrorBoundary>
         ) : null}
       </ScrollView>
 
@@ -754,4 +807,40 @@ function getDefaultTitle(type: EntryType) {
   }
 
   return "Untitled Entry";
+}
+
+function getSaveButtonLabel({
+  canSave,
+  connectivityStatus,
+  entrySyncStatus,
+  isSyncing,
+  wasSaved,
+}: {
+  canSave: boolean;
+  connectivityStatus: ConnectivityStatus;
+  entrySyncStatus: JournalSyncStatus | undefined;
+  isSyncing: boolean;
+  wasSaved: boolean;
+}) {
+  if (!canSave) {
+    return "Save";
+  }
+
+  if (!wasSaved && entrySyncStatus !== "synced") {
+    return "Save";
+  }
+
+  if (entrySyncStatus === "synced") {
+    return "Synced";
+  }
+
+  if (isSyncing) {
+    return "Syncing";
+  }
+
+  if (connectivityStatus === "offline" || entrySyncStatus === "failed") {
+    return "Saved locally";
+  }
+
+  return wasSaved ? "Saved locally" : "Save";
 }

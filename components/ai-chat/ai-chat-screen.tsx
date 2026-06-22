@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { useAppDialog } from "@/hooks/useAppDialog";
+import { useConnectivity } from "@/hooks/useConnectivity";
 import { generateLocalJournalResponse } from "@/lib/ai/localJournalAssistant";
 import { generateRemoteJournalResponse } from "@/lib/ai/remoteJournalAssistant";
 import { useJournalStore } from "@/store/journal-store";
@@ -66,6 +67,7 @@ export function AiChatScreen({
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { showDialog } = useAppDialog();
+  const connectivity = useConnectivity();
   const requestIdRef = useRef(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const [message, setMessage] = useState("");
@@ -117,7 +119,9 @@ export function AiChatScreen({
             userId: userId ?? "guest",
           } satisfies ChatMessage,
         ];
-  const canSendMessage = message.trim().length > 0 && !!userId && !isThinking;
+  const isOffline = connectivity.status === "offline";
+  const canSendMessage =
+    message.trim().length > 0 && !!userId && !isThinking && !isOffline;
   const shouldUseKeyboardOffset = process.env.EXPO_OS === "android";
   const footerKeyboardOffset = shouldUseKeyboardOffset ? keyboardOffset : 0;
 
@@ -208,6 +212,16 @@ export function AiChatScreen({
     const trimmedMessage = nextMessage.trim();
 
     if (!trimmedMessage || !userId || isThinking) {
+      return;
+    }
+
+    if (isOffline) {
+      showDialog({
+        confirmText: "OK",
+        message:
+          "Internet is required for AI Chat. Your journal entries are still available offline.",
+        title: "Internet required",
+      });
       return;
     }
 
@@ -334,10 +348,19 @@ export function AiChatScreen({
         </View>
 
         <View className="flex-row items-center gap-2">
-          <View className="flex-row items-center gap-2 rounded-full bg-[#CFF8E6] px-2 py-1">
-            <View className="size-2 rounded-full bg-[#10B981]" />
-            <Text className="text-[11px] font-bold leading-4 text-[#047857]">
-              Online
+          <View
+            className="flex-row items-center gap-2 rounded-full px-2 py-1"
+            style={{ backgroundColor: isOffline ? "#FFF7ED" : "#CFF8E6" }}
+          >
+            <View
+              className="size-2 rounded-full"
+              style={{ backgroundColor: isOffline ? "#F97316" : "#10B981" }}
+            />
+            <Text
+              className="text-[11px] font-bold leading-4"
+              style={{ color: isOffline ? "#C2410C" : "#047857" }}
+            >
+              {isOffline ? "Offline" : "Online"}
             </Text>
           </View>
 
@@ -374,6 +397,14 @@ export function AiChatScreen({
         </View>
 
         <View className="mt-6 gap-6">
+          {isOffline ? (
+            <View className="rounded-[20px] bg-[#FFF7ED] px-4 py-3">
+              <Text className="text-[14px] font-semibold leading-6 text-[#9A3412]">
+                Internet is required for AI Chat. Your journal entries are still
+                available offline.
+              </Text>
+            </View>
+          ) : null}
           {visibleMessages.map((chatMessage, index) => (
             <ChatBubble
               assistantBubbleMaxWidth={assistantBubbleMaxWidth}
