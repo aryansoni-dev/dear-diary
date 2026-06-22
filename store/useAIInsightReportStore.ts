@@ -11,6 +11,7 @@ type UserReportCache = Record<string, AIInsightReport>;
 
 type AIInsightReportState = {
   reportsByUser: Record<string, UserReportCache>;
+  clearReportsForUser: (userId: string) => void;
   getCachedReport: (userId: string | null, cacheKey: string) => AIInsightReport | null;
   removeCachedReport: (userId: string, cacheKey: string) => void;
   setCachedReport: (userId: string, cacheKey: string, report: AIInsightReport) => void;
@@ -19,6 +20,17 @@ type AIInsightReportState = {
 export const useAIInsightReportStore = create<AIInsightReportState>()(
   persist(
     (set, get) => ({
+      clearReportsForUser: (userId) =>
+        set((state) => {
+          if (!state.reportsByUser[userId]) {
+            return state;
+          }
+
+          const reportsByUser = { ...state.reportsByUser };
+          delete reportsByUser[userId];
+
+          return { reportsByUser };
+        }),
       getCachedReport: (userId, cacheKey) => {
         if (!userId) {
           return null;

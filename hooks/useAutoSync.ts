@@ -10,6 +10,7 @@ import { syncAchievementStatesTwoWay } from "@/lib/sync/achievementSync";
 import { syncJournalEntriesTwoWay } from "@/lib/sync/journalTwoWaySync";
 import { syncProfileToCloud } from "@/lib/sync/profileSync";
 import { useJournalStore } from "@/store/journal-store";
+import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
 import { useAchievementStore } from "@/store/useAchievementStore";
 import { useSyncStore } from "@/store/useSyncStore";
 import type { JournalEntry } from "@/types/journal";
@@ -50,6 +51,10 @@ export function useAutoSync() {
 
       const userId = user.id;
       const syncState = useSyncStore.getState();
+
+      if (useAccountDeletionStore.getState().deletionInProgress) {
+        return;
+      }
 
       if (syncState.isSyncing) {
         return;

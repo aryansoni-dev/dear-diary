@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 type SyncState = {
   clearSyncError: () => void;
+  clearSyncStateForUser: (userId: string) => void;
   hasHydrated: boolean;
   isSyncing: boolean;
   lastSyncError: string | null;
@@ -32,6 +33,20 @@ export const useSyncStore = create<SyncState>()(
         set({
           lastSyncError: null,
           lastSyncFailedAt: null,
+        }),
+      clearSyncStateForUser: (userId) =>
+        set((state) => {
+          if (state.lastSyncUserId !== userId) {
+            return state;
+          }
+
+          return {
+            isSyncing: false,
+            lastSyncError: null,
+            lastSyncFailedAt: null,
+            lastSyncedAt: null,
+            lastSyncUserId: null,
+          };
         }),
       hasHydrated: false,
       isSyncing: false,

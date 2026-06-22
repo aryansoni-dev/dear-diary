@@ -9,6 +9,7 @@ import {
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,18 +28,20 @@ import {
   type ProfileStat,
 } from "@/data/profile";
 import { useAppDialog } from "@/hooks/useAppDialog";
+import { getAccountDeletionFailureMessage } from "@/lib/account/accountDeletionErrors";
+import { deleteCurrentAccount } from "@/lib/account/accountDeletionService";
 import { getAchievements, getWordCount } from "@/lib/achievements";
 import {
   exportJournalAsJson,
   exportJournalAsMarkdown,
   JournalExportError,
 } from "@/lib/exportJournal";
-import { clearEntriesForUser } from "@/lib/local-data";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
 import { syncAchievementStatesTwoWay } from "@/lib/sync/achievementSync";
 import { syncJournalEntriesTwoWay } from "@/lib/sync/journalTwoWaySync";
 import { syncProfileToCloud } from "@/lib/sync/profileSync";
 import { useJournalStore } from "@/store/journal-store";
+import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
 import { useAchievementStore } from "@/store/useAchievementStore";
 import { useSyncStore } from "@/store/useSyncStore";
 import type { AchievementCategory } from "@/types/achievement";
@@ -53,6 +56,7 @@ const profileNotificationsHref = "/profile-notifications" as Href;
 const achievementsHref = "/achievements" as Href;
 const privacySettingsHref = "/settings/privacy" as Href;
 const cloudSyncItemLabel = "Backup & Sync Data";
+const deleteAccountItemLabel = "Delete My Data and Account";
 const syncStatusRefreshIntervalMs = 60 * 1000;
 
 const moodLabels: Record<MoodId, string> = {
@@ -108,10 +112,16 @@ export function ProfileScreen() {
   const lastSyncedAt = useSyncStore((state) => state.lastSyncedAt);
   const lastSyncFailedAt = useSyncStore((state) => state.lastSyncFailedAt);
   const lastSyncUserId = useSyncStore((state) => state.lastSyncUserId);
+  const deletionStage = useAccountDeletionStore((state) => state.stage);
+  const deletionInProgress = useAccountDeletionStore(
+    (state) => state.deletionInProgress,
+  );
   const setIsSyncing = useSyncStore((state) => state.setIsSyncing);
   const setSyncFailure = useSyncStore((state) => state.setSyncFailure);
   const setSyncSuccess = useSyncStore((state) => state.setSyncSuccess);
-  const [isClearingData, setIsClearingData] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
+  const [isDeleteConfirmationVisible, setIsDeleteConfirmationVisible] =
+    useState(false);
   const [isExportingJournal, setIsExportingJournal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [syncStatusNow, setSyncStatusNow] = useState(() => Date.now());
@@ -210,7 +220,7 @@ export function ProfileScreen() {
   }
 
   async function handleSyncNow() {
-    if (isSyncing) {
+    if (isSyncing || deletionInProgress) {
       return;
     }
 
@@ -390,8 +400,8 @@ export function ProfileScreen() {
     }
   }
 
-  function handleClearCurrentUserData() {
-    if (isClearingData) {
+  function handleDeleteAccountPress() {
+    if (deletionInProgress) {
       return;
     }
 
@@ -400,7 +410,7 @@ export function ProfileScreen() {
     if (!userId) {
       showDialog({
         confirmText: "OK",
-        message: "Please sign in before clearing journal data.",
+        message: "Please sign in before deleting your account.",
         title: "Sign in required",
         variant: "destructive",
       });
@@ -411,46 +421,58 @@ export function ProfileScreen() {
       actions: [
         {
           onPress: () => {
-            void clearCurrentUserData(userId);
+            setDeleteConfirmationText("");
+            setIsDeleteConfirmationVisible(true);
           },
-          text: "Clear Journal Data",
+          text: "I understand",
           variant: "destructive",
         },
       ],
       cancelText: "Cancel",
       message:
-        "This will delete your local journal entries on this device. This cannot be undone.",
+        "This permanently removes your journal entries, moods, AI conversations, reports, achievements, reminders, App Lock settings, local DearDiary data, and sign-in account. Export your journal first if you want to keep a copy.",
       showCancel: true,
-      title: "Clear journal data?",
+      title: "Delete your account?",
       variant: "destructive",
     });
   }
 
-  async function clearCurrentUserData(userId: string) {
-    setIsClearingData(true);
+  async function handleConfirmDeleteAccount() {
+    const userId = user?.id;
 
-    try {
-      await clearEntriesForUser(userId);
+    if (!userId || deleteConfirmationText !== "DELETE") {
+      return;
+    }
+
+    const result = await deleteCurrentAccount({
+      confirmationPhrase: deleteConfirmationText,
+      getToken,
+      signOut: () => signOut(),
+      userId,
+    });
+
+    if (result.success) {
+      setIsDeleteConfirmationVisible(false);
+      setDeleteConfirmationText("");
+      router.replace("/login");
       showDialog({
         confirmText: "Done",
-        message: "Your local journal entries were deleted from this device.",
-        title: "Journal data cleared",
+        message: "Your DearDiary account and data have been deleted.",
+        title: "Account deleted",
         variant: "success",
       });
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "We could not clear local data. Please try again.";
+      return;
+    }
 
-      showDialog({
-        confirmText: "OK",
-        message,
-        title: "Clear data failed",
-        variant: "destructive",
-      });
-    } finally {
-      setIsClearingData(false);
+    showDialog({
+      confirmText: "OK",
+      message: getAccountDeletionFailureMessage(result.code),
+      title: "Deletion paused",
+      variant: "destructive",
+    });
+
+    if (!result.remoteDataDeleted) {
+      setIsDeleteConfirmationVisible(false);
     }
   }
 
@@ -794,8 +816,8 @@ export function ProfileScreen() {
               return;
             }
 
-            if (item.label === "Clear My Journal Data") {
-              handleClearCurrentUserData();
+            if (item.label === deleteAccountItemLabel) {
+              handleDeleteAccountPress();
               return;
             }
 
@@ -803,6 +825,25 @@ export function ProfileScreen() {
           }}
           title="Account"
         />
+
+        {isDeleteConfirmationVisible ? (
+          <DeleteAccountConfirmationCard
+            confirmationText={deleteConfirmationText}
+            deletionInProgress={deletionInProgress}
+            deletionStage={deletionStage}
+            onCancel={() => {
+              if (deletionInProgress) {
+                return;
+              }
+
+              setIsDeleteConfirmationVisible(false);
+              setDeleteConfirmationText("");
+            }}
+            onChangeConfirmationText={setDeleteConfirmationText}
+            onConfirm={() => void handleConfirmDeleteAccount()}
+            onExport={handleExportJournalPress}
+          />
+        ) : null}
 
         <View className="items-center pt-9">
           <Pressable
@@ -931,6 +972,148 @@ function MenuIcon({ item }: { item: ProfileMenuItem }) {
   }
 
   return <Feather name={item.icon} size={21} color={item.iconColor} />;
+}
+
+function DeleteAccountConfirmationCard({
+  confirmationText,
+  deletionInProgress,
+  deletionStage,
+  onCancel,
+  onChangeConfirmationText,
+  onConfirm,
+  onExport,
+}: {
+  confirmationText: string;
+  deletionInProgress: boolean;
+  deletionStage: string;
+  onCancel: () => void;
+  onChangeConfirmationText: (value: string) => void;
+  onConfirm: () => void;
+  onExport: () => void;
+}) {
+  const canConfirm = confirmationText === "DELETE" && !deletionInProgress;
+
+  return (
+    <View className="pt-8">
+      <View
+        className="gap-5 rounded-[24px] bg-white px-5 py-6"
+        style={{ boxShadow: "0 2px 8px rgba(39, 39, 42, 0.14)" }}
+      >
+        <View className="gap-2">
+          <Text className="text-[19px] font-bold leading-6 text-[#27272A]">
+            Final confirmation
+          </Text>
+          <Text className="text-[14px] leading-6 text-[#71717B]">
+            This action cannot be undone. Export your journal first if you want
+            to keep a copy.
+          </Text>
+        </View>
+
+        <View className="gap-2">
+          <Text className="text-[14px] leading-6 text-[#71717B]">
+            The following data will be permanently deleted from our servers and your device:
+          </Text>
+          {[
+            "Journal entries, moods, tags, and reflections",
+            "AI conversations, generated reflections, and reports",
+            "Achievements, reminders, preferences, and App Lock settings",
+            "Cloud data, local DearDiary data, and your sign-in account",
+          ].map((item) => (
+            <View className="flex-row gap-2" key={item}>
+              <Text className="text-[14px] leading-5 text-[#FF2056]">•</Text>
+              <Text className="flex-1 text-[14px] leading-5 text-[#51515B]">
+                {item}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          className="h-11 items-center justify-center rounded-full bg-[#F4F4F5]"
+          disabled={deletionInProgress}
+          onPress={onExport}
+        >
+          <Text className="text-[14px] font-semibold leading-5 text-[#51515B]">
+            Export Journal First
+          </Text>
+        </Pressable>
+
+        <View className="gap-2">
+          <Text className="text-[13px] font-semibold leading-5 text-[#51515B]">
+            Type DELETE to continue
+          </Text>
+          <TextInput
+            autoCapitalize="characters"
+            className="h-12 rounded-[16px] border border-[#FCA5A5] bg-[#FFF7FB] px-4 text-[16px] font-semibold leading-5 text-[#27272A]"
+            editable={!deletionInProgress}
+            onChangeText={onChangeConfirmationText}
+            placeholder="DELETE"
+            placeholderTextColor="#A1A1AA"
+            value={confirmationText}
+          />
+        </View>
+
+        {deletionInProgress ? (
+          <View className="gap-2 rounded-[18px] bg-[#FFF1F5] px-4 py-4">
+            <View className="flex-row items-center gap-3">
+              <ActivityIndicator color="#FF2056" size="small" />
+              <Text className="text-[14px] font-semibold leading-5 text-[#27272A]">
+                {getDeletionProgressLabel(deletionStage)}
+              </Text>
+            </View>
+            <Text className="text-[13px] leading-5 text-[#71717B]">
+              Please keep the app open. Do not close DearDiary yet.
+            </Text>
+          </View>
+        ) : null}
+
+        <View className="gap-3">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canConfirm }}
+            className="h-12 items-center justify-center rounded-full"
+            disabled={!canConfirm}
+            onPress={onConfirm}
+            style={{
+              backgroundColor: canConfirm ? "#DC2626" : "#F4F4F5",
+            }}
+          >
+            <Text
+              className="text-[15px] font-bold leading-5"
+              style={{ color: canConfirm ? "#FFFFFF" : "#A1A1AA" }}
+            >
+              Delete My Data and Account
+            </Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: deletionInProgress }}
+            className="h-11 items-center justify-center rounded-full bg-[#F4F4F5]"
+            disabled={deletionInProgress}
+            onPress={onCancel}
+          >
+            <Text className="text-[14px] font-semibold leading-5 text-[#51515B]">
+              Cancel
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function getDeletionProgressLabel(stage: string) {
+  if (stage === "clearing_local_data") {
+    return "Clearing private data from this device...";
+  }
+
+  if (stage === "deleting_auth_account") {
+    return "Closing your sign-in account...";
+  }
+
+  return "Deleting your DearDiary data...";
 }
 
 function getSyncResultMessage(pushedCount: number, restoredCount: number) {

@@ -67,6 +67,8 @@ function RootNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="journal" options={{ headerShown: false }} />
+      <Stack.Screen name="legal/privacy-policy" options={{ headerShown: false }} />
+      <Stack.Screen name="legal/terms" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
     </Stack>
   );

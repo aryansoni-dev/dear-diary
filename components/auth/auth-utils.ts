@@ -1,7 +1,8 @@
 import { isClerkAPIResponseError } from "@clerk/expo";
 import { router } from "expo-router";
 import type { Href } from "expo-router";
-import { Alert } from "react-native";
+
+import type { AppDialogOptions } from "@/components/ui/AppDialog";
 
 export type FieldFeedback = {
   message: string;
@@ -76,8 +77,16 @@ export function getClerkErrorMessage(error: unknown) {
   return "Something went wrong. Please try again.";
 }
 
-export function showAuthError(message: string) {
-  Alert.alert("Authentication error", message);
+export function showAuthError(
+  showDialog: (options: AppDialogOptions) => void,
+  message: string,
+) {
+  showDialog({
+    confirmText: "OK",
+    message,
+    title: "Authentication error",
+    variant: "destructive",
+  });
 }
 
 export async function finalizeAuth(resource: {
@@ -86,11 +95,12 @@ export async function finalizeAuth(resource: {
       session: { currentTask?: { key?: string } } | null;
     }) => void;
   }) => Promise<{ error: unknown | null }>;
-}) {
+}, showDialog: (options: AppDialogOptions) => void) {
   const { error } = await resource.finalize({
     navigate: ({ session }) => {
       if (session?.currentTask) {
         showAuthError(
+          showDialog,
           "Your account needs one more setup step before opening.",
         );
         return;
@@ -101,6 +111,6 @@ export async function finalizeAuth(resource: {
   });
 
   if (error) {
-    showAuthError(getClerkErrorMessage(error));
+    showAuthError(showDialog, getClerkErrorMessage(error));
   }
 }

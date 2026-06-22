@@ -21,6 +21,10 @@ import { useAppLockSettings } from "@/hooks/useAppLockSettings";
 import type { AppLockDelay } from "@/types/appLock";
 
 const changePinHref = "/settings/app-lock/change-pin" as Href;
+const privacyPolicyHref = "/legal/privacy-policy" as Href;
+const termsHref = "/legal/terms" as Href;
+const accountDeletionUrl =
+  process.env.EXPO_PUBLIC_ACCOUNT_DELETION_URL?.trim() || null;
 
 const delayOptions: { label: string; value: AppLockDelay }[] = [
   { label: "Immediately", value: "immediately" },
@@ -90,6 +94,36 @@ export default function PrivacySettingsScreen() {
         </View>
 
         <View className="pt-9">
+          <SectionTitle>Privacy & Data</SectionTitle>
+          <SettingsCard>
+            <SettingsRow
+              icon="file-text"
+              label="Privacy Policy"
+              onPress={() => router.push(privacyPolicyHref)}
+              value=""
+            />
+            <Divider />
+            <SettingsRow
+              icon="clipboard"
+              label="Terms & Conditions"
+              onPress={() => router.push(termsHref)}
+              value=""
+            />
+            {accountDeletionUrl ? (
+              <>
+                <Divider />
+                <SettingsRow
+                  icon="external-link"
+                  label="External Deletion Page"
+                  onPress={() => router.push(privacyPolicyHref)}
+                  value="View"
+                />
+              </>
+            ) : null}
+          </SettingsCard>
+        </View>
+
+        <View className="pt-8">
           <SettingsCard>
             <SettingsRow
               icon="lock"

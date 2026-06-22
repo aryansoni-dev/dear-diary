@@ -16,6 +16,7 @@ import {
 } from "react-native";
 
 import { images } from "@/constants/images";
+import { useAppDialog } from "@/hooks/useAppDialog";
 
 import { AuthTextField } from "./auth-text-field";
 import {
@@ -51,6 +52,7 @@ export function ResetPasswordScreen() {
     useState(false);
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const { fetchStatus, signIn } = useSignIn();
+  const { showDialog } = useAppDialog();
   const isClerkReady = isAuthLoaded && fetchStatus !== "fetching";
   const emailFeedback = getEmailFeedback(email);
   const passwordFeedback = getPasswordFeedback(newPassword, false);
@@ -64,6 +66,10 @@ export function ResetPasswordScreen() {
       router.replace(homeHref);
     }
   }, [isSignedIn]);
+
+  function showError(message: string) {
+    showAuthError(showDialog, message);
+  }
 
   async function handlePrimaryPress() {
     if (!isClerkReady || isSubmitting) {
@@ -80,12 +86,12 @@ export function ResetPasswordScreen() {
 
   async function handleGetCode() {
     if (!email.trim()) {
-      showAuthError("Enter your email address to receive a reset code.");
+      showError("Enter your email address to receive a reset code.");
       return;
     }
 
     if (emailFeedback?.tone === "error") {
-      showAuthError(emailFeedback.message);
+      showError(emailFeedback.message);
       return;
     }
 
@@ -94,20 +100,20 @@ export function ResetPasswordScreen() {
     try {
       const createResult = await signIn.create({ identifier: email.trim() });
       if (createResult.error) {
-        showAuthError(getClerkErrorMessage(createResult.error));
+        showError(getClerkErrorMessage(createResult.error));
         return;
       }
 
       const codeResult = await signIn.resetPasswordEmailCode.sendCode();
       if (codeResult.error) {
-        showAuthError(getClerkErrorMessage(codeResult.error));
+        showError(getClerkErrorMessage(codeResult.error));
         return;
       }
 
       setVerificationCode("");
       setIsVerificationVisible(true);
     } catch (error) {
-      showAuthError(getClerkErrorMessage(error));
+      showError(getClerkErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -135,7 +141,7 @@ export function ResetPasswordScreen() {
       });
 
       if (error) {
-        showAuthError(getClerkErrorMessage(error));
+        showError(getClerkErrorMessage(error));
         return;
       }
 
@@ -145,9 +151,9 @@ export function ResetPasswordScreen() {
         return;
       }
 
-      showAuthError("Clerk needs a new password to finish this reset.");
+      showError("Clerk needs a new password to finish this reset.");
     } catch (error) {
-      showAuthError(getClerkErrorMessage(error));
+      showError(getClerkErrorMessage(error));
     } finally {
       setIsVerifying(false);
     }
@@ -158,29 +164,29 @@ export function ResetPasswordScreen() {
       const { error } = await signIn.resetPasswordEmailCode.sendCode();
 
       if (error) {
-        showAuthError(getClerkErrorMessage(error));
+        showError(getClerkErrorMessage(error));
         return;
       }
 
       setVerificationCode("");
     } catch (error) {
-      showAuthError(getClerkErrorMessage(error));
+      showError(getClerkErrorMessage(error));
     }
   }
 
   async function handleResetPassword() {
     if (!newPassword || !confirmPassword) {
-      showAuthError("Enter and confirm your new password to continue.");
+      showError("Enter and confirm your new password to continue.");
       return;
     }
 
     if (passwordFeedback?.tone === "error") {
-      showAuthError(passwordFeedback.message);
+      showError(passwordFeedback.message);
       return;
     }
 
     if (confirmPasswordFeedback?.tone === "error") {
-      showAuthError(confirmPasswordFeedback.message);
+      showError(confirmPasswordFeedback.message);
       return;
     }
 
@@ -192,20 +198,20 @@ export function ResetPasswordScreen() {
       });
 
       if (error) {
-        showAuthError(getClerkErrorMessage(error));
+        showError(getClerkErrorMessage(error));
         return;
       }
 
       if (signIn.status === "complete") {
-        await finalizeAuth(signIn);
+        await finalizeAuth(signIn, showDialog);
         return;
       }
 
-      showAuthError(
+      showError(
         "Password reset needs one more Clerk step before opening.",
       );
     } catch (error) {
-      showAuthError(getClerkErrorMessage(error));
+      showError(getClerkErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
