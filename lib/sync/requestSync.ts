@@ -107,7 +107,7 @@ async function runSync({
     return {
       code: "sync_failed",
       localDataPreserved: true,
-      retryable: true,
+      retryable: false,
       success: false,
     };
   }
@@ -136,6 +136,7 @@ async function runSync({
   if (pendingEntryIds.length > 0) {
     useJournalStore.getState().markEntriesPendingSync(userId, pendingEntryIds);
   }
+  const pendingEntryIdsSet = new Set(pendingEntryIds);
 
   try {
     await syncProfileToCloud({
@@ -201,7 +202,7 @@ async function runSync({
       .allEntries.filter(
         (entry) =>
           entry.userId === userId &&
-          pendingEntryIds.includes(entry.id) &&
+          pendingEntryIdsSet.has(entry.id) &&
           entry.syncStatus !== "synced",
       )
       .map((entry) => entry.id);

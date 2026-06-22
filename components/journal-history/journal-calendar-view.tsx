@@ -8,10 +8,12 @@ import {
 import { type ReactNode, useMemo, useRef, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 
+import { ScreenLoadingState } from "@/components/states/ScreenLoadingState";
 import {
   fallbackMoodMetadata,
   moodMetadata,
 } from "@/constants/moods";
+import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
 import { buildJournalCalendarMonth } from "@/lib/calendar/buildJournalCalendarMonth";
 import {
   addCalendarMonths,
@@ -82,6 +84,7 @@ export function JournalCalendarView({
   renderSelectedEntries: (day: CalendarDayStatus) => ReactNode;
 }) {
   const todayDateKey = createLocalDateKey(new Date());
+  const showHydrationState = useDelayedVisibility(!hasHydrated);
   const todayButtonScale = useRef(new Animated.Value(1)).current;
   const [visibleMonth, setVisibleMonth] = useState(
     () => {
@@ -144,7 +147,9 @@ export function JournalCalendarView({
   if (!hasHydrated) {
     return (
       <View className="px-6 pt-5">
-        <CalendarEmptyState title="Loading your calendar..." />
+        {showHydrationState ? (
+          <ScreenLoadingState title="Preparing your calendar..." />
+        ) : null}
       </View>
     );
   }
@@ -232,6 +237,21 @@ export function JournalCalendarView({
       </View>
 
       <MoodLegend days={calendarMonth.days.filter((day) => day.isCurrentMonth)} />
+
+      {calendarMonth.totalEntries === 0 ? (
+        <CalendarEmptyState
+          body={
+            entries.length === 0
+              ? "Write your first entry and your activity will appear here."
+              : undefined
+          }
+          title={
+            entries.length === 0
+              ? "Your journal begins here"
+              : "No journal entries in this month."
+          }
+        />
+      ) : null}
 
       <SelectedDaySummary day={selectedDay} />
 

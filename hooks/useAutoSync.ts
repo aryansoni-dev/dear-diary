@@ -120,7 +120,3 @@ function isWithinAutoSyncCooldown(lastSyncedAt: string | null) {
     Date.now() - timestamp < autoSyncCooldownMs
   );
 }
-
-function startOfLocalDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}

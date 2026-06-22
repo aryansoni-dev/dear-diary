@@ -13,6 +13,7 @@ import {
 } from "@/components/navigation/bottom-tab-bar";
 import { images } from "@/constants/images";
 import { moodOptions } from "@/data/home";
+import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
 import { useJournalStore } from "@/store/journal-store";
 import type {
   MoodId,
@@ -80,6 +81,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
   const entries = useJournalStore((state) => state.entries);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const [selectedMood, setSelectedMood] = useState("Happy");
+  const showHydrationState = useDelayedVisibility(!hasHydrated);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const displayName = firstName?.trim() || "Aryan";
   const greeting = useMemo(() => getGreeting(), []);
@@ -316,14 +318,18 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
 
         <View className="gap-5">
           {!hasHydrated ? (
-            <RecentEntriesEmptyState
-              body="Loading your saved reflections..."
-              title="Loading entries"
-            />
+            showHydrationState ? (
+              <RecentEntriesEmptyState
+                body="Preparing your saved reflections..."
+                title="Preparing your journal..."
+              />
+            ) : null
           ) : recentJournalEntries.length === 0 ? (
             <RecentEntriesEmptyState
-              body="Start with today's prompt to build your first reflection."
-              title="No entries yet"
+              body="Write your first entry and give today a place to live."
+              ctaLabel="Write an entry"
+              onCtaPress={() => router.push(journalEditorHref)}
+              title="Your journal begins here"
             />
           ) : (
             recentJournalEntries.map((entry) => (
@@ -371,9 +377,13 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
 
 function RecentEntriesEmptyState({
   body,
+  ctaLabel,
+  onCtaPress,
   title,
 }: {
   body: string;
+  ctaLabel?: string;
+  onCtaPress?: () => void;
   title: string;
 }) {
   return (
@@ -394,6 +404,17 @@ function RecentEntriesEmptyState({
         {title}
       </Text>
       <Text className="text-[17px] leading-5 text-zinc-950/60">{body}</Text>
+      {ctaLabel && onCtaPress ? (
+        <Pressable
+          accessibilityRole="button"
+          className="mt-5 min-h-[46px] items-center justify-center rounded-full bg-[#FF2056] px-5"
+          onPress={onCtaPress}
+        >
+          <Text className="text-[15px] font-semibold leading-5 text-white">
+            {ctaLabel}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

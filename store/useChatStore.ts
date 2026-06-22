@@ -20,7 +20,9 @@ type ChatState = {
   addMessage: (message: ChatMessage) => void;
   clearMessagesForUser: (userId: string) => void;
   getMessagesByUserId: (userId: string) => ChatMessage[];
+  hasHydrated: boolean;
   messages: ChatMessage[];
+  setHasHydrated: (hasHydrated: boolean) => void;
 };
 
 function migrateChatState(persistedState: unknown) {
@@ -87,11 +89,17 @@ export const useChatStore = create<ChatState>()(
         sortMessagesByDate(
           get().messages.filter((message) => message.userId === userId),
         ),
+      hasHydrated: false,
       messages: [],
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
     }),
     {
       name: "deardiary-chat-store-v1",
       migrate: migrateChatState,
+      onRehydrateStorage: (state) => () => {
+        state?.setHasHydrated(true);
+      },
+      partialize: (state) => ({ messages: state.messages }),
       storage: createJSONStorage(() => AsyncStorage),
       version: chatStorageVersion,
     },

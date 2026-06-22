@@ -21,8 +21,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
+import { CONNECTION_STATE_COLORS } from "@/constants/theme";
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { useConnectivity } from "@/hooks/useConnectivity";
+import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
 import { generateLocalJournalResponse } from "@/lib/ai/localJournalAssistant";
 import { generateRemoteJournalResponse } from "@/lib/ai/remoteJournalAssistant";
 import { useJournalStore } from "@/store/journal-store";
@@ -79,6 +81,7 @@ export function AiChatScreen({
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const journalEntries = useJournalStore((state) => state.entries);
   const chatMessages = useChatStore((state) => state.messages);
+  const chatHasHydrated = useChatStore((state) => state.hasHydrated);
   const addMessage = useChatStore((state) => state.addMessage);
   const clearMessagesForUser = useChatStore(
     (state) => state.clearMessagesForUser,
@@ -107,10 +110,12 @@ export function AiChatScreen({
           new Date(messageB.createdAt).getTime(),
       );
   }, [chatMessages, userId]);
+  const showChatHydrationState = useDelayedVisibility(!chatHasHydrated);
   const visibleMessages =
-    currentUserMessages.length > 0
+    chatHasHydrated && currentUserMessages.length > 0
       ? currentUserMessages
-      : [
+      : chatHasHydrated
+        ? [
           {
             content: "I'm here to sit with you for a moment. No rush, no judgment.",
             createdAt: new Date().toISOString(),
@@ -118,10 +123,18 @@ export function AiChatScreen({
             role: "assistant",
             userId: userId ?? "guest",
           } satisfies ChatMessage,
-        ];
+        ]
+        : [];
   const isOffline = connectivity.status === "offline";
+  const connectionStateColors = isOffline
+    ? CONNECTION_STATE_COLORS.offline
+    : CONNECTION_STATE_COLORS.online;
   const canSendMessage =
-    message.trim().length > 0 && !!userId && !isThinking && !isOffline;
+    message.trim().length > 0 &&
+    !!userId &&
+    chatHasHydrated &&
+    !isThinking &&
+    !isOffline;
   const shouldUseKeyboardOffset = process.env.EXPO_OS === "android";
   const footerKeyboardOffset = shouldUseKeyboardOffset ? keyboardOffset : 0;
 
@@ -350,15 +363,15 @@ export function AiChatScreen({
         <View className="flex-row items-center gap-2">
           <View
             className="flex-row items-center gap-2 rounded-full px-2 py-1"
-            style={{ backgroundColor: isOffline ? "#FFF7ED" : "#CFF8E6" }}
+            style={{ backgroundColor: connectionStateColors.background }}
           >
             <View
               className="size-2 rounded-full"
-              style={{ backgroundColor: isOffline ? "#F97316" : "#10B981" }}
+              style={{ backgroundColor: connectionStateColors.dot }}
             />
             <Text
               className="text-[11px] font-bold leading-4"
-              style={{ color: isOffline ? "#C2410C" : "#047857" }}
+              style={{ color: connectionStateColors.text }}
             >
               {isOffline ? "Offline" : "Online"}
             </Text>
@@ -398,10 +411,17 @@ export function AiChatScreen({
 
         <View className="mt-6 gap-6">
           {isOffline ? (
-            <View className="rounded-[20px] bg-[#FFF7ED] px-4 py-3">
-              <Text className="text-[14px] font-semibold leading-6 text-[#9A3412]">
+            <View className="rounded-[20px] bg-offline-surface px-4 py-3">
+              <Text className="text-[14px] font-semibold leading-6 text-offline-text">
                 Internet is required for AI Chat. Your journal entries are still
                 available offline.
+              </Text>
+            </View>
+          ) : null}
+          {!chatHasHydrated && showChatHydrationState ? (
+            <View className="rounded-[20px] bg-white px-4 py-4">
+              <Text className="text-[14px] font-semibold leading-6 text-[#71717B]">
+                Preparing your conversation...
               </Text>
             </View>
           ) : null}

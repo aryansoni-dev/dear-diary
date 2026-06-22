@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { isRecord } from "../../../lib/utils/typeGuards.ts";
 
 type AccountDeletionFailureCode =
   | "unauthenticated"
@@ -29,6 +30,7 @@ const corsHeaders = {
 const expectedConfirmationPhrase = "DELETE";
 const clerkApiTimeoutMs = 10000;
 const storageListPageLimit = 100;
+const storageRemoveBatchSize = 1000;
 const userOwnedStorageBuckets: string[] = [];
 
 Deno.serve(async (request) => {
@@ -383,9 +385,23 @@ async function deleteStoragePrefix(
     return { ok: true };
   }
 
-  const removeResult = await client.storage.from(bucket).remove(filesToRemove);
+  for (
+    let index = 0;
+    index < filesToRemove.length;
+    index += storageRemoveBatchSize
+  ) {
+    const removeBatch = filesToRemove.slice(
+      index,
+      index + storageRemoveBatchSize,
+    );
+    const removeResult = await client.storage.from(bucket).remove(removeBatch);
 
-  return removeResult.error ? { ok: false } : { ok: true };
+    if (removeResult.error) {
+      return { ok: false };
+    }
+  }
+
+  return { ok: true };
 }
 
 async function deleteClerkUser({
@@ -488,8 +504,4 @@ function jsonResponse(body: unknown, status = 200) {
     },
     status,
   });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

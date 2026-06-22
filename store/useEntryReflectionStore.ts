@@ -12,8 +12,10 @@ type EntryReflectionState = {
     userId: string,
     entryId: string,
   ) => EntryAIReflection | undefined;
+  hasHydrated: boolean;
   reflections: EntryAIReflection[];
   removeReflectionForEntry: (userId: string, entryId: string) => void;
+  setHasHydrated: (hasHydrated: boolean) => void;
   upsertReflection: (reflection: EntryAIReflection) => void;
 };
 
@@ -41,6 +43,7 @@ export const useEntryReflectionStore = create<EntryReflectionState>()(
           (reflection) =>
             reflection.userId === userId && reflection.entryId === entryId,
         ),
+      hasHydrated: false,
       reflections: [],
       removeReflectionForEntry: (userId, entryId) =>
         set((state) => ({
@@ -61,10 +64,15 @@ export const useEntryReflectionStore = create<EntryReflectionState>()(
             reflections: [reflection, ...nextReflections],
           };
         }),
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
     }),
     {
       name: "deardiary-entry-reflections-v1",
       migrate: migrateEntryReflectionState,
+      onRehydrateStorage: (state) => () => {
+        state?.setHasHydrated(true);
+      },
+      partialize: (state) => ({ reflections: state.reflections }),
       storage: createJSONStorage(() => AsyncStorage),
       version: entryReflectionStorageVersion,
     },

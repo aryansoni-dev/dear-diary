@@ -2,7 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import type { AppErrorCode } from "@/types/appError";
+import { appErrorCodes, type AppErrorCode } from "@/types/appError";
+import { isRecord } from "@/lib/utils/typeGuards";
 
 type SyncState = {
   clearSyncError: () => void;
@@ -179,24 +180,3 @@ function getUserSafeSyncErrorLabel(code: AppErrorCode) {
 function isAppErrorCode(value: string): value is AppErrorCode {
   return appErrorCodes.includes(value as AppErrorCode);
 }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === "object" && value !== null && !Array.isArray(value)
-  );
-}
-
-const appErrorCodes: AppErrorCode[] = [
-  "offline",
-  "request_timeout",
-  "session_expired",
-  "permission_denied",
-  "local_save_failed",
-  "sync_failed",
-  "sync_conflict",
-  "ai_unavailable",
-  "rate_limited",
-  "invalid_data",
-  "resource_not_found",
-  "unexpected_error",
-];

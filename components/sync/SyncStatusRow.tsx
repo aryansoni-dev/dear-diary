@@ -24,10 +24,10 @@ export function SyncStatusRow({
     >
       <View className="flex-row items-start justify-between gap-4">
         <View className="flex-1">
-          <Text className="text-[18px] font-bold leading-6 text-[#27272A]">
+          <Text className="text-[18px] font-bold leading-6 text-text-primary">
             Data & Sync
           </Text>
-          <Text className="mt-1 text-[14px] leading-6 text-[#71717B]">
+          <Text className="mt-1 text-[14px] leading-6 text-text-muted">
             {copy.description}
           </Text>
         </View>
@@ -52,10 +52,10 @@ export function SyncStatusRow({
 
       {showRetry || isRetrying ? (
         <Pressable
-          accessibilityLabel={copy.retryLabel}
+          accessibilityLabel={isRetrying ? "Syncing..." : copy.retryLabel}
           accessibilityRole="button"
           accessibilityState={{ disabled: isRetrying }}
-          className="mt-5 min-h-[50px] flex-row items-center justify-center gap-2 rounded-full bg-[#FF2056] px-5"
+          className="mt-5 min-h-[50px] flex-row items-center justify-center gap-2 rounded-full bg-brand-primary px-5"
           disabled={isRetrying}
           onPress={onRetry}
         >
@@ -72,10 +72,10 @@ export function SyncStatusRow({
 function StatusDetail({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-row items-start justify-between gap-4">
-      <Text className="text-[13px] font-medium leading-5 text-[#71717B]">
+      <Text className="text-[13px] font-medium leading-5 text-text-muted">
         {label}
       </Text>
-      <Text className="flex-1 text-right text-[13px] font-semibold leading-5 text-[#27272A]">
+      <Text className="flex-1 text-right text-[13px] font-semibold leading-5 text-text-primary">
         {value}
       </Text>
     </View>

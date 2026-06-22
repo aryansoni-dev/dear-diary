@@ -144,10 +144,10 @@ export function ProfileScreen() {
     if (user?.id) {
       useSyncStore.getState().clearSyncStateForUser(user.id);
     }
-    setSupabaseAccessTokenProvider(null);
 
     try {
       await signOut();
+      setSupabaseAccessTokenProvider(null);
       router.replace("/login");
     } catch {
       setActiveUserId(user?.id ?? null);
@@ -363,8 +363,8 @@ export function ProfileScreen() {
       showDialog({
         confirmText: "OK",
         icon: "📝",
-        message: "No entries to export.",
-        title: "No entries to export",
+        message: "Write your first journal entry before creating an export.",
+        title: "Nothing to export yet",
       });
       return;
     }
@@ -673,7 +673,9 @@ export function ProfileScreen() {
           />
         </View>
         <MenuSection
+          disabledItemLabels={isExportingJournal ? ["Export Journal"] : undefined}
           items={accountMenuItems}
+          loadingItemLabel={isExportingJournal ? "Export Journal" : undefined}
           onItemPress={(item) => {
             if (item.label === "Export Journal") {
               handleExportJournalPress();

@@ -1,6 +1,7 @@
 import { CheckCircle2, Cloud, CloudOff, Loader2, PauseCircle } from "lucide-react-native";
 import { Text, View } from "react-native";
 
+import { SYNC_STATUS_COLORS } from "@/constants/theme";
 import type { UserSyncStatus } from "@/types/syncStatus";
 
 type SyncStatusIndicatorProps = {
@@ -16,38 +17,38 @@ const statusTheme: Record<
   }
 > = {
   failed: {
-    backgroundColor: "#FFE8F0",
-    color: "#BE123C",
+    backgroundColor: SYNC_STATUS_COLORS.failed.background,
+    color: SYNC_STATUS_COLORS.failed.text,
     label: "Sync failed",
   },
   idle: {
-    backgroundColor: "#F4F4F5",
-    color: "#71717B",
+    backgroundColor: SYNC_STATUS_COLORS.idle.background,
+    color: SYNC_STATUS_COLORS.idle.text,
     label: "Checking",
   },
   paused: {
-    backgroundColor: "#F4F4F5",
-    color: "#71717B",
+    backgroundColor: SYNC_STATUS_COLORS.paused.background,
+    color: SYNC_STATUS_COLORS.paused.text,
     label: "Paused",
   },
   saved_locally: {
-    backgroundColor: "#F4EFFA",
-    color: "#6D28D9",
+    backgroundColor: SYNC_STATUS_COLORS.saved_locally.background,
+    color: SYNC_STATUS_COLORS.saved_locally.text,
     label: "Saved locally",
   },
   synced: {
-    backgroundColor: "#DCFCE7",
-    color: "#15803D",
+    backgroundColor: SYNC_STATUS_COLORS.synced.background,
+    color: SYNC_STATUS_COLORS.synced.text,
     label: "Synced",
   },
   syncing: {
-    backgroundColor: "#E0F2FE",
-    color: "#0369A1",
+    backgroundColor: SYNC_STATUS_COLORS.syncing.background,
+    color: SYNC_STATUS_COLORS.syncing.text,
     label: "Syncing",
   },
   waiting_for_network: {
-    backgroundColor: "#FFF7ED",
-    color: "#C2410C",
+    backgroundColor: SYNC_STATUS_COLORS.waiting_for_network.background,
+    color: SYNC_STATUS_COLORS.waiting_for_network.text,
     label: "Waiting",
   },
 };

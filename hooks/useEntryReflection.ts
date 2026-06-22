@@ -4,6 +4,7 @@ import {
   fetchEntryReflection,
   generateEntryReflection,
 } from "@/lib/ai/entryReflectionService";
+import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { useEntryReflectionStore } from "@/store/useEntryReflectionStore";
 import type { EntryAIReflection } from "@/types/entryReflection";
 
@@ -36,6 +37,9 @@ export function useEntryReflection({
       ? state.getReflectionByEntryId(userId, entryId)
       : undefined,
   );
+  const cacheHasHydrated = useEntryReflectionStore(
+    (state) => state.hasHydrated,
+  );
   const upsertReflection = useEntryReflectionStore(
     (state) => state.upsertReflection,
   );
@@ -55,7 +59,7 @@ export function useEntryReflection({
   }, [entryId, userId]);
 
   const refresh = useCallback(async () => {
-    if (!canUseReflection || !entryId || !userId) {
+    if (!cacheHasHydrated || !canUseReflection || !entryId || !userId) {
       return;
     }
 
@@ -74,7 +78,7 @@ export function useEntryReflection({
     } finally {
       setIsLoading(false);
     }
-  }, [canUseReflection, entryId, upsertReflection, userId]);
+  }, [cacheHasHydrated, canUseReflection, entryId, upsertReflection, userId]);
 
   useEffect(() => {
     void refresh();
@@ -83,6 +87,10 @@ export function useEntryReflection({
   const runGeneration = useCallback(
     async (regenerate: boolean) => {
       if (!canUseReflection || !entryId || !userId || isGenerating) {
+        return;
+      }
+
+      if (!cacheHasHydrated) {
         return;
       }
 
@@ -105,7 +113,14 @@ export function useEntryReflection({
         setIsGenerating(false);
       }
     },
-    [canUseReflection, entryId, isGenerating, upsertReflection, userId],
+    [
+      cacheHasHydrated,
+      canUseReflection,
+      entryId,
+      isGenerating,
+      upsertReflection,
+      userId,
+    ],
   );
 
   const generate = useCallback(
@@ -122,7 +137,7 @@ export function useEntryReflection({
       error,
       generate,
       isGenerating,
-      isLoading,
+      isLoading: isLoading || (canUseReflection && !cacheHasHydrated),
       isStale,
       reflection,
       refresh,
@@ -131,6 +146,8 @@ export function useEntryReflection({
     [
       error,
       generate,
+      cacheHasHydrated,
+      canUseReflection,
       isGenerating,
       isLoading,
       isStale,
@@ -142,9 +159,9 @@ export function useEntryReflection({
 }
 
 function getReflectionErrorMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message
-    : "DearDiary AI is unavailable right now.";
+  return normalizeAppError(error, {
+    operation: "entry_ai_reflection",
+  }).userMessage;
 }
 
 function isReflectionStale(

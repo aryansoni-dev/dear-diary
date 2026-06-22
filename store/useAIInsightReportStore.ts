@@ -13,8 +13,10 @@ type AIInsightReportState = {
   reportsByUser: Record<string, UserReportCache>;
   clearReportsForUser: (userId: string) => void;
   getCachedReport: (userId: string | null, cacheKey: string) => AIInsightReport | null;
+  hasHydrated: boolean;
   removeCachedReport: (userId: string, cacheKey: string) => void;
   setCachedReport: (userId: string, cacheKey: string, report: AIInsightReport) => void;
+  setHasHydrated: (hasHydrated: boolean) => void;
 };
 
 export const useAIInsightReportStore = create<AIInsightReportState>()(
@@ -38,6 +40,7 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
 
         return get().reportsByUser[userId]?.[cacheKey] ?? null;
       },
+      hasHydrated: false,
       removeCachedReport: (userId, cacheKey) =>
         set((state) => {
           const userReports = state.reportsByUser[userId];
@@ -57,6 +60,7 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
           };
         }),
       reportsByUser: {},
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       setCachedReport: (userId, cacheKey, report) =>
         set((state) => ({
           reportsByUser: {
@@ -71,6 +75,9 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
     {
       name: "dear-diary-ai-insight-reports",
       migrate: migrateReportState,
+      onRehydrateStorage: (state) => () => {
+        state?.setHasHydrated(true);
+      },
       partialize: (state) => ({ reportsByUser: state.reportsByUser }),
       storage: createJSONStorage(() => AsyncStorage),
       version: reportStorageVersion,

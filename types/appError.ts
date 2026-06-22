@@ -13,19 +13,20 @@ export type AppErrorCategory =
 
 export type AppErrorSeverity = "info" | "warning" | "error" | "fatal";
 
-export type AppErrorCode =
-  | "offline"
-  | "request_timeout"
-  | "session_expired"
-  | "permission_denied"
-  | "local_save_failed"
-  | "sync_failed"
-  | "sync_conflict"
-  | "ai_unavailable"
-  | "rate_limited"
-  | "invalid_data"
-  | "resource_not_found"
-  | "unexpected_error";
+export const appErrorCodes = [
+  "offline",
+  "request_timeout",
+  "session_expired",
+  "permission_denied",
+  "local_save_failed",
+  "sync_failed",
+  "ai_unavailable",
+  "rate_limited",
+  "resource_not_found",
+  "unexpected_error",
+] as const;
+
+export type AppErrorCode = (typeof appErrorCodes)[number];
 
 export type AppError = {
   category: AppErrorCategory;

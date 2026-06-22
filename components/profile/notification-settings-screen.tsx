@@ -204,7 +204,11 @@ export function NotificationSettingsScreen() {
                   Use notifications?
                 </Text>
                 <Text className="mt-1 text-[13px] leading-5 text-[#71717B]">
-                  Daily reflection reminders
+                  {hasHydrated
+                    ? isEnabled
+                      ? "Daily reflection reminders are on"
+                      : "No reminders yet"
+                    : "Loading reminder settings..."}
                 </Text>
               </View>
               {isSaving ? (
@@ -225,6 +229,7 @@ export function NotificationSettingsScreen() {
 
         <View className="pt-7 gap-4">
           <ReminderTimeRow
+            disabled={!hasHydrated}
             label="Morning Intention reminder time"
             onPress={() =>
               setActivePicker({
@@ -236,6 +241,7 @@ export function NotificationSettingsScreen() {
             time={morningReminderTime}
           />
           <ReminderTimeRow
+            disabled={!hasHydrated}
             label="Evening Reflection reminder time"
             onPress={() =>
               setActivePicker({
@@ -269,10 +275,12 @@ export function NotificationSettingsScreen() {
 }
 
 function ReminderTimeRow({
+  disabled = false,
   label,
   onPress,
   time,
 }: {
+  disabled?: boolean;
   label: string;
   onPress: () => void;
   time: string;
@@ -281,9 +289,14 @@ function ReminderTimeRow({
     <Pressable
       accessibilityLabel={`Set ${label}`}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
       className="min-h-[88px] flex-row items-center justify-between gap-4 rounded-[24px] bg-white px-5 py-4"
+      disabled={disabled}
       onPress={onPress}
-      style={{ boxShadow: "0 2px 8px rgba(39, 39, 42, 0.14)" }}
+      style={{
+        boxShadow: "0 2px 8px rgba(39, 39, 42, 0.14)",
+        opacity: disabled ? 0.62 : 1,
+      }}
     >
       <View className="flex-1">
         <Text className="text-[15px] font-medium leading-5 text-[#27272A]">

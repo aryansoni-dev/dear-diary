@@ -24,6 +24,7 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { ScreenLoadingState } from "@/components/states/ScreenLoadingState";
 import { TagInputModal } from "@/components/tags/tag-input-modal";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { animatedMoodEmojis } from "@/constants/animated-emojis";
@@ -31,6 +32,7 @@ import { journalEditorMoods } from "@/data/journal-editor";
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { useAutoSync } from "@/hooks/useAutoSync";
 import { useConnectivity } from "@/hooks/useConnectivity";
+import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
 import { useEntryReflection } from "@/hooks/useEntryReflection";
 import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { reportAppError } from "@/lib/errors/reportAppError";
@@ -104,6 +106,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const [wasSaved, setWasSaved] = useState(false);
   const [isWritingFocused, setIsWritingFocused] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const showHydrationState = useDelayedVisibility(!hasHydrated);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const bottomChromeHeight = bottomNavHeight;
   const isAndroid = process.env.EXPO_OS === "android";
@@ -297,7 +300,10 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       });
       showDialog({
         confirmText: "OK",
-        message: appError.userMessage,
+        message:
+          appError.code === "local_save_failed"
+            ? "We could not save this entry on your device. Please try again before leaving."
+            : "We could not save this entry on your device. Please try again before leaving.",
         title: "Save failed",
         variant: "destructive",
       });
@@ -408,11 +414,11 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
 
   if (!hasHydrated) {
     return (
-      <View className="flex-1 items-center justify-center bg-white px-8">
+      <View className="flex-1 justify-center bg-white px-8">
         <StatusBar hidden />
-        <Text className="text-center text-[17px] font-medium leading-6 text-zinc-500">
-          Loading your journal...
-        </Text>
+        {showHydrationState ? (
+          <ScreenLoadingState title="Preparing your journal..." />
+        ) : null}
       </View>
     );
   }
@@ -426,7 +432,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
           style={{ paddingBottom: bottomNavHeight }}
         >
           <Text className="text-center text-[24px] font-bold leading-8 text-zinc-950">
-            Entry not found
+            This journal entry could not be found.
           </Text>
           <Text className="mt-3 text-center text-[16px] leading-6 text-zinc-500">
             This journal entry may have been deleted.
@@ -437,7 +443,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
             onPress={() => router.replace("/journal-history")}
           >
             <Text className="text-[16px] font-semibold leading-6 text-white">
-              Back to History
+              Return to History
             </Text>
           </Pressable>
         </View>
@@ -826,7 +832,7 @@ function getSaveButtonLabel({
     return "Save";
   }
 
-  if (!wasSaved && entrySyncStatus !== "synced") {
+  if (!wasSaved) {
     return "Save";
   }
 
