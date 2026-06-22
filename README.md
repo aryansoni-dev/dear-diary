@@ -1,50 +1,46 @@
-# Welcome to your Expo app 👋
+# DearDiary
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+DearDiary is an Expo, React Native, TypeScript, Expo Router, NativeWind, Zustand, Clerk, and Supabase journaling app.
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Setup
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Copy `.env.example` to your local environment file and fill the public Expo values. Keep server secrets out of the mobile app.
 
-## Learn more
+## Account Deletion
 
-To learn more about developing your project with Expo, look at the following resources:
+The app includes a production-readiness deletion flow:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- Profile action: **Delete My Data and Account**
+- Supabase Edge Function: `delete-account`
+- Database RPC: `delete_deardiary_user_data(target_user_id)`
+- Local cleanup: `lib/account/clearLocalUserData.ts`
 
-## Join the community
+Required Edge Function secrets:
 
-Join our community of developers creating universal apps.
+```txt
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+CLERK_SECRET_KEY
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Deploy the function and migration with your normal Supabase workflow. Do not put service-role or Clerk secret keys in `EXPO_PUBLIC_*` variables.
+
+Related docs:
+
+- `docs/user-data-inventory.md`
+- `docs/database.md`
+- `docs/privacy.md`
+- `docs/play-store-account-deletion.md`
+
+## Legal Drafts
+
+Privacy Policy and Terms screens exist at:
+
+- `/legal/privacy-policy`
+- `/legal/terms`
+
+They contain visible placeholders and require legal review before public release.

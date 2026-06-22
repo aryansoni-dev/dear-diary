@@ -156,6 +156,6 @@ export const accountItems: ProfileMenuItem[] = [
     backgroundColor: "#FFE1EE",
     icon: "trash-2",
     iconColor: "#FF2056",
-    label: "Clear My Journal Data",
+    label: "Delete My Data and Account",
   },
 ];

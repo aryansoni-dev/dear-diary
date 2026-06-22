@@ -22,6 +22,7 @@ import {
 } from "react-native";
 
 import { images } from "@/constants/images";
+import { useAppDialog } from "@/hooks/useAppDialog";
 
 import { AuthTextField } from "./auth-text-field";
 import {
@@ -86,6 +87,7 @@ export function AuthScreen({
   const { fetchStatus: signInFetchStatus, signIn } = useSignIn();
   const { fetchStatus: signUpFetchStatus, signUp } = useSignUp();
   const { startSSOFlow } = useSSO();
+  const { showDialog } = useAppDialog();
   const isFetching =
     signInFetchStatus === "fetching" || signUpFetchStatus === "fetching";
   const isClerkReady = isAuthLoaded && !isFetching;
@@ -98,28 +100,32 @@ export function AuthScreen({
     }
   }, [isSignedIn]);
 
+  function showError(message: string) {
+    showAuthError(showDialog, message);
+  }
+
   async function handlePrimaryPress() {
     if (!isClerkReady || isSubmitting) {
       return;
     }
 
     if (!email.trim() || !password) {
-      showAuthError("Enter your email address and password to continue.");
+      showError("Enter your email address and password to continue.");
       return;
     }
 
     if (emailFeedback?.tone === "error") {
-      showAuthError(emailFeedback.message);
+      showError(emailFeedback.message);
       return;
     }
 
     if (!isLogin && getNameParts(fullName).lastName === undefined) {
-      showAuthError("Enter your first and last name to continue.");
+      showError("Enter your first and last name to continue.");
       return;
     }
 
     if (!isLogin && passwordFeedback?.tone === "error") {
-      showAuthError(passwordFeedback.message);
+      showError(passwordFeedback.message);
       return;
     }
 
@@ -133,12 +139,12 @@ export function AuthScreen({
         });
 
         if (error) {
-          showAuthError(getClerkErrorMessage(error));
+          showError(getClerkErrorMessage(error));
           return;
         }
 
         if (signIn.status === "complete") {
-          await finalizeAuth(signIn);
+          await finalizeAuth(signIn, showDialog);
           return;
         }
 
@@ -150,9 +156,9 @@ export function AuthScreen({
           return;
         }
 
-        showAuthError("This account needs another verification step.");
+        showError("This account needs another verification step.");
       } catch (error) {
-        showAuthError(getClerkErrorMessage(error));
+        showError(getClerkErrorMessage(error));
       } finally {
         setIsSubmitting(false);
       }
@@ -169,18 +175,18 @@ export function AuthScreen({
       });
 
       if (error) {
-        showAuthError(getClerkErrorMessage(error));
+        showError(getClerkErrorMessage(error));
         return;
       }
 
       if (signUp.status === "complete") {
-        await finalizeAuth(signUp);
+        await finalizeAuth(signUp, showDialog);
         return;
       }
 
       const emailCodeResult = await signUp.verifications.sendEmailCode();
       if (emailCodeResult.error) {
-        showAuthError(getClerkErrorMessage(emailCodeResult.error));
+        showError(getClerkErrorMessage(emailCodeResult.error));
         return;
       }
 
@@ -188,7 +194,7 @@ export function AuthScreen({
       setVerificationFlow("signup");
       setIsVerificationVisible(true);
     } catch (error) {
-      showAuthError(getClerkErrorMessage(error));
+      showError(getClerkErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -219,19 +225,19 @@ export function AuthScreen({
       const { error } = await signUp.verifications.verifyEmailCode({ code });
 
       if (error) {
-        showAuthError(getClerkErrorMessage(error));
+        showError(getClerkErrorMessage(error));
         return;
       }
 
       if (signUp.status === "complete") {
-        await finalizeAuth(signUp);
+        await finalizeAuth(signUp, showDialog);
         setIsVerificationVisible(false);
         return;
       }
 
-      showAuthError(getMissingRequirementsMessage(signUp));
+      showError(getMissingRequirementsMessage(signUp));
     } catch (error) {
-      showAuthError(getClerkErrorMessage(error));
+      showError(getClerkErrorMessage(error));
     } finally {
       setIsVerifying(false);
     }
@@ -247,13 +253,13 @@ export function AuthScreen({
       const { error } = await signUp.verifications.sendEmailCode();
 
       if (error) {
-        showAuthError(getClerkErrorMessage(error));
+        showError(getClerkErrorMessage(error));
         return;
       }
 
       setVerificationCode("");
     } catch (error) {
-      showAuthError(getClerkErrorMessage(error));
+      showError(getClerkErrorMessage(error));
     }
   }
 
@@ -263,7 +269,7 @@ export function AuthScreen({
     );
 
     if (!supportsEmailCode) {
-      showAuthError(
+      showError(
         "This account needs a verification method that is not available here yet.",
       );
       return;
@@ -273,7 +279,7 @@ export function AuthScreen({
       const { error } = await signIn.mfa.sendEmailCode();
 
       if (error) {
-        showAuthError(getClerkErrorMessage(error));
+        showError(getClerkErrorMessage(error));
         return;
       }
 
@@ -281,7 +287,7 @@ export function AuthScreen({
       setVerificationFlow("login-email-code");
       setIsVerificationVisible(true);
     } catch (error) {
-      showAuthError(getClerkErrorMessage(error));
+      showError(getClerkErrorMessage(error));
     }
   }
 
@@ -292,20 +298,20 @@ export function AuthScreen({
       const { error } = await signIn.mfa.verifyEmailCode({ code });
 
       if (error) {
-        showAuthError(getClerkErrorMessage(error));
+        showError(getClerkErrorMessage(error));
         return;
       }
 
       if (signIn.status === "complete") {
-        await finalizeAuth(signIn);
+        await finalizeAuth(signIn, showDialog);
         setIsVerificationVisible(false);
         setVerificationFlow(null);
         return;
       }
 
-      showAuthError("This account needs another verification step.");
+      showError("This account needs another verification step.");
     } catch (error) {
-      showAuthError(getClerkErrorMessage(error));
+      showError(getClerkErrorMessage(error));
     } finally {
       setIsVerifying(false);
     }
@@ -330,9 +336,9 @@ export function AuthScreen({
         return;
       }
 
-      showAuthError("Google signup needs one more step before continuing.");
+      showError("Google signup needs one more step before continuing.");
     } catch (error) {
-      showAuthError(getClerkErrorMessage(error));
+      showError(getClerkErrorMessage(error));
     } finally {
       setSocialStrategy(null);
     }
@@ -480,6 +486,19 @@ export function AuthScreen({
                   </Text>
                 </Pressable>
               </Link>
+              <Text className="mt-2 text-center text-[11px] leading-4 text-zinc-400">
+                By continuing, you agree to the{" "}
+                <Link href="/legal/terms" asChild>
+                  <Text className="font-bold text-[#ff2056]">Terms</Text>
+                </Link>{" "}
+                and acknowledge the{" "}
+                <Link href="/legal/privacy-policy" asChild>
+                  <Text className="font-bold text-[#ff2056]">
+                    Privacy Policy
+                  </Text>
+                </Link>
+                .
+              </Text>
             </View>
           </View>
 

@@ -7,6 +7,7 @@ import {
   type MergeResult,
 } from "@/lib/sync/mergeJournalEntries";
 import { normalizeTags } from "@/lib/tags";
+import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
 import type {
   EntryType,
   JournalEntry,
@@ -176,6 +177,10 @@ export const useJournalStore = create<JournalState>()(
     (set, get) => ({
       activeUserId: null,
       addEntry: (entry) => {
+        if (useAccountDeletionStore.getState().deletionInProgress) {
+          throw new Error("Account deletion is in progress.");
+        }
+
         const userId = get().activeUserId;
 
         if (!userId) {
@@ -231,6 +236,10 @@ export const useJournalStore = create<JournalState>()(
           };
         }),
       deleteEntry: (id) => {
+        if (useAccountDeletionStore.getState().deletionInProgress) {
+          return;
+        }
+
         const now = new Date().toISOString();
 
         set((state) => ({
@@ -330,6 +339,10 @@ export const useJournalStore = create<JournalState>()(
         })),
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       updateEntry: (id, entry) => {
+        if (useAccountDeletionStore.getState().deletionInProgress) {
+          return;
+        }
+
         const now = new Date().toISOString();
 
         set((state) => ({
