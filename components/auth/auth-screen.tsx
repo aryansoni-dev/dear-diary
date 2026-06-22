@@ -336,7 +336,9 @@ export function AuthScreen({
         return;
       }
 
-      showError("Google signup needs one more step before continuing.");
+      showError(
+        `${getSocialProviderLabel(strategy)} ${mode} needs one more step before continuing.`,
+      );
     } catch (error) {
       showError(getClerkErrorMessage(error));
     } finally {
@@ -547,6 +549,10 @@ export function AuthScreen({
       />
     </LinearGradient>
   );
+}
+
+function getSocialProviderLabel(strategy: "oauth_google" | "oauth_apple") {
+  return strategy === "oauth_apple" ? "Apple" : "Google";
 }
 
 type SocialButtonsProps = {

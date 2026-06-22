@@ -35,6 +35,7 @@ import {
   ReportShell,
   UpdatingBanner,
 } from "@/components/insights/report/ReportScreenStates";
+import { FeatureErrorBoundary } from "@/components/errors/FeatureErrorBoundary";
 import { ReportStatGrid } from "@/components/insights/report/ReportStatGrid";
 import { reportColors } from "@/constants/report-theme";
 import { useAppDialog } from "@/hooks/useAppDialog";
@@ -118,17 +119,22 @@ export default function AIInsightReportScreen() {
   return (
     <ReportShell bottomNavHeight={bottomNavHeight} insetsTop={insets.top}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView
-        className="flex-1"
-        contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          gap: 18,
-          paddingBottom: bottomNavHeight + 180,
-          paddingHorizontal: 24,
-          paddingTop: Math.max(58, insets.top + 18),
-        }}
+      <FeatureErrorBoundary
+        fallbackMessage="Previously generated reports remain available after this view recovers."
+        featureName="Reflection Report"
+        onRetry={reportState.refresh}
       >
+        <ScrollView
+          className="flex-1"
+          contentInsetAdjustmentBehavior="automatic"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            gap: 18,
+            paddingBottom: bottomNavHeight + 180,
+            paddingHorizontal: 24,
+            paddingTop: Math.max(58, insets.top + 18),
+          }}
+        >
         <View className="flex-row items-center justify-between">
           <AnimatedIconButton
             accessibilityLabel="Back to Insights"
@@ -291,7 +297,8 @@ export default function AIInsightReportScreen() {
             periodType={period.type}
           />
         )}
-      </ScrollView>
+        </ScrollView>
+      </FeatureErrorBoundary>
       <BottomTabBar activeTab="Insights" />
     </ReportShell>
   );

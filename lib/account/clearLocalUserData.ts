@@ -59,6 +59,8 @@ async function clearNotificationState() {
         name: error instanceof Error ? error.name : "UnknownError",
       });
     }
+
+    throw error;
   }
 }
 

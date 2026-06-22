@@ -10,6 +10,7 @@ import {
   type ReportPeriod,
 } from "@/lib/insights/reportPeriods";
 import { useAutoSync } from "@/hooks/useAutoSync";
+import { useConnectivity } from "@/hooks/useConnectivity";
 import { useAIInsightReportStore } from "@/store/useAIInsightReportStore";
 import { useJournalStore } from "@/store/journal-store";
 import type { AIInsightReport } from "@/types/aiInsightReport";
@@ -39,6 +40,7 @@ export function useAIInsightReport(
   const enabled = options.enabled ?? true;
   const { userId } = useAuth();
   const { runAutoSync } = useAutoSync();
+  const connectivity = useConnectivity();
   const entries = useJournalStore((state) => state.entries);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const cacheKey = useMemo(() => getReportCacheKey(period), [period]);
@@ -105,6 +107,11 @@ export function useAIInsightReport(
       return;
     }
 
+    if (connectivity.status === "offline") {
+      setError("Connect to the internet to refresh this reflection report.");
+      return;
+    }
+
     const requestVersion = requestContextVersionRef.current;
     setIsLoading(true);
     setError(null);
@@ -143,6 +150,7 @@ export function useAIInsightReport(
     period,
     removeCachedReport,
     setCachedReport,
+    connectivity.status,
     userId,
   ]);
 
@@ -164,6 +172,11 @@ export function useAIInsightReport(
 
       if (!userId) {
         setError("Please sign in again before generating a reflection report.");
+        return;
+      }
+
+      if (connectivity.status === "offline") {
+        setError("Connect to the internet to generate a reflection report.");
         return;
       }
 
@@ -217,6 +230,7 @@ export function useAIInsightReport(
     },
     [
       cacheKey,
+      connectivity.status,
       enabled,
       isCurrentRequestContext,
       period,

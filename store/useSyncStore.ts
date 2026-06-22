@@ -2,20 +2,25 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import type { AppErrorCode } from "@/types/appError";
+
 type SyncState = {
   clearSyncError: () => void;
   clearSyncStateForUser: (userId: string) => void;
   hasHydrated: boolean;
   isSyncing: boolean;
+  lastAttemptAt: string | null;
+  lastSyncErrorCode: AppErrorCode | null;
   lastSyncError: string | null;
   lastSyncFailedAt: string | null;
   lastSyncedAt: string | null;
   lastSyncUserId: string | null;
   setHasHydrated: (value: boolean) => void;
   setIsSyncing: (value: boolean) => void;
+  setSyncAttempt: (timestamp: string, userId: string) => void;
   setSyncFailure: (
     timestamp: string,
-    errorMessage: string,
+    errorCode: AppErrorCode,
     userId: string,
   ) => void;
   setSyncSuccess: (timestamp: string, userId: string) => void;
@@ -23,7 +28,12 @@ type SyncState = {
 
 type PersistedSyncMetadata = Pick<
   SyncState,
-  "lastSyncError" | "lastSyncFailedAt" | "lastSyncedAt" | "lastSyncUserId"
+  | "lastAttemptAt"
+  | "lastSyncError"
+  | "lastSyncErrorCode"
+  | "lastSyncFailedAt"
+  | "lastSyncedAt"
+  | "lastSyncUserId"
 >;
 
 export const useSyncStore = create<SyncState>()(
@@ -31,6 +41,7 @@ export const useSyncStore = create<SyncState>()(
     (set) => ({
       clearSyncError: () =>
         set({
+          lastSyncErrorCode: null,
           lastSyncError: null,
           lastSyncFailedAt: null,
         }),
@@ -42,6 +53,8 @@ export const useSyncStore = create<SyncState>()(
 
           return {
             isSyncing: false,
+            lastAttemptAt: null,
+            lastSyncErrorCode: null,
             lastSyncError: null,
             lastSyncFailedAt: null,
             lastSyncedAt: null,
@@ -50,21 +63,32 @@ export const useSyncStore = create<SyncState>()(
         }),
       hasHydrated: false,
       isSyncing: false,
+      lastAttemptAt: null,
+      lastSyncErrorCode: null,
       lastSyncError: null,
       lastSyncFailedAt: null,
       lastSyncedAt: null,
       lastSyncUserId: null,
       setHasHydrated: (value) => set({ hasHydrated: value }),
       setIsSyncing: (value) => set({ isSyncing: value }),
-      setSyncFailure: (timestamp, errorMessage, userId) =>
+      setSyncAttempt: (timestamp, userId) =>
         set({
-          lastSyncError: errorMessage,
+          lastAttemptAt: timestamp,
+          lastSyncUserId: userId,
+        }),
+      setSyncFailure: (timestamp, errorCode, userId) =>
+        set({
+          lastAttemptAt: timestamp,
+          lastSyncError: getUserSafeSyncErrorLabel(errorCode),
+          lastSyncErrorCode: errorCode,
           lastSyncFailedAt: timestamp,
           lastSyncUserId: userId,
         }),
       setSyncSuccess: (timestamp, userId) =>
         set({
+          lastAttemptAt: timestamp,
           lastSyncError: null,
+          lastSyncErrorCode: null,
           lastSyncFailedAt: null,
           lastSyncedAt: timestamp,
           lastSyncUserId: userId,
@@ -80,7 +104,9 @@ export const useSyncStore = create<SyncState>()(
         state?.setHasHydrated(true);
       },
       partialize: (state) => ({
+        lastAttemptAt: state.lastAttemptAt,
         lastSyncError: state.lastSyncError,
+        lastSyncErrorCode: state.lastSyncErrorCode,
         lastSyncFailedAt: state.lastSyncFailedAt,
         lastSyncedAt: state.lastSyncedAt,
         lastSyncUserId: state.lastSyncUserId,
@@ -98,7 +124,11 @@ function getSanitizedSyncMetadata(
   }
 
   return {
+    lastAttemptAt: getNullableTimestamp(persistedState.lastAttemptAt),
     lastSyncError: getNullableString(persistedState.lastSyncError),
+    lastSyncErrorCode: getNullableAppErrorCode(
+      persistedState.lastSyncErrorCode,
+    ),
     lastSyncFailedAt: getNullableTimestamp(persistedState.lastSyncFailedAt),
     lastSyncedAt: getNullableTimestamp(persistedState.lastSyncedAt),
     lastSyncUserId: getNullableString(persistedState.lastSyncUserId),
@@ -107,7 +137,9 @@ function getSanitizedSyncMetadata(
 
 function createEmptySyncMetadata(): PersistedSyncMetadata {
   return {
+    lastAttemptAt: null,
     lastSyncError: null,
+    lastSyncErrorCode: null,
     lastSyncFailedAt: null,
     lastSyncedAt: null,
     lastSyncUserId: null,
@@ -124,8 +156,47 @@ function getNullableTimestamp(value: unknown) {
     : null;
 }
 
+function getNullableAppErrorCode(value: unknown): AppErrorCode | null {
+  return typeof value === "string" && isAppErrorCode(value) ? value : null;
+}
+
+function getUserSafeSyncErrorLabel(code: AppErrorCode) {
+  if (code === "offline") {
+    return "Offline";
+  }
+
+  if (code === "session_expired") {
+    return "Session expired";
+  }
+
+  if (code === "permission_denied") {
+    return "Permission denied";
+  }
+
+  return "Sync failed";
+}
+
+function isAppErrorCode(value: string): value is AppErrorCode {
+  return appErrorCodes.includes(value as AppErrorCode);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return (
     typeof value === "object" && value !== null && !Array.isArray(value)
   );
 }
+
+const appErrorCodes: AppErrorCode[] = [
+  "offline",
+  "request_timeout",
+  "session_expired",
+  "permission_denied",
+  "local_save_failed",
+  "sync_failed",
+  "sync_conflict",
+  "ai_unavailable",
+  "rate_limited",
+  "invalid_data",
+  "resource_not_found",
+  "unexpected_error",
+];

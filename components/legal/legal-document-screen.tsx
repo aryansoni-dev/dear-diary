@@ -15,6 +15,37 @@ type LegalDocumentScreenProps = {
   version: string;
 };
 
+const legalDocumentColors = {
+  background: "#FFF7FB",
+  bodyText: "#51515B",
+  cardBackground: "#FFFFFF",
+  gradientEnd: "#FFFFFF",
+  gradientStart: "#FFF4FA",
+  heading: "#27272A",
+  iconMuted: "#51515B",
+  mutedText: "#71717B",
+} as const;
+
+const legalDocumentSpacing = {
+  bottomInsetOffset: 36,
+  bottomMinimum: 56,
+  horizontal: 24,
+  topInsetOffset: 28,
+  topMinimum: 52,
+} as const;
+
+const legalDocumentLayout = {
+  headerSpacerSize: 50,
+  iconSize: 24,
+} as const;
+
+const legalDocumentCardShadow = "0 2px 8px rgba(39, 39, 42, 0.12)";
+const legalDocumentIconShadow = "0 2px 6px rgba(39, 39, 42, 0.16)";
+const legalDocumentGradientColors = [
+  legalDocumentColors.gradientStart,
+  legalDocumentColors.gradientEnd,
+] as const;
+
 export function LegalDocumentScreen({
   accountDeletionUrl,
   effectiveDate,
@@ -34,9 +65,12 @@ export function LegalDocumentScreen({
   }
 
   return (
-    <View className="flex-1 bg-[#FFF7FB]">
+    <View
+      className="flex-1"
+      style={{ backgroundColor: legalDocumentColors.background }}
+    >
       <LinearGradient
-        colors={["#FFF4FA", "#FFFFFF"]}
+        colors={legalDocumentGradientColors}
         style={{
           bottom: 0,
           left: 0,
@@ -48,9 +82,15 @@ export function LegalDocumentScreen({
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
-          paddingBottom: Math.max(insets.bottom + 36, 56),
-          paddingHorizontal: 24,
-          paddingTop: Math.max(insets.top + 28, 52),
+          paddingBottom: Math.max(
+            insets.bottom + legalDocumentSpacing.bottomInsetOffset,
+            legalDocumentSpacing.bottomMinimum,
+          ),
+          paddingHorizontal: legalDocumentSpacing.horizontal,
+          paddingTop: Math.max(
+            insets.top + legalDocumentSpacing.topInsetOffset,
+            legalDocumentSpacing.topMinimum,
+          ),
         }}
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
@@ -59,43 +99,68 @@ export function LegalDocumentScreen({
           <AnimatedIconButton
             accessibilityLabel="Go back"
             onPress={handleBackPress}
-            shadow="0 2px 6px rgba(39, 39, 42, 0.16)"
+            shadow={legalDocumentIconShadow}
           >
-            <Feather name="chevron-left" size={24} color="#51515B" />
+            <Feather
+              name="chevron-left"
+              size={legalDocumentLayout.iconSize}
+              color={legalDocumentColors.iconMuted}
+            />
           </AnimatedIconButton>
 
-          <Text className="text-[20px] font-semibold leading-6 text-[#27272A]">
+          <Text
+            className="text-[20px] font-semibold leading-6"
+            style={{ color: legalDocumentColors.heading }}
+          >
             {title}
           </Text>
 
-          <View className="size-[50px]" />
+          <View
+            style={{
+              height: legalDocumentLayout.headerSpacerSize,
+              width: legalDocumentLayout.headerSpacerSize,
+            }}
+          />
         </View>
 
         <View className="pt-8">
           <View
-            className="gap-3 rounded-[26px] bg-white px-5 py-5"
-            style={{ boxShadow: "0 2px 8px rgba(39, 39, 42, 0.12)" }}
+            className="gap-3 rounded-[26px] px-5 py-5"
+            style={{
+              backgroundColor: legalDocumentColors.cardBackground,
+              boxShadow: legalDocumentCardShadow,
+            }}
           >
-            <Text className="text-[15px] font-semibold leading-5 text-[#71717B]">
+            <Text
+              className="text-[15px] font-semibold leading-5"
+              style={{ color: legalDocumentColors.mutedText }}
+            >
               Version {version}
             </Text>
-            <Text className="text-[15px] leading-6 text-[#71717B]">
+            <Text
+              className="text-[15px] leading-6"
+              style={{ color: legalDocumentColors.mutedText }}
+            >
               Effective date: {effectiveDate}
             </Text>
           </View>
         </View>
 
         <View className="gap-6 pt-7">
-          {sections.map((section) => (
-            <View className="gap-3" key={section.title}>
-              <Text className="text-[19px] font-bold leading-6 text-[#27272A]">
+          {sections.map((section, sectionIndex) => (
+            <View className="gap-3" key={`legal-section-${sectionIndex}`}>
+              <Text
+                className="text-[19px] font-bold leading-6"
+                style={{ color: legalDocumentColors.heading }}
+              >
                 {section.title}
               </Text>
-              {section.body.map((paragraph) => (
+              {section.body.map((paragraph, paragraphIndex) => (
                 <Text
-                  className="text-[15px] leading-6 text-[#51515B]"
-                  key={paragraph}
+                  className="text-[15px] leading-6"
+                  key={`legal-section-${sectionIndex}-paragraph-${paragraphIndex}`}
                   selectable
+                  style={{ color: legalDocumentColors.bodyText }}
                 >
                   {paragraph}
                 </Text>
@@ -105,11 +170,21 @@ export function LegalDocumentScreen({
         </View>
 
         {accountDeletionUrl ? (
-          <View className="mt-5 rounded-[22px] bg-white px-5 py-4">
-            <Text className="text-[15px] font-semibold leading-5 text-[#27272A]">
+          <View
+            className="mt-5 rounded-[22px] px-5 py-4"
+            style={{ backgroundColor: legalDocumentColors.cardBackground }}
+          >
+            <Text
+              className="text-[15px] font-semibold leading-5"
+              style={{ color: legalDocumentColors.heading }}
+            >
               External account-deletion page
             </Text>
-            <Text className="mt-2 text-[14px] leading-5 text-[#71717B]" selectable>
+            <Text
+              className="mt-2 text-[14px] leading-5"
+              selectable
+              style={{ color: legalDocumentColors.mutedText }}
+            >
               {accountDeletionUrl}
             </Text>
           </View>

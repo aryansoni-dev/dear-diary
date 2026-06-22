@@ -2,16 +2,31 @@ import { useAuth } from "@clerk/expo";
 import { useEffect, useMemo, useRef } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 
+import { useConnectivity } from "@/hooks/useConnectivity";
 import { useAutoSync } from "@/hooks/useAutoSync";
 import { useJournalStore } from "@/store/journal-store";
+import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
+import { useSyncStore } from "@/store/useSyncStore";
 
 const journalChangeDebounceMs = 1500;
+const reconnectSyncDelayMs = 1200;
+const retryDelaysMs = [5000, 15000];
 
 export function AutoSyncManager() {
   const { isLoaded, userId } = useAuth();
+  const connectivity = useConnectivity();
   const { runAutoSync } = useAutoSync();
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const previousConnectivityStatusRef = useRef(connectivity.status);
+  const retryAttemptRef = useRef(0);
   const allEntries = useJournalStore((state) => state.allEntries);
+  const isSyncing = useSyncStore((state) => state.isSyncing);
+  const lastSyncedAt = useSyncStore((state) => state.lastSyncedAt);
+  const lastSyncFailedAt = useSyncStore((state) => state.lastSyncFailedAt);
+  const lastSyncUserId = useSyncStore((state) => state.lastSyncUserId);
+  const deletionInProgress = useAccountDeletionStore(
+    (state) => state.deletionInProgress,
+  );
   const pendingEntryKey = useMemo(() => {
     if (!userId) {
       return "";
@@ -20,12 +35,13 @@ export function AutoSyncManager() {
     return allEntries
       .filter(
         (entry) =>
-          entry.userId === userId && entry.syncStatus === "pending",
+          entry.userId === userId && entry.syncStatus !== "synced",
       )
       .map((entry) => `${entry.id}:${entry.updatedAt}`)
       .sort()
       .join("|");
   }, [allEntries, userId]);
+  const hasPendingChanges = pendingEntryKey.length > 0;
 
   useEffect(() => {
     if (!isLoaded || !userId) {
@@ -49,7 +65,7 @@ export function AutoSyncManager() {
   }, [runAutoSync]);
 
   useEffect(() => {
-    if (!userId || !pendingEntryKey) {
+    if (!userId || !hasPendingChanges) {
       return;
     }
 
@@ -58,7 +74,90 @@ export function AutoSyncManager() {
     }, journalChangeDebounceMs);
 
     return () => clearTimeout(timeout);
-  }, [pendingEntryKey, runAutoSync, userId]);
+  }, [hasPendingChanges, pendingEntryKey, runAutoSync, userId]);
+
+  useEffect(() => {
+    const previousStatus = previousConnectivityStatusRef.current;
+    previousConnectivityStatusRef.current = connectivity.status;
+
+    if (
+      previousStatus !== "offline" ||
+      connectivity.status !== "online" ||
+      !userId ||
+      !hasPendingChanges ||
+      isSyncing ||
+      deletionInProgress
+    ) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      void runAutoSync("reconnect");
+    }, reconnectSyncDelayMs);
+
+    return () => clearTimeout(timeout);
+  }, [
+    connectivity.status,
+    deletionInProgress,
+    hasPendingChanges,
+    isSyncing,
+    runAutoSync,
+    userId,
+  ]);
+
+  useEffect(() => {
+    if (!userId || lastSyncUserId !== userId) {
+      retryAttemptRef.current = 0;
+      return;
+    }
+
+    if (
+      !lastSyncedAt ||
+      !lastSyncFailedAt ||
+      Date.parse(lastSyncedAt) < Date.parse(lastSyncFailedAt)
+    ) {
+      return;
+    }
+
+    retryAttemptRef.current = 0;
+  }, [lastSyncFailedAt, lastSyncedAt, lastSyncUserId, userId]);
+
+  useEffect(() => {
+    if (
+      !userId ||
+      lastSyncUserId !== userId ||
+      !lastSyncFailedAt ||
+      !hasPendingChanges ||
+      isSyncing ||
+      deletionInProgress ||
+      connectivity.status === "offline"
+    ) {
+      return;
+    }
+
+    const delay = retryDelaysMs[retryAttemptRef.current];
+
+    if (delay === undefined) {
+      return;
+    }
+
+    retryAttemptRef.current += 1;
+
+    const timeout = setTimeout(() => {
+      void runAutoSync("retry");
+    }, delay);
+
+    return () => clearTimeout(timeout);
+  }, [
+    connectivity.status,
+    deletionInProgress,
+    hasPendingChanges,
+    isSyncing,
+    lastSyncFailedAt,
+    lastSyncUserId,
+    runAutoSync,
+    userId,
+  ]);
 
   return null;
 }

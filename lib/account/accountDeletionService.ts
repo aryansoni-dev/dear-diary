@@ -21,6 +21,7 @@ type DeleteCurrentAccountParams = {
 };
 
 const expectedConfirmationPhrase = "DELETE";
+const deleteAccountRequestTimeoutMs = 30000;
 
 export async function deleteCurrentAccount({
   confirmationPhrase,
@@ -70,7 +71,14 @@ export async function deleteCurrentAccount({
     if (!response.success) {
       if (response.remoteDataDeleted) {
         deletionStore.setStage("clearing_local_data");
-        await clearLocalUserData(userId);
+        try {
+          await clearLocalUserData(userId);
+        } catch {
+          return failLocalCleanupAfterRemoteDeletion(
+            deletionStore,
+            response.requestId,
+          );
+        }
         deletionStore.failDeletion(response.code, {
           keepGuardActive: response.code === "auth_account_deletion_failed",
           requestId: response.requestId,
@@ -85,7 +93,14 @@ export async function deleteCurrentAccount({
     }
 
     deletionStore.setStage("clearing_local_data");
-    await clearLocalUserData(userId);
+    try {
+      await clearLocalUserData(userId);
+    } catch {
+      return failLocalCleanupAfterRemoteDeletion(
+        deletionStore,
+        response.requestId,
+      );
+    }
 
     try {
       await signOut();
@@ -137,15 +152,28 @@ async function invokeDeleteAccountFunction({
     };
   }
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
-    body: JSON.stringify({ confirmationPhrase }),
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      apikey: supabaseAnonKey,
-    },
-    method: "POST",
-  });
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    abortController.abort();
+  }, deleteAccountRequestTimeoutMs);
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
+      body: JSON.stringify({ confirmationPhrase }),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        apikey: supabaseAnonKey,
+      },
+      method: "POST",
+      signal: abortController.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
   const data: unknown = await response.json().catch(() => null);
 
   if (isDeleteAccountFunctionResponse(data)) {
@@ -160,7 +188,7 @@ async function invokeDeleteAccountFunction({
 }
 
 function getDeletionErrorResult(error: unknown): AccountDeletionFailureResult {
-  if (error instanceof TypeError) {
+  if (error instanceof TypeError || isAbortError(error)) {
     return {
       code: "network_unavailable",
       retryable: true,
@@ -170,6 +198,24 @@ function getDeletionErrorResult(error: unknown): AccountDeletionFailureResult {
 
   return {
     code: "unknown",
+    retryable: true,
+    success: false,
+  };
+}
+
+function failLocalCleanupAfterRemoteDeletion(
+  deletionStore: ReturnType<typeof useAccountDeletionStore.getState>,
+  requestId: string | undefined,
+): AccountDeletionFailureResult {
+  deletionStore.failDeletion("local_cleanup_failed", {
+    keepGuardActive: true,
+    requestId,
+  });
+
+  return {
+    code: "local_cleanup_failed",
+    remoteDataDeleted: true,
+    requestId,
     retryable: true,
     success: false,
   };
@@ -192,6 +238,13 @@ function isDeleteAccountFunctionResponse(
     (value.requestId === undefined || typeof value.requestId === "string") &&
     (value.remoteDataDeleted === undefined ||
       typeof value.remoteDataDeleted === "boolean")
+  );
+}
+
+function isAbortError(error: unknown) {
+  return (
+    isRecord(error) &&
+    error.name === "AbortError"
   );
 }
 

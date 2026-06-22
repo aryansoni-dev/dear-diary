@@ -3,7 +3,7 @@ import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, router, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -18,6 +18,7 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { SyncStatusRow } from "@/components/sync/SyncStatusRow";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { achievementDefinitions } from "@/data/achievements";
 import {
@@ -28,6 +29,8 @@ import {
   type ProfileStat,
 } from "@/data/profile";
 import { useAppDialog } from "@/hooks/useAppDialog";
+import { useConnectivity } from "@/hooks/useConnectivity";
+import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { getAccountDeletionFailureMessage } from "@/lib/account/accountDeletionErrors";
 import { deleteCurrentAccount } from "@/lib/account/accountDeletionService";
 import { getAchievements, getWordCount } from "@/lib/achievements";
@@ -36,10 +39,9 @@ import {
   exportJournalAsMarkdown,
   JournalExportError,
 } from "@/lib/exportJournal";
+import { reportAppError } from "@/lib/errors/reportAppError";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
-import { syncAchievementStatesTwoWay } from "@/lib/sync/achievementSync";
-import { syncJournalEntriesTwoWay } from "@/lib/sync/journalTwoWaySync";
-import { syncProfileToCloud } from "@/lib/sync/profileSync";
+import { requestSync } from "@/lib/sync/requestSync";
 import { useJournalStore } from "@/store/journal-store";
 import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
 import { useAchievementStore } from "@/store/useAchievementStore";
@@ -57,7 +59,6 @@ const achievementsHref = "/achievements" as Href;
 const privacySettingsHref = "/settings/privacy" as Href;
 const cloudSyncItemLabel = "Backup & Sync Data";
 const deleteAccountItemLabel = "Delete My Data and Account";
-const syncStatusRefreshIntervalMs = 60 * 1000;
 
 const moodLabels: Record<MoodId, string> = {
   anxious: "Anxious",
@@ -82,49 +83,28 @@ export function ProfileScreen() {
   const { getToken, signOut } = useAuth();
   const { user } = useUser();
   const { showDialog } = useAppDialog();
+  const connectivity = useConnectivity();
   const entries = useJournalStore((state) => state.entries);
-  const allEntries = useJournalStore((state) => state.allEntries);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
-  const markEntriesPendingSync = useJournalStore(
-    (state) => state.markEntriesPendingSync,
-  );
-  const markEntriesSynced = useJournalStore(
-    (state) => state.markEntriesSynced,
-  );
-  const markEntriesSyncFailed = useJournalStore(
-    (state) => state.markEntriesSyncFailed,
-  );
-  const mergeRemoteEntries = useJournalStore(
-    (state) => state.mergeRemoteEntries,
-  );
   const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
   const achievementHasHydrated = useAchievementStore(
     (state) => state.hasHydrated,
   );
-  const mergeNotifiedAchievementIds = useAchievementStore(
-    (state) => state.mergeNotifiedAchievementIds,
-  );
-  const setAchievementSyncUserId = useAchievementStore(
-    (state) => state.setAchievementSyncUserId,
-  );
   const isSyncing = useSyncStore((state) => state.isSyncing);
   const syncHasHydrated = useSyncStore((state) => state.hasHydrated);
-  const lastSyncedAt = useSyncStore((state) => state.lastSyncedAt);
-  const lastSyncFailedAt = useSyncStore((state) => state.lastSyncFailedAt);
-  const lastSyncUserId = useSyncStore((state) => state.lastSyncUserId);
+  const syncSnapshot = useSyncStatus(user?.id);
   const deletionStage = useAccountDeletionStore((state) => state.stage);
   const deletionInProgress = useAccountDeletionStore(
     (state) => state.deletionInProgress,
   );
-  const setIsSyncing = useSyncStore((state) => state.setIsSyncing);
-  const setSyncFailure = useSyncStore((state) => state.setSyncFailure);
-  const setSyncSuccess = useSyncStore((state) => state.setSyncSuccess);
+  const deletionRequestInFlight =
+    deletionInProgress && deletionStage !== "failed";
   const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
   const [isDeleteConfirmationVisible, setIsDeleteConfirmationVisible] =
     useState(false);
   const [isExportingJournal, setIsExportingJournal] = useState(false);
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [syncStatusNow, setSyncStatusNow] = useState(() => Date.now());
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const displayName = getDisplayName({
     emailAddress: user?.primaryEmailAddress?.emailAddress,
@@ -132,14 +112,6 @@ export function ProfileScreen() {
     fullName: user?.fullName,
   });
   const profileInitial = displayName.charAt(0).toUpperCase();
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      setSyncStatusNow(Date.now());
-    }, syncStatusRefreshIntervalMs);
-
-    return () => clearInterval(intervalId);
-  }, []);
 
   const journalingSince = useMemo(
     () => getJournalingSinceLabel(entries, hasHydrated),
@@ -156,38 +128,10 @@ export function ProfileScreen() {
 
     return entries.filter((entry) => entry.userId === user.id);
   }, [entries, user?.id]);
-  const currentUserSyncEntries = useMemo(() => {
-    if (!user?.id) {
-      return [];
-    }
-
-    return allEntries.filter((entry) => entry.userId === user.id);
-  }, [allEntries, user?.id]);
   const accountMenuItems = useMemo(
     () =>
-      accountItems.map((item) =>
-        item.label === cloudSyncItemLabel
-          ? {
-              ...item,
-              subtitle: getSyncStatusLabel({
-                isSyncing,
-                lastSyncFailedAt:
-                  lastSyncUserId === user?.id ? lastSyncFailedAt : null,
-                lastSyncedAt:
-                  lastSyncUserId === user?.id ? lastSyncedAt : null,
-                now: syncStatusNow,
-              }),
-            }
-          : item,
-      ),
-    [
-      isSyncing,
-      lastSyncFailedAt,
-      lastSyncedAt,
-      lastSyncUserId,
-      syncStatusNow,
-      user?.id,
-    ],
+      accountItems.filter((item) => item.label !== cloudSyncItemLabel),
+    [],
   );
 
   async function handleSignOut() {
@@ -197,20 +141,19 @@ export function ProfileScreen() {
 
     setIsSigningOut(true);
     setActiveUserId(null);
+    if (user?.id) {
+      useSyncStore.getState().clearSyncStateForUser(user.id);
+    }
     setSupabaseAccessTokenProvider(null);
 
     try {
       await signOut();
       router.replace("/login");
-    } catch (error) {
+    } catch {
       setActiveUserId(user?.id ?? null);
-      const message =
-        error instanceof Error
-          ? error.message
-          : "We could not sign you out. Please try again.";
       showDialog({
         confirmText: "OK",
-        message,
+        message: "We could not sign you out. Please try again.",
         title: "Sign out failed",
         variant: "destructive",
       });
@@ -220,7 +163,7 @@ export function ProfileScreen() {
   }
 
   async function handleSyncNow() {
-    if (isSyncing || deletionInProgress) {
+    if (isSyncing || isManualSyncing || deletionInProgress) {
       return;
     }
 
@@ -236,6 +179,16 @@ export function ProfileScreen() {
       return;
     }
 
+    if (connectivity.status === "offline") {
+      showDialog({
+        confirmText: "OK",
+        message:
+          "You are offline. Your journal changes are saved on this device and will sync when you reconnect.",
+        title: "Waiting for internet",
+      });
+      return;
+    }
+
     if (!hasHydrated || !achievementHasHydrated || !syncHasHydrated) {
       showDialog({
         confirmText: "OK",
@@ -245,124 +198,35 @@ export function ProfileScreen() {
       return;
     }
 
-    const pendingEntryIds = currentUserSyncEntries
-      .filter((entry) => entry.syncStatus !== "synced")
-      .map((entry) => entry.id);
-
-    setIsSyncing(true);
-    setAchievementSyncUserId(userId);
-    setSupabaseAccessTokenProvider(() => getToken());
-    markEntriesPendingSync(userId, pendingEntryIds);
-
+    setIsManualSyncing(true);
     try {
-      await syncProfileToCloud({
+      const result = await requestSync({
         avatarUrl: user.imageUrl,
+        connectivityStatus: connectivity.status,
         email: user.primaryEmailAddress?.emailAddress,
         fullName: user.fullName,
+        getToken,
+        reason: "manual",
         userId,
       });
 
-      const syncResult = await syncJournalEntriesTwoWay({
-        localEntries: currentUserSyncEntries,
-        userId,
-      });
-
-      markEntriesSynced(userId, syncResult.syncedEntryIds);
-      markEntriesSyncFailed(userId, syncResult.failedEntryIds);
-
-      if (!syncResult.pullSucceeded) {
-        setSyncFailure(
-          new Date().toISOString(),
-          "Manual sync failed",
-          userId,
-        );
+      if (!result.success) {
         showDialog({
           confirmText: "OK",
           message:
-            "We couldn't sync your journal right now. Please check your connection and try again.",
-          title: "Sync failed",
+            result.code === "session_expired"
+              ? "Your session has expired. Please sign in again. Your changes remain saved on this device."
+              : "Your changes are saved on this device, but cloud sync could not finish. We'll try again automatically.",
+          title:
+            result.code === "session_expired"
+              ? "Please sign in again"
+              : "Cloud sync needs attention",
           variant: "destructive",
         });
         return;
       }
 
-      const mergeResult = mergeRemoteEntries(
-        userId,
-        syncResult.remoteEntries,
-      );
-      const restoredCount =
-        mergeResult.addedCount + mergeResult.updatedCount;
-      let achievementSyncFailed = false;
-
-      try {
-        const syncedUserEntries = useJournalStore
-          .getState()
-          .entries.filter(
-            (entry) => entry.userId === userId && !entry.deletedAt,
-          );
-        const unlockedAchievementIds = getAchievements(
-          syncedUserEntries,
-          getReflectionStreak(syncedUserEntries),
-        )
-          .filter((achievement) => achievement.unlocked)
-          .map((achievement) => achievement.id);
-        const notifiedAchievementIds =
-          useAchievementStore.getState().achievementNotificationsByUserId[
-            userId
-          ]?.notifiedAchievementIds ?? [];
-        const achievementSyncResult = await syncAchievementStatesTwoWay({
-          notifiedAchievementIds,
-          unlockedAchievementIds,
-          userId,
-        });
-
-        mergeNotifiedAchievementIds(
-          userId,
-          achievementSyncResult.pulledNotifiedIds,
-        );
-        achievementSyncFailed = achievementSyncResult.failedCount > 0;
-      } catch (error) {
-        achievementSyncFailed = true;
-
-        if (__DEV__) {
-          console.warn("Achievement sync failed", error);
-        }
-      }
-
-      if (syncResult.pushFailedCount > 0) {
-        setSyncFailure(
-          new Date().toISOString(),
-          "Manual sync incomplete",
-          userId,
-        );
-        showDialog({
-          confirmText: "OK",
-          message:
-            "Some entries could not be backed up. Please try again.",
-          title: "Sync incomplete",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (achievementSyncFailed) {
-        setSyncFailure(
-          new Date().toISOString(),
-          "Achievement sync failed",
-          userId,
-        );
-        showDialog({
-          confirmText: "OK",
-          message:
-            "Your journal is up to date, but achievements could not be synced right now.",
-          title: "Journal synced",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (syncResult.pushedCount === 0 && restoredCount === 0) {
-        setSyncSuccess(new Date().toISOString(), userId);
+      if (result.pushed === 0 && result.pulled === 0) {
         showDialog({
           confirmText: "OK",
           message: "Your journal and achievements are already synced.",
@@ -372,36 +236,28 @@ export function ProfileScreen() {
         return;
       }
 
-      setSyncSuccess(new Date().toISOString(), userId);
       showDialog({
         confirmText: "Done",
-        message: getSyncResultMessage(syncResult.pushedCount, restoredCount),
+        message: getSyncResultMessage(result.pushed, result.pulled),
         subtitle: "Your journal and achievements are up to date.",
         title: "Sync complete",
         variant: "success",
       });
-    } catch (error) {
-      if (__DEV__) {
-        console.warn("Two-way journal sync failed", error);
-      }
-
-      markEntriesSyncFailed(userId, pendingEntryIds);
-      setSyncFailure(new Date().toISOString(), "Manual sync failed", userId);
+    } catch {
       showDialog({
         confirmText: "OK",
         message:
-          "We couldn't sync your journal right now. Please check your connection and try again.",
+          "Your changes are saved on this device, but cloud sync could not finish. We'll try again automatically.",
         title: "Sync failed",
         variant: "destructive",
       });
     } finally {
-      setAchievementSyncUserId(null);
-      setIsSyncing(false);
+      setIsManualSyncing(false);
     }
   }
 
   function handleDeleteAccountPress() {
-    if (deletionInProgress) {
+    if (deletionRequestInFlight) {
       return;
     }
 
@@ -440,7 +296,11 @@ export function ProfileScreen() {
   async function handleConfirmDeleteAccount() {
     const userId = user?.id;
 
-    if (!userId || deleteConfirmationText !== "DELETE") {
+    if (
+      deletionRequestInFlight ||
+      !userId ||
+      deleteConfirmationText !== "DELETE"
+    ) {
       return;
     }
 
@@ -550,7 +410,11 @@ export function ProfileScreen() {
       await exportJournalAsJson(currentUserEntries);
     } catch (error) {
       if (!(error instanceof JournalExportError)) {
-        console.warn("Journal export failed", error);
+        reportAppError(error, {
+          feature: "export",
+          operation: "journal_export",
+          screen: "profile",
+        });
       }
 
       showExportErrorDialog(error);
@@ -801,16 +665,16 @@ export function ProfileScreen() {
           }}
           title="Preferences"
         />
+        <View className="pt-10">
+          <SyncStatusRow
+            isRetrying={isManualSyncing || isSyncing}
+            onRetry={handleSyncNow}
+            snapshot={syncSnapshot}
+          />
+        </View>
         <MenuSection
-          disabledItemLabels={isSyncing ? [cloudSyncItemLabel] : undefined}
           items={accountMenuItems}
-          loadingItemLabel={isSyncing ? cloudSyncItemLabel : undefined}
           onItemPress={(item) => {
-            if (item.label === cloudSyncItemLabel) {
-              void handleSyncNow();
-              return;
-            }
-
             if (item.label === "Export Journal") {
               handleExportJournalPress();
               return;
@@ -829,10 +693,10 @@ export function ProfileScreen() {
         {isDeleteConfirmationVisible ? (
           <DeleteAccountConfirmationCard
             confirmationText={deleteConfirmationText}
-            deletionInProgress={deletionInProgress}
+            deletionRequestInFlight={deletionRequestInFlight}
             deletionStage={deletionStage}
             onCancel={() => {
-              if (deletionInProgress) {
+              if (deletionRequestInFlight) {
                 return;
               }
 
@@ -976,7 +840,7 @@ function MenuIcon({ item }: { item: ProfileMenuItem }) {
 
 function DeleteAccountConfirmationCard({
   confirmationText,
-  deletionInProgress,
+  deletionRequestInFlight,
   deletionStage,
   onCancel,
   onChangeConfirmationText,
@@ -984,14 +848,14 @@ function DeleteAccountConfirmationCard({
   onExport,
 }: {
   confirmationText: string;
-  deletionInProgress: boolean;
+  deletionRequestInFlight: boolean;
   deletionStage: string;
   onCancel: () => void;
   onChangeConfirmationText: (value: string) => void;
   onConfirm: () => void;
   onExport: () => void;
 }) {
-  const canConfirm = confirmationText === "DELETE" && !deletionInProgress;
+  const canConfirm = confirmationText === "DELETE" && !deletionRequestInFlight;
 
   return (
     <View className="pt-8">
@@ -1031,7 +895,7 @@ function DeleteAccountConfirmationCard({
         <Pressable
           accessibilityRole="button"
           className="h-11 items-center justify-center rounded-full bg-[#F4F4F5]"
-          disabled={deletionInProgress}
+          disabled={deletionRequestInFlight}
           onPress={onExport}
         >
           <Text className="text-[14px] font-semibold leading-5 text-[#51515B]">
@@ -1044,9 +908,10 @@ function DeleteAccountConfirmationCard({
             Type DELETE to continue
           </Text>
           <TextInput
+            accessibilityLabel='Confirmation input. Type DELETE to confirm account deletion.'
             autoCapitalize="characters"
             className="h-12 rounded-[16px] border border-[#FCA5A5] bg-[#FFF7FB] px-4 text-[16px] font-semibold leading-5 text-[#27272A]"
-            editable={!deletionInProgress}
+            editable={!deletionRequestInFlight}
             onChangeText={onChangeConfirmationText}
             placeholder="DELETE"
             placeholderTextColor="#A1A1AA"
@@ -1054,7 +919,7 @@ function DeleteAccountConfirmationCard({
           />
         </View>
 
-        {deletionInProgress ? (
+        {deletionRequestInFlight ? (
           <View className="gap-2 rounded-[18px] bg-[#FFF1F5] px-4 py-4">
             <View className="flex-row items-center gap-3">
               <ActivityIndicator color="#FF2056" size="small" />
@@ -1089,9 +954,9 @@ function DeleteAccountConfirmationCard({
 
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ disabled: deletionInProgress }}
+            accessibilityState={{ disabled: deletionRequestInFlight }}
             className="h-11 items-center justify-center rounded-full bg-[#F4F4F5]"
-            disabled={deletionInProgress}
+            disabled={deletionRequestInFlight}
             onPress={onCancel}
           >
             <Text className="text-[14px] font-semibold leading-5 text-[#51515B]">
@@ -1141,58 +1006,6 @@ function getDisplayName({
   const emailName = emailAddress?.split("@")[0]?.trim();
 
   return emailName || "DearDiary Friend";
-}
-
-function getSyncStatusLabel({
-  isSyncing,
-  lastSyncFailedAt,
-  lastSyncedAt,
-  now,
-}: {
-  isSyncing: boolean;
-  lastSyncFailedAt: string | null;
-  lastSyncedAt: string | null;
-  now: number;
-}) {
-  if (isSyncing) {
-    return "Syncing...";
-  }
-
-  if (
-    lastSyncFailedAt &&
-    (!lastSyncedAt ||
-      Date.parse(lastSyncFailedAt) > Date.parse(lastSyncedAt))
-  ) {
-    return "Last sync failed";
-  }
-
-  if (!lastSyncedAt) {
-    return "Not synced yet";
-  }
-
-  const elapsedMinutes = Math.max(
-    0,
-    Math.floor((now - Date.parse(lastSyncedAt)) / (60 * 1000)),
-  );
-
-  if (elapsedMinutes < 1) {
-    return "Last synced just now";
-  }
-
-  if (elapsedMinutes < 60) {
-    return `Last synced ${elapsedMinutes} min ago`;
-  }
-
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-
-  if (elapsedHours < 24) {
-    return `Last synced ${elapsedHours} hr ago`;
-  }
-
-  return `Last synced ${new Intl.DateTimeFormat("en-US", {
-    day: "numeric",
-    month: "short",
-  }).format(new Date(lastSyncedAt))}`;
 }
 
 function getProfileSummary(entries: JournalEntry[], hasHydrated: boolean) {

@@ -115,7 +115,7 @@ export default function PrivacySettingsScreen() {
                 <SettingsRow
                   icon="external-link"
                   label="External Deletion Page"
-                  onPress={() => router.push(privacyPolicyHref)}
+                  onPress={() => router.push(accountDeletionUrl as Href)}
                   value="View"
                 />
               </>

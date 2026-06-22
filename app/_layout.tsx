@@ -2,14 +2,16 @@ import "../global.css";
 
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
-import { Stack } from "expo-router";
+import { Stack, type ErrorBoundaryProps } from "expo-router";
 import { useEffect } from "react";
 
 import { AchievementWatcher } from "@/components/achievements/AchievementWatcher";
 import { AppLockGate } from "@/components/app-lock/AppLockGate";
+import { RootErrorFallback } from "@/components/errors/RootErrorFallback";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
 import { AppLockProvider } from "@/providers/AppLockProvider";
 import { AppDialogProvider } from "@/providers/AppDialogProvider";
+import { ConnectivityProvider } from "@/providers/ConnectivityProvider";
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 
@@ -20,11 +22,17 @@ if (!publishableKey) {
 export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <AppDialogProvider>
-        <AppStack />
-      </AppDialogProvider>
+      <ConnectivityProvider>
+        <AppDialogProvider>
+          <AppStack />
+        </AppDialogProvider>
+      </ConnectivityProvider>
     </ClerkProvider>
   );
+}
+
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  return <RootErrorFallback error={error} retry={retry} />;
 }
 
 function AppStack() {

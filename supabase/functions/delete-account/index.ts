@@ -27,6 +27,8 @@ const corsHeaders = {
 };
 
 const expectedConfirmationPhrase = "DELETE";
+const clerkApiTimeoutMs = 10000;
+const storageListPageLimit = 100;
 const userOwnedStorageBuckets: string[] = [];
 
 Deno.serve(async (request) => {
@@ -330,33 +332,51 @@ async function deleteStoragePrefix(
   path: string,
 ): Promise<{ ok: true } | { ok: false }> {
   const prefix = path ? `${userId}/${path}` : userId;
-  const listResult = await client.storage.from(bucket).list(prefix);
-
-  if (listResult.error) {
-    return { ok: false };
-  }
-
   const filesToRemove: string[] = [];
+  const nestedPaths: string[] = [];
+  let offset = 0;
 
-  for (const item of listResult.data ?? []) {
-    const itemPath = path ? `${path}/${item.name}` : item.name;
+  while (true) {
+    const listResult = await client.storage.from(bucket).list(prefix, {
+      limit: storageListPageLimit,
+      offset,
+    });
 
-    if (item.id === null) {
-      const nestedResult = await deleteStoragePrefix(
-        client,
-        bucket,
-        userId,
-        itemPath,
-      );
-
-      if (!nestedResult.ok) {
-        return nestedResult;
-      }
-
-      continue;
+    if (listResult.error) {
+      return { ok: false };
     }
 
-    filesToRemove.push(`${userId}/${itemPath}`);
+    const items = listResult.data ?? [];
+
+    for (const item of items) {
+      const itemPath = path ? `${path}/${item.name}` : item.name;
+
+      if (item.id === null) {
+        nestedPaths.push(itemPath);
+        continue;
+      }
+
+      filesToRemove.push(`${userId}/${itemPath}`);
+    }
+
+    if (items.length < storageListPageLimit) {
+      break;
+    }
+
+    offset += storageListPageLimit;
+  }
+
+  for (const nestedPath of nestedPaths) {
+    const nestedResult = await deleteStoragePrefix(
+      client,
+      bucket,
+      userId,
+      nestedPath,
+    );
+
+    if (!nestedResult.ok) {
+      return nestedResult;
+    }
   }
 
   if (filesToRemove.length === 0) {
@@ -377,27 +397,43 @@ async function deleteClerkUser({
   requestId: string;
   userId: string;
 }) {
-  const response = await fetch(
-    `https://api.clerk.com/v1/users/${encodeURIComponent(userId)}`,
-    {
-      headers: {
-        Authorization: `Bearer ${clerkSecretKey}`,
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), clerkApiTimeoutMs);
+
+  try {
+    const response = await fetch(
+      `https://api.clerk.com/v1/users/${encodeURIComponent(userId)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${clerkSecretKey}`,
+        },
+        method: "DELETE",
+        signal: controller.signal,
       },
-      method: "DELETE",
-    },
-  );
+    );
 
-  if (response.ok || response.status === 404) {
-    return { ok: true };
+    if (response.ok || response.status === 404) {
+      return { ok: true };
+    }
+
+    console.error("delete-account clerk_cleanup_failed", {
+      requestId,
+      stage: "auth_account",
+      status: response.status,
+    });
+
+    return { ok: false };
+  } catch (error) {
+    console.error("delete-account clerk_cleanup_failed", {
+      error: error instanceof Error ? error.name : "unknown",
+      requestId,
+      stage: "auth_account",
+    });
+
+    return { ok: false };
+  } finally {
+    clearTimeout(timeout);
   }
-
-  console.error("delete-account clerk_cleanup_failed", {
-    requestId,
-    stage: "auth_account",
-    status: response.status,
-  });
-
-  return { ok: false };
 }
 
 function getBearerToken(authorization: string) {
