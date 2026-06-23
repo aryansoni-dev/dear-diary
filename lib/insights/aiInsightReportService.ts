@@ -5,6 +5,10 @@ import {
 } from "@supabase/supabase-js";
 
 import {
+  isFaultEnabled,
+  throwIfFaultEnabled,
+} from "@/lib/dev/faultInjection";
+import {
   isAIInsightReport,
   mapAIInsightReportRow,
   type AIInsightReportMapResult,
@@ -75,6 +79,22 @@ export async function generateAIInsightReport(params: {
   period: ReportPeriod;
   regenerate?: boolean;
 }): Promise<AIInsightReport> {
+  throwIfFaultEnabled("ai_timeout");
+
+  if (isFaultEnabled("ai_empty_response")) {
+    throw new AIInsightReportServiceError(
+      "DearDiary AI returned an empty reflection report.",
+      "empty_response",
+    );
+  }
+
+  if (isFaultEnabled("ai_invalid_response")) {
+    throw new AIInsightReportServiceError(
+      "DearDiary AI returned an invalid reflection report.",
+      "invalid_response",
+    );
+  }
+
   const client = getReportClient();
   const { data, error } =
     await client.functions.invoke<GenerateAIInsightReportResponse>(

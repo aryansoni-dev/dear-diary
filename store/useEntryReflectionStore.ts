@@ -1,7 +1,11 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { createPersistStorage } from "@/lib/storage/createPersistStorage";
+import {
+  isNonEmptyString,
+  isValidTimestamp,
+} from "@/lib/validation/persistedDataValidators";
 import type { EntryAIReflection } from "@/types/entryReflection";
 
 const entryReflectionStorageVersion = 1;
@@ -73,7 +77,7 @@ export const useEntryReflectionStore = create<EntryReflectionState>()(
         state?.setHasHydrated(true);
       },
       partialize: (state) => ({ reflections: state.reflections }),
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => createPersistStorage()),
       version: entryReflectionStorageVersion,
     },
   ),
@@ -85,9 +89,9 @@ function isEntryAIReflection(value: unknown): value is EntryAIReflection {
   }
 
   return (
-    typeof value.id === "string" &&
-    typeof value.userId === "string" &&
-    typeof value.entryId === "string" &&
+    isNonEmptyString(value.id) &&
+    isNonEmptyString(value.userId) &&
+    isNonEmptyString(value.entryId) &&
     typeof value.summary === "string" &&
     Array.isArray(value.emotions) &&
     value.emotions.every((emotion) => typeof emotion === "string") &&
@@ -98,9 +102,9 @@ function isEntryAIReflection(value: unknown): value is EntryAIReflection {
       typeof value.followUpQuestion === "string") &&
     (value.suggestion === null || typeof value.suggestion === "string") &&
     (value.model === null || typeof value.model === "string") &&
-    typeof value.sourceEntryUpdatedAt === "string" &&
-    typeof value.createdAt === "string" &&
-    typeof value.updatedAt === "string"
+    isValidTimestamp(value.sourceEntryUpdatedAt) &&
+    isValidTimestamp(value.createdAt) &&
+    isValidTimestamp(value.updatedAt)
   );
 }
 

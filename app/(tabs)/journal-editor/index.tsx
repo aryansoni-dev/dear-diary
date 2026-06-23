@@ -1,8 +1,10 @@
 import { Redirect, Stack, useLocalSearchParams } from "expo-router";
 
+import { getSingleRouteParam } from "@/lib/navigation/routeValidators";
+
 export default function JournalEditorTabScreen() {
   const { source } = useLocalSearchParams();
-  const sourceParam = Array.isArray(source) ? source[0] : source;
+  const sourceParam = getSingleRouteParam(source);
 
   return (
     <>

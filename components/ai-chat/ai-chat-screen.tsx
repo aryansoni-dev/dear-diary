@@ -145,6 +145,11 @@ export function AiChatScreen({
   }, []);
 
   useEffect(() => {
+    requestIdRef.current += 1;
+    setIsThinking(false);
+  }, [userId]);
+
+  useEffect(() => {
     if (!shouldUseKeyboardOffset) {
       return;
     }

@@ -2,6 +2,10 @@ import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { reportAppError } from "@/lib/errors/reportAppError";
 import { getAchievements } from "@/lib/achievements";
 import {
+  isFaultEnabled,
+  throwIfFaultEnabled,
+} from "@/lib/dev/faultInjection";
+import {
   isSupabaseConfigured,
   setSupabaseAccessTokenProvider,
   type SupabaseAccessTokenProvider,
@@ -9,6 +13,7 @@ import {
 import { syncAchievementStatesTwoWay } from "@/lib/sync/achievementSync";
 import { syncJournalEntriesTwoWay } from "@/lib/sync/journalTwoWaySync";
 import { syncProfileToCloud } from "@/lib/sync/profileSync";
+import { isActiveUser } from "@/lib/validation/activeUser";
 import { useJournalStore } from "@/store/journal-store";
 import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
 import { useAchievementStore } from "@/store/useAchievementStore";
@@ -139,6 +144,16 @@ async function runSync({
   const pendingEntryIdsSet = new Set(pendingEntryIds);
 
   try {
+    if (isFaultEnabled("expired_session")) {
+      throw new Error("session expired");
+    }
+
+    if (isFaultEnabled("sync_network_failure")) {
+      throw new Error("Network request failed");
+    }
+
+    throwIfFaultEnabled("sync_timeout");
+
     await syncProfileToCloud({
       avatarUrl: avatarUrl ?? undefined,
       email: email ?? undefined,
@@ -146,10 +161,31 @@ async function runSync({
       userId,
     });
 
+    if (!isActiveUser(userId, useJournalStore.getState().activeUserId)) {
+      return {
+        code: "session_expired",
+        localDataPreserved: true,
+        retryable: false,
+        success: false,
+      };
+    }
+
+    throwIfFaultEnabled("sync_remote_failure");
+
     const journalResult = await syncJournalEntriesTwoWay({
       localEntries: currentUserEntries,
       userId,
     });
+
+    if (!isActiveUser(userId, useJournalStore.getState().activeUserId)) {
+      return {
+        code: "session_expired",
+        localDataPreserved: true,
+        retryable: false,
+        success: false,
+      };
+    }
+
     const journalStore = useJournalStore.getState();
 
     journalStore.markEntriesSynced(userId, journalResult.syncedEntryIds);
@@ -166,6 +202,15 @@ async function runSync({
     }
 
     const achievementResult = await syncAchievements(userId);
+
+    if (!isActiveUser(userId, useJournalStore.getState().activeUserId)) {
+      return {
+        code: "session_expired",
+        localDataPreserved: true,
+        retryable: false,
+        success: false,
+      };
+    }
 
     if (
       !journalResult.pullSucceeded ||

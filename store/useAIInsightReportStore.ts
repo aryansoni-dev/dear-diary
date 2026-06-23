@@ -1,8 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { isAIInsightReport } from "@/lib/insights/aiInsightReportMapper";
+import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import type { AIInsightReport } from "@/types/aiInsightReport";
 
 const reportStorageVersion = 1;
@@ -79,7 +79,7 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
         state?.setHasHydrated(true);
       },
       partialize: (state) => ({ reportsByUser: state.reportsByUser }),
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => createPersistStorage()),
       version: reportStorageVersion,
     },
   ),

@@ -1,10 +1,11 @@
 import { Redirect, Stack, useLocalSearchParams } from "expo-router";
 
 import { JournalEditorScreen } from "@/components/journal-editor/journal-editor-screen";
+import { getSafeRouteId } from "@/lib/navigation/routeValidators";
 
 export default function ExistingJournalEntryScreen() {
   const { id } = useLocalSearchParams();
-  const entryId = Array.isArray(id) ? id[0] : id;
+  const entryId = getSafeRouteId(id);
 
   if (!entryId) {
     return <Redirect href="/journal-history" />;

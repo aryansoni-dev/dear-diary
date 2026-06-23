@@ -301,9 +301,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       showDialog({
         confirmText: "OK",
         message:
-          appError.code === "local_save_failed"
-            ? "We could not save this entry on your device. Please try again before leaving."
-            : "We could not save this entry on your device. Please try again before leaving.",
+          "We could not save this entry on your device. Please try again before leaving.",
         title: "Save failed",
         variant: "destructive",
       });
@@ -829,10 +827,6 @@ function getSaveButtonLabel({
   wasSaved: boolean;
 }) {
   if (!canSave) {
-    return "Save";
-  }
-
-  if (!wasSaved) {
     return "Save";
   }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   fetchEntryReflection,
@@ -48,35 +48,54 @@ export function useEntryReflection({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const requestGenerationRef = useRef(0);
   const reflection = remoteReflection ?? cachedReflection ?? null;
   const isStale = isReflectionStale(reflection, entryUpdatedAt);
 
   const canUseReflection = Boolean(enabled && entryId && userId);
 
   useEffect(() => {
+    requestGenerationRef.current += 1;
     setRemoteReflection(null);
     setError(null);
   }, [entryId, userId]);
+
+  useEffect(() => {
+    return () => {
+      requestGenerationRef.current += 1;
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!cacheHasHydrated || !canUseReflection || !entryId || !userId) {
       return;
     }
 
+    const requestGeneration = requestGenerationRef.current;
     setIsLoading(true);
     setError(null);
 
     try {
       const latestReflection = await fetchEntryReflection(entryId);
 
+      if (requestGenerationRef.current !== requestGeneration) {
+        return;
+      }
+
       if (latestReflection?.userId === userId) {
         upsertReflection(latestReflection);
         setRemoteReflection(latestReflection);
       }
     } catch (refreshError) {
+      if (requestGenerationRef.current !== requestGeneration) {
+        return;
+      }
+
       setError(getReflectionErrorMessage(refreshError));
     } finally {
-      setIsLoading(false);
+      if (requestGenerationRef.current === requestGeneration) {
+        setIsLoading(false);
+      }
     }
   }, [cacheHasHydrated, canUseReflection, entryId, upsertReflection, userId]);
 
@@ -94,6 +113,7 @@ export function useEntryReflection({
         return;
       }
 
+      const requestGeneration = requestGenerationRef.current;
       setIsGenerating(true);
       setError(null);
 
@@ -103,14 +123,24 @@ export function useEntryReflection({
           regenerate,
         });
 
+        if (requestGenerationRef.current !== requestGeneration) {
+          return;
+        }
+
         if (generatedReflection.userId === userId) {
           upsertReflection(generatedReflection);
           setRemoteReflection(generatedReflection);
         }
       } catch (generationError) {
+        if (requestGenerationRef.current !== requestGeneration) {
+          return;
+        }
+
         setError(getReflectionErrorMessage(generationError));
       } finally {
-        setIsGenerating(false);
+        if (requestGenerationRef.current === requestGeneration) {
+          setIsGenerating(false);
+        }
       }
     },
     [

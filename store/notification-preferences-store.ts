@@ -1,6 +1,9 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+
+import { createPersistStorage } from "@/lib/storage/createPersistStorage";
+import { isRecord } from "@/lib/utils/typeGuards";
+import { normalizeReminderTime } from "@/lib/validation/persistedDataValidators";
 
 export type ReminderKey = "morning" | "evening";
 
@@ -44,6 +47,10 @@ export const useNotificationPreferencesStore =
       }),
       {
         name: "dear-diary-notification-preferences",
+        merge: (persistedState, currentState) => ({
+          ...currentState,
+          ...getSanitizedNotificationPreferences(persistedState),
+        }),
         onRehydrateStorage: (state) => () => {
           state?.setHasHydrated(true);
         },
@@ -52,7 +59,28 @@ export const useNotificationPreferencesStore =
           isEnabled: state.isEnabled,
           morningReminderTime: state.morningReminderTime,
         }),
-        storage: createJSONStorage(() => AsyncStorage),
+        storage: createJSONStorage(() => createPersistStorage()),
       },
     ),
   );
+
+function getSanitizedNotificationPreferences(persistedState: unknown) {
+  if (!isRecord(persistedState)) {
+    return defaultNotificationPreferences;
+  }
+
+  return {
+    eveningReminderTime: normalizeReminderTime(
+      persistedState.eveningReminderTime,
+      defaultNotificationPreferences.eveningReminderTime,
+    ),
+    isEnabled:
+      typeof persistedState.isEnabled === "boolean"
+        ? persistedState.isEnabled
+        : defaultNotificationPreferences.isEnabled,
+    morningReminderTime: normalizeReminderTime(
+      persistedState.morningReminderTime,
+      defaultNotificationPreferences.morningReminderTime,
+    ),
+  };
+}

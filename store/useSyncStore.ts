@@ -1,7 +1,7 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import { appErrorCodes, type AppErrorCode } from "@/types/appError";
 import { isRecord } from "@/lib/utils/typeGuards";
 
@@ -112,7 +112,7 @@ export const useSyncStore = create<SyncState>()(
         lastSyncedAt: state.lastSyncedAt,
         lastSyncUserId: state.lastSyncUserId,
       }),
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => createPersistStorage()),
     },
   ),
 );

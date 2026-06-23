@@ -1,6 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+
+import { createPersistStorage } from "@/lib/storage/createPersistStorage";
+import { isRecord } from "@/lib/utils/typeGuards";
 
 type OnboardingState = {
   completeOnboarding: () => void;
@@ -21,13 +23,21 @@ export const useOnboardingStore = create<OnboardingState>()(
     }),
     {
       name: "dear-diary-onboarding",
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        hasCompletedOnboarding:
+          isRecord(persistedState) &&
+          typeof persistedState.hasCompletedOnboarding === "boolean"
+            ? persistedState.hasCompletedOnboarding
+            : currentState.hasCompletedOnboarding,
+      }),
       onRehydrateStorage: (state) => () => {
         state.setHasHydrated(true);
       },
       partialize: (state) => ({
         hasCompletedOnboarding: state.hasCompletedOnboarding,
       }),
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => createPersistStorage()),
     },
   ),
 );

@@ -266,12 +266,12 @@ export function JournalCalendarView({
         </View>
         {selectedDay.entryCount > 0 ? (
           renderSelectedEntries(selectedDay)
-        ) : (
+        ) : calendarMonth.totalEntries > 0 ? (
           <CalendarEmptyState
             body="No reflections were saved on this date."
             title="Nothing written here yet."
           />
-        )}
+        ) : null}
       </View>
     </View>
   );

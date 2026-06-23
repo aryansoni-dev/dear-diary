@@ -8,9 +8,22 @@ export const colors = {
   legalCard: "#FFFFFF",
   legalGradientEnd: "#FFFFFF",
   legalGradientStart: "#FFF4FA",
+  onlineIcon: "#10B981",
+  onlineSurface: "#CFF8E6",
+  onlineText: "#047857",
   offlineIcon: "#C2410C",
+  offlineIndicator: "#F97316",
   offlineSurface: "#FFF7ED",
   offlineText: "#9A3412",
+  syncFailedSurface: "#FFE8F0",
+  syncFailedText: "#BE123C",
+  syncIdleSurface: "#F4F4F5",
+  syncSavedLocallySurface: "#F4EFFA",
+  syncSavedLocallyText: "#6D28D9",
+  syncSyncedSurface: "#DCFCE7",
+  syncSyncedText: "#15803D",
+  syncSyncingSurface: "#E0F2FE",
+  syncSyncingText: "#0369A1",
   textMuted: "#71717B",
   textPrimary: "#27272A",
   textSecondary: "#51515B",
@@ -19,13 +32,13 @@ export const colors = {
 export const CONNECTION_STATE_COLORS = {
   offline: {
     background: colors.offlineSurface,
-    dot: "#F97316",
+    dot: colors.offlineIndicator,
     text: colors.offlineIcon,
   },
   online: {
-    background: "#CFF8E6",
-    dot: "#10B981",
-    text: "#047857",
+    background: colors.onlineSurface,
+    dot: colors.onlineIcon,
+    text: colors.onlineText,
   },
 } as const;
 
@@ -37,28 +50,28 @@ export const SYNC_STATUS_COLORS: Record<
   }
 > = {
   failed: {
-    background: "#FFE8F0",
-    text: "#BE123C",
+    background: colors.syncFailedSurface,
+    text: colors.syncFailedText,
   },
   idle: {
-    background: "#F4F4F5",
+    background: colors.syncIdleSurface,
     text: colors.textMuted,
   },
   paused: {
-    background: "#F4F4F5",
+    background: colors.syncIdleSurface,
     text: colors.textMuted,
   },
   saved_locally: {
-    background: "#F4EFFA",
-    text: "#6D28D9",
+    background: colors.syncSavedLocallySurface,
+    text: colors.syncSavedLocallyText,
   },
   synced: {
-    background: "#DCFCE7",
-    text: "#15803D",
+    background: colors.syncSyncedSurface,
+    text: colors.syncSyncedText,
   },
   syncing: {
-    background: "#E0F2FE",
-    text: "#0369A1",
+    background: colors.syncSyncingSurface,
+    text: colors.syncSyncingText,
   },
   waiting_for_network: {
     background: colors.offlineSurface,

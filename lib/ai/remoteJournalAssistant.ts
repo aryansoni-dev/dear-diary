@@ -4,6 +4,10 @@ import {
   FunctionsRelayError,
 } from "@supabase/supabase-js";
 
+import {
+  isFaultEnabled,
+  throwIfFaultEnabled,
+} from "@/lib/dev/faultInjection";
 import { getAuthenticatedSupabaseClient } from "@/lib/supabase";
 import type { ClientContext } from "@/lib/ai/chatIntent";
 
@@ -24,6 +28,16 @@ export const generateRemoteJournalResponse = async (params: {
   message: string;
   recentMessages: RemoteJournalMessage[];
 }): Promise<RemoteJournalResponse> => {
+  throwIfFaultEnabled("ai_timeout");
+
+  if (isFaultEnabled("ai_empty_response")) {
+    throw new Error("DearDiary AI returned an empty response.");
+  }
+
+  if (isFaultEnabled("ai_invalid_response")) {
+    throw new Error("DearDiary AI returned an invalid response.");
+  }
+
   const client = getAuthenticatedSupabaseClient();
   const { data, error } = await client.functions.invoke("journal-ai-chat", {
     body: {

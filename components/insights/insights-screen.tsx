@@ -515,9 +515,7 @@ function getAIInsightCards({
   weeklyReportIsLoading: boolean;
 }) {
   const report = monthlyReport ?? weeklyReport;
-  const isLoading =
-    (monthlyReportIsLoading && !monthlyReport) ||
-    (weeklyReportIsLoading && !weeklyReport);
+  const isLoading = !report && (monthlyReportIsLoading || weeklyReportIsLoading);
 
   return localCards.map((card) => ({
     ...card,

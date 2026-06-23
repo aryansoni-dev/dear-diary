@@ -8,9 +8,9 @@ hydrated, while remote refreshes must keep cached content visible.
 
 | Screen | Hydration | First Empty | Filtered Empty | Refreshing | Offline | Error | Retry |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Home | `journal-store.hasHydrated` | Recent entries show "Your journal begins here" | N/A | Sync does not hide local content | Local cards remain usable | Section-level only | Sync retries through auto-sync |
+| Home | `journal-store.hasHydrated` | Recent entries show "Your journal begins here" | N/A | N/A - no refresh UI; parent auto-sync does not block local content | N/A - local-only screen with no offline UI | Pending - root error boundary only | Parent auto-sync only; no screen retry |
 | Reflect | `journal-store.hasHydrated` for existing prompt lookup | Normal prompt cards remain available | N/A | N/A | Manual prompts remain; AI Chat explains internet need | AI Chat handles request failure | AI Chat send/retry path |
-| Journal History | `journal-store.hasHydrated` | "Your journal begins here" | "No entries match your search" + Clear filters | List remains visible during sync | Fully local | Sync errors stay outside list content | Clear filters or sync retry |
+| Journal History | `journal-store.hasHydrated` | "Write your first entry and it will appear here." | "No entries match your search" + Clear filters | N/A - no refresh UI; parent auto-sync does not block local content | N/A - local-only screen with no offline UI | Pending - root error boundary only | Clear filters only; no screen sync retry |
 | Calendar | `journal-store.hasHydrated` | Grid remains visible with first-use copy | N/A | Grid remains visible during sync | Fully local | Sync errors do not hide calendar | Sync retry outside calendar |
 | Journal Editor | `journal-store.hasHydrated` before entry lookup | New editor is normal state | N/A | Local save UI remains in place | Editing remains local; AI generation requires internet | Local save dialog preserves draft | Save again; AI reflection retry |
 | Entry AI Reflection | reflection cache hydration + remote refresh | Generate Reflection CTA | N/A | Existing reflection remains visible | Existing reflection remains; generation blocked by editor dialog | Inline safe error copy | Generate/regenerate operation |
