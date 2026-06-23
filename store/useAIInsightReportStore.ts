@@ -74,6 +74,10 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
     }),
     {
       name: "dear-diary-ai-insight-reports",
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        reportsByUser: getSanitizedReportsByUser(persistedState),
+      }),
       migrate: migrateReportState,
       onRehydrateStorage: (state) => () => {
         state?.setHasHydrated(true);
@@ -86,8 +90,16 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
 );
 
 function migrateReportState(persistedState: unknown) {
+  return {
+    reportsByUser: getSanitizedReportsByUser(persistedState),
+  };
+}
+
+function getSanitizedReportsByUser(
+  persistedState: unknown,
+): Record<string, UserReportCache> {
   if (!isRecord(persistedState) || !isRecord(persistedState.reportsByUser)) {
-    return { reportsByUser: {} };
+    return {};
   }
 
   const reportsByUser: Record<string, UserReportCache> = {};
@@ -113,7 +125,7 @@ function migrateReportState(persistedState: unknown) {
     },
   );
 
-  return { reportsByUser };
+  return reportsByUser;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -301,7 +301,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       showDialog({
         confirmText: "OK",
         message:
-          "We could not save this entry on your device. Please try again before leaving.",
+          "We could not save this entry on your device. Please try again before leaving this screen.",
         title: "Save failed",
         variant: "destructive",
       });
@@ -830,8 +830,12 @@ function getSaveButtonLabel({
     return "Save";
   }
 
-  if (entrySyncStatus === "synced") {
+  if (entrySyncStatus === "synced" && wasSaved) {
     return "Synced";
+  }
+
+  if (!wasSaved) {
+    return "Save";
   }
 
   if (isSyncing) {

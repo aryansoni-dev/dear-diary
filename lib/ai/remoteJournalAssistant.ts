@@ -23,6 +23,16 @@ export type RemoteJournalResponse = {
   source: "remote_ai";
 };
 
+export class RemoteJournalAssistantError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+  ) {
+    super(message);
+    this.name = "RemoteJournalAssistantError";
+  }
+}
+
 export const generateRemoteJournalResponse = async (params: {
   clientContext?: ClientContext;
   message: string;
@@ -31,11 +41,17 @@ export const generateRemoteJournalResponse = async (params: {
   throwIfFaultEnabled("ai_timeout");
 
   if (isFaultEnabled("ai_empty_response")) {
-    throw new Error("DearDiary AI returned an empty response.");
+    throw new RemoteJournalAssistantError(
+      "DearDiary AI returned an empty response.",
+      "empty_response",
+    );
   }
 
   if (isFaultEnabled("ai_invalid_response")) {
-    throw new Error("DearDiary AI returned an invalid response.");
+    throw new RemoteJournalAssistantError(
+      "DearDiary AI returned an invalid response.",
+      "invalid_response",
+    );
   }
 
   const client = getAuthenticatedSupabaseClient();
@@ -55,11 +71,17 @@ export const generateRemoteJournalResponse = async (params: {
       );
     }
 
-    throw new Error("DearDiary AI is unavailable.");
+    throw new RemoteJournalAssistantError(
+      "DearDiary AI is unavailable.",
+      "remote_unavailable",
+    );
   }
 
   if (!isRemoteJournalResponse(data)) {
-    throw new Error("DearDiary AI returned an invalid response.");
+    throw new RemoteJournalAssistantError(
+      "DearDiary AI returned an invalid response.",
+      "invalid_response",
+    );
   }
 
   return data;

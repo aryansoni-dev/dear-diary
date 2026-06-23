@@ -308,9 +308,18 @@ export const useJournalStore = create<JournalState>()(
     {
       name: "dear-diary-journal",
       migrate: migrateJournalState,
-      onRehydrateStorage: (state) => () => {
-        state?.setActiveUserId(state.activeUserId);
-        state?.setHasHydrated(true);
+      onRehydrateStorage: () => (state) => {
+        if (!state) {
+          return;
+        }
+
+        const allEntries = normalizePersistedJournalEntries(state.allEntries);
+
+        useJournalStore.setState({
+          allEntries,
+          entries: getEntriesForUser(allEntries, state.activeUserId),
+          hasHydrated: true,
+        });
       },
       partialize: (state) => ({
         allEntries: state.allEntries,

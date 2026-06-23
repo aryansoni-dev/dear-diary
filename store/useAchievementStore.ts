@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { createPersistStorage } from "@/lib/storage/createPersistStorage";
+import { isRecord } from "@/lib/utils/typeGuards";
 import { isNonEmptyString } from "@/lib/validation/persistedDataValidators";
 
 const achievementStorageVersion = 2;
@@ -167,12 +168,6 @@ function getSanitizedAchievementNotifications(
     ).filter((entry): entry is [string, UserAchievementNotifications] =>
       isUserAchievementNotifications(entry[1]),
     ),
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === "object" && value !== null && !Array.isArray(value)
   );
 }
 

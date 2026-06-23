@@ -204,7 +204,7 @@ function normalizePersistedChatMessage(value: unknown): ChatMessage | null {
     content: value.content,
     createdAt: value.createdAt,
     id: value.id,
-    relatedEntryIds: value.relatedEntryIds,
+    relatedEntryIds: value.relatedEntryIds as string[] | undefined,
     role: value.role as ChatMessageRole,
     source: value.source as ChatMessageSource | undefined,
     userId: value.userId,
