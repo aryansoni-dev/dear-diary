@@ -1,8 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { isAIInsightReport } from "@/lib/insights/aiInsightReportMapper";
+import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import type { AIInsightReport } from "@/types/aiInsightReport";
 
 const reportStorageVersion = 1;
@@ -13,8 +13,10 @@ type AIInsightReportState = {
   reportsByUser: Record<string, UserReportCache>;
   clearReportsForUser: (userId: string) => void;
   getCachedReport: (userId: string | null, cacheKey: string) => AIInsightReport | null;
+  hasHydrated: boolean;
   removeCachedReport: (userId: string, cacheKey: string) => void;
   setCachedReport: (userId: string, cacheKey: string, report: AIInsightReport) => void;
+  setHasHydrated: (hasHydrated: boolean) => void;
 };
 
 export const useAIInsightReportStore = create<AIInsightReportState>()(
@@ -38,6 +40,7 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
 
         return get().reportsByUser[userId]?.[cacheKey] ?? null;
       },
+      hasHydrated: false,
       removeCachedReport: (userId, cacheKey) =>
         set((state) => {
           const userReports = state.reportsByUser[userId];
@@ -57,6 +60,7 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
           };
         }),
       reportsByUser: {},
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       setCachedReport: (userId, cacheKey, report) =>
         set((state) => ({
           reportsByUser: {
@@ -70,17 +74,32 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
     }),
     {
       name: "dear-diary-ai-insight-reports",
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        reportsByUser: getSanitizedReportsByUser(persistedState),
+      }),
       migrate: migrateReportState,
+      onRehydrateStorage: (state) => () => {
+        state?.setHasHydrated(true);
+      },
       partialize: (state) => ({ reportsByUser: state.reportsByUser }),
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => createPersistStorage()),
       version: reportStorageVersion,
     },
   ),
 );
 
 function migrateReportState(persistedState: unknown) {
+  return {
+    reportsByUser: getSanitizedReportsByUser(persistedState),
+  };
+}
+
+function getSanitizedReportsByUser(
+  persistedState: unknown,
+): Record<string, UserReportCache> {
   if (!isRecord(persistedState) || !isRecord(persistedState.reportsByUser)) {
-    return { reportsByUser: {} };
+    return {};
   }
 
   const reportsByUser: Record<string, UserReportCache> = {};
@@ -106,7 +125,7 @@ function migrateReportState(persistedState: unknown) {
     },
   );
 
-  return { reportsByUser };
+  return reportsByUser;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

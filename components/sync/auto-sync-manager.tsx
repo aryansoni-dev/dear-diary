@@ -141,9 +141,8 @@ export function AutoSyncManager() {
       return;
     }
 
-    retryAttemptRef.current += 1;
-
     const timeout = setTimeout(() => {
+      retryAttemptRef.current += 1;
       void runAutoSync("retry");
     }, delay);
 

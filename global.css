@@ -3,3 +3,21 @@
 @import "tailwindcss/utilities.css";
 
 @import "nativewind/theme";
+
+@theme {
+  --color-brand-primary: #FF2056;
+  --color-text-primary: #27272A;
+  --color-text-secondary: #51515B;
+  --color-text-muted: #71717B;
+  --color-error-surface: #FFF1F5;
+  --color-error-text: #9F1239;
+  --color-legal-background: #FFF7FB;
+  --color-legal-card: #FFFFFF;
+  --color-legal-gradient-end: #FFFFFF;
+  --color-legal-gradient-start: #FFF4FA;
+  --color-offline-surface: #FFF7ED;
+  --color-offline-icon: #C2410C;
+  --color-offline-text: #9A3412;
+  --spacing-legal-screen: 24px;
+  --spacing-legal-header-spacer: 50px;
+}

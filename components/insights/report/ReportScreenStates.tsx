@@ -107,7 +107,15 @@ export function UpdatingBanner({
   );
 }
 
-export function ErrorBanner({ message }: { message: string }) {
+export function ErrorBanner({
+  message,
+  onRetry,
+  retrying = false,
+}: {
+  message: string;
+  onRetry?: () => void;
+  retrying?: boolean;
+}) {
   return (
     <View
       className="rounded-[22px] px-4 py-4"
@@ -123,6 +131,23 @@ export function ErrorBanner({ message }: { message: string }) {
       >
         {message}
       </Text>
+      {onRetry ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: retrying }}
+          className="mt-3 min-h-10 items-center justify-center rounded-full bg-white px-4"
+          disabled={retrying}
+          onPress={onRetry}
+        >
+          <Text
+            allowFontScaling={false}
+            className="text-[14px] font-bold leading-5"
+            style={{ color: reportColors.primary }}
+          >
+            {retrying ? "Retrying..." : "Retry"}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

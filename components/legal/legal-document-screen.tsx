@@ -5,6 +5,7 @@ import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
+import { colors } from "@/constants/theme";
 import type { LegalSection } from "@/content/legal/privacyPolicy";
 
 type LegalDocumentScreenProps = {
@@ -15,36 +16,17 @@ type LegalDocumentScreenProps = {
   version: string;
 };
 
-const legalDocumentColors = {
-  background: "#FFF7FB",
-  bodyText: "#51515B",
-  cardBackground: "#FFFFFF",
-  gradientEnd: "#FFFFFF",
-  gradientStart: "#FFF4FA",
-  heading: "#27272A",
-  iconMuted: "#51515B",
-  mutedText: "#71717B",
-} as const;
-
-const legalDocumentSpacing = {
-  bottomInsetOffset: 36,
-  bottomMinimum: 56,
-  horizontal: 24,
-  topInsetOffset: 28,
-  topMinimum: 52,
-} as const;
-
-const legalDocumentLayout = {
-  headerSpacerSize: 50,
-  iconSize: 24,
-} as const;
-
+const legalDocumentBottomInsetOffset = 36;
+const legalDocumentBottomMinimum = 56;
 const legalDocumentCardShadow = "0 2px 8px rgba(39, 39, 42, 0.12)";
 const legalDocumentIconShadow = "0 2px 6px rgba(39, 39, 42, 0.16)";
 const legalDocumentGradientColors = [
-  legalDocumentColors.gradientStart,
-  legalDocumentColors.gradientEnd,
+  colors.legalGradientStart,
+  colors.legalGradientEnd,
 ] as const;
+const legalDocumentIconSize = 24;
+const legalDocumentTopInsetOffset = 28;
+const legalDocumentTopMinimum = 52;
 
 export function LegalDocumentScreen({
   accountDeletionUrl,
@@ -54,6 +36,17 @@ export function LegalDocumentScreen({
   version,
 }: LegalDocumentScreenProps) {
   const insets = useSafeAreaInsets();
+  const visibleSections =
+    sections.length > 0
+      ? sections
+      : [
+          {
+            body: [
+              "This legal document is unavailable in this development build.",
+            ],
+            title: "Content unavailable",
+          },
+        ];
 
   function handleBackPress() {
     if (router.canGoBack()) {
@@ -65,10 +58,7 @@ export function LegalDocumentScreen({
   }
 
   return (
-    <View
-      className="flex-1"
-      style={{ backgroundColor: legalDocumentColors.background }}
-    >
+    <View className="flex-1 bg-legal-background">
       <LinearGradient
         colors={legalDocumentGradientColors}
         style={{
@@ -81,114 +71,91 @@ export function LegalDocumentScreen({
       />
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{
-          paddingBottom: Math.max(
-            insets.bottom + legalDocumentSpacing.bottomInsetOffset,
-            legalDocumentSpacing.bottomMinimum,
-          ),
-          paddingHorizontal: legalDocumentSpacing.horizontal,
-          paddingTop: Math.max(
-            insets.top + legalDocumentSpacing.topInsetOffset,
-            legalDocumentSpacing.topMinimum,
-          ),
-        }}
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
-        <View className="flex-row items-center justify-between">
-          <AnimatedIconButton
-            accessibilityLabel="Go back"
-            onPress={handleBackPress}
-            shadow={legalDocumentIconShadow}
-          >
-            <Feather
-              name="chevron-left"
-              size={legalDocumentLayout.iconSize}
-              color={legalDocumentColors.iconMuted}
-            />
-          </AnimatedIconButton>
-
-          <Text
-            className="text-[20px] font-semibold leading-6"
-            style={{ color: legalDocumentColors.heading }}
-          >
-            {title}
-          </Text>
-
-          <View
-            style={{
-              height: legalDocumentLayout.headerSpacerSize,
-              width: legalDocumentLayout.headerSpacerSize,
-            }}
-          />
-        </View>
-
-        <View className="pt-8">
-          <View
-            className="gap-3 rounded-[26px] px-5 py-5"
-            style={{
-              backgroundColor: legalDocumentColors.cardBackground,
-              boxShadow: legalDocumentCardShadow,
-            }}
-          >
-            <Text
-              className="text-[15px] font-semibold leading-5"
-              style={{ color: legalDocumentColors.mutedText }}
+        <View
+          className="px-legal-screen"
+          style={{
+            paddingBottom: Math.max(
+              insets.bottom + legalDocumentBottomInsetOffset,
+              legalDocumentBottomMinimum,
+            ),
+            paddingTop: Math.max(
+              insets.top + legalDocumentTopInsetOffset,
+              legalDocumentTopMinimum,
+            ),
+          }}
+        >
+          <View className="flex-row items-center justify-between">
+            <AnimatedIconButton
+              accessibilityLabel="Go back"
+              onPress={handleBackPress}
+              shadow={legalDocumentIconShadow}
             >
-              Version {version}
+              <Feather
+                name="chevron-left"
+                size={legalDocumentIconSize}
+                color={colors.textSecondary}
+              />
+            </AnimatedIconButton>
+
+            <Text className="text-[20px] font-semibold leading-6 text-text-primary">
+              {title}
             </Text>
-            <Text
-              className="text-[15px] leading-6"
-              style={{ color: legalDocumentColors.mutedText }}
-            >
-              Effective date: {effectiveDate}
-            </Text>
+
+            <View className="size-legal-header-spacer" />
           </View>
-        </View>
 
-        <View className="gap-6 pt-7">
-          {sections.map((section, sectionIndex) => (
-            <View className="gap-3" key={`legal-section-${sectionIndex}`}>
-              <Text
-                className="text-[19px] font-bold leading-6"
-                style={{ color: legalDocumentColors.heading }}
-              >
-                {section.title}
+          <View className="pt-8">
+            <View
+              className="gap-3 rounded-[26px] bg-legal-card px-5 py-5"
+              style={{
+                boxShadow: legalDocumentCardShadow,
+              }}
+            >
+              <Text className="text-[15px] font-semibold leading-5 text-text-muted">
+                Version {version}
               </Text>
-              {section.body.map((paragraph, paragraphIndex) => (
-                <Text
-                  className="text-[15px] leading-6"
-                  key={`legal-section-${sectionIndex}-paragraph-${paragraphIndex}`}
-                  selectable
-                  style={{ color: legalDocumentColors.bodyText }}
-                >
-                  {paragraph}
-                </Text>
-              ))}
+              <Text className="text-[15px] leading-6 text-text-muted">
+                Effective date: {effectiveDate}
+              </Text>
             </View>
-          ))}
-        </View>
-
-        {accountDeletionUrl ? (
-          <View
-            className="mt-5 rounded-[22px] px-5 py-4"
-            style={{ backgroundColor: legalDocumentColors.cardBackground }}
-          >
-            <Text
-              className="text-[15px] font-semibold leading-5"
-              style={{ color: legalDocumentColors.heading }}
-            >
-              External account-deletion page
-            </Text>
-            <Text
-              className="mt-2 text-[14px] leading-5"
-              selectable
-              style={{ color: legalDocumentColors.mutedText }}
-            >
-              {accountDeletionUrl}
-            </Text>
           </View>
-        ) : null}
+
+          <View className="gap-6 pt-7">
+            {visibleSections.map((section, sectionIndex) => (
+              <View className="gap-3" key={`legal-section-${sectionIndex}`}>
+                <Text className="text-[19px] font-bold leading-6 text-text-primary">
+                  {section.title}
+                </Text>
+                {section.body.map((paragraph, paragraphIndex) => (
+                  <Text
+                    className="text-[15px] leading-6 text-text-secondary"
+                    key={`legal-section-${sectionIndex}-paragraph-${paragraphIndex}`}
+                    selectable
+                  >
+                    {paragraph}
+                  </Text>
+                ))}
+              </View>
+            ))}
+          </View>
+
+          {accountDeletionUrl ? (
+            <View className="mt-5 rounded-[22px] bg-legal-card px-5 py-4">
+              <Text className="text-[15px] font-semibold leading-5 text-text-primary">
+                External account-deletion page
+              </Text>
+              <Text
+                className="mt-2 text-[14px] leading-5 text-text-muted"
+                selectable
+              >
+                {accountDeletionUrl}
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </ScrollView>
     </View>
   );

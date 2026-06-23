@@ -39,28 +39,26 @@ export class FeatureErrorBoundary extends React.Component<
     }
 
     return (
-      <View className="rounded-[22px] bg-[#FFF1F5] px-4 py-4">
-        <Text className="text-[16px] font-bold leading-6 text-[#9F1239]">
+      <View className="rounded-[22px] bg-error-surface px-4 py-4">
+        <Text className="text-[16px] font-bold leading-6 text-error-text">
           {this.props.featureName} is unavailable right now.
         </Text>
-        <Text className="mt-2 text-[14px] leading-6 text-[#71717B]">
+        <Text className="mt-2 text-[14px] leading-6 text-text-muted">
           {this.props.fallbackMessage ??
             "This part of DearDiary ran into a problem. The rest of the screen is still available."}
         </Text>
-        {this.props.onRetry ? (
-          <Pressable
-            accessibilityRole="button"
-            className="mt-4 min-h-11 items-center justify-center rounded-full bg-white px-4"
-            onPress={() => {
-              this.setState({ error: null });
-              this.props.onRetry?.();
-            }}
-          >
-            <Text className="text-[14px] font-bold leading-5 text-[#FF2056]">
-              Retry
-            </Text>
-          </Pressable>
-        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          className="mt-4 min-h-11 items-center justify-center rounded-full bg-white px-4"
+          onPress={() => {
+            this.setState({ error: null });
+            this.props.onRetry?.();
+          }}
+        >
+          <Text className="text-[14px] font-bold leading-5 text-brand-primary">
+            Retry
+          </Text>
+        </Pressable>
       </View>
     );
   }

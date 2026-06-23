@@ -1,5 +1,6 @@
 import { clearLocalUserData } from "@/lib/account/clearLocalUserData";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
+import { isRecord } from "@/lib/utils/typeGuards";
 import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
 import type {
   AccountDeletionFailureCode,
@@ -261,8 +262,4 @@ function isAccountDeletionFailureCode(
     value === "already_in_progress" ||
     value === "unknown"
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

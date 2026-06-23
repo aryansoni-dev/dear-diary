@@ -1,6 +1,9 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+
+import { createPersistStorage } from "@/lib/storage/createPersistStorage";
+import { isRecord } from "@/lib/utils/typeGuards";
+import { isNonEmptyString } from "@/lib/validation/persistedDataValidators";
 
 const achievementStorageVersion = 2;
 
@@ -143,7 +146,7 @@ export const useAchievementStore = create<AchievementNotificationState>()(
         achievementNotificationsByUserId:
           state.achievementNotificationsByUserId,
       }),
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => createPersistStorage()),
       version: achievementStorageVersion,
     },
   ),
@@ -168,12 +171,6 @@ function getSanitizedAchievementNotifications(
   );
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === "object" && value !== null && !Array.isArray(value)
-  );
-}
-
 function isUserAchievementNotifications(
   value: unknown,
 ): value is UserAchievementNotifications {
@@ -181,6 +178,6 @@ function isUserAchievementNotifications(
     isRecord(value) &&
     typeof value.hasInitialized === "boolean" &&
     Array.isArray(value.notifiedAchievementIds) &&
-    value.notifiedAchievementIds.every((id) => typeof id === "string")
+    value.notifiedAchievementIds.every(isNonEmptyString)
   );
 }

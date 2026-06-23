@@ -5,6 +5,10 @@ import {
 } from "@supabase/supabase-js";
 
 import {
+  isFaultEnabled,
+  throwIfFaultEnabled,
+} from "@/lib/dev/faultInjection";
+import {
   getAuthenticatedSupabaseClient,
   SupabaseConfigurationError,
 } from "@/lib/supabase";
@@ -43,6 +47,22 @@ export const generateEntryReflection = async (params: {
   entryId: string;
   regenerate?: boolean;
 }): Promise<EntryAIReflection> => {
+  throwIfFaultEnabled("ai_timeout");
+
+  if (isFaultEnabled("ai_empty_response")) {
+    throw new EntryReflectionServiceError(
+      "DearDiary AI returned an empty reflection.",
+      "empty_response",
+    );
+  }
+
+  if (isFaultEnabled("ai_invalid_response")) {
+    throw new EntryReflectionServiceError(
+      "DearDiary AI returned an invalid reflection.",
+      "invalid_response",
+    );
+  }
+
   const client = getEntryReflectionClient();
   const { data, error } =
     await client.functions.invoke<GenerateEntryReflectionResponse>(

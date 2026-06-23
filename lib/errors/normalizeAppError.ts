@@ -4,6 +4,7 @@ import type {
   AppErrorCode,
   AppErrorSeverity,
 } from "@/types/appError";
+import { isRecord } from "@/lib/utils/typeGuards";
 
 type NormalizeContext = {
   fallbackMessage?: string;
@@ -208,8 +209,4 @@ function isTimeoutError(message: string, code: string) {
     message.includes("timeout") ||
     message.includes("timed out")
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

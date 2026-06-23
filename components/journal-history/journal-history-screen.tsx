@@ -19,6 +19,9 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { FilteredEmptyState } from "@/components/states/FilteredEmptyState";
+import { ScreenEmptyState } from "@/components/states/ScreenEmptyState";
+import { ScreenLoadingState } from "@/components/states/ScreenLoadingState";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { TabScreenHeader } from "@/components/ui/tab-screen-header";
 import {
@@ -27,7 +30,9 @@ import {
   moodMetadata,
 } from "@/constants/moods";
 import { journalMoodFilters } from "@/data/journal-history";
+import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
 import { formatTagLabel } from "@/lib/tags";
+import { deriveHistoryViewState } from "@/lib/ui/deriveHistoryViewState";
 import { useJournalStore } from "@/store/journal-store";
 import type {
   MoodId,
@@ -122,6 +127,18 @@ export function JournalHistoryScreen() {
     () => groupJournalEntries(filteredEntries),
     [filteredEntries],
   );
+  const hasActiveFilters = searchQuery.trim().length > 0 || selectedMood !== "all";
+  const showHydrationState = useDelayedVisibility(!hasHydrated);
+  const viewState = useMemo(
+    () =>
+      deriveHistoryViewState({
+        entries,
+        filteredEntries,
+        hasActiveFilters,
+        hasHydrated,
+      }),
+    [entries, filteredEntries, hasActiveFilters, hasHydrated],
+  );
   const handleViewModeChange = (nextViewMode: JournalHistoryViewMode) => {
     if (nextViewMode === viewMode) {
       return;
@@ -130,6 +147,11 @@ export function JournalHistoryScreen() {
     setSlideDirection(nextViewMode === "calendar" ? 1 : -1);
     setViewMode(nextViewMode);
   };
+
+  function clearFilters() {
+    setSearchQuery("");
+    setSelectedMood("all");
+  }
 
   useEffect(() => {
     contentSlideAnimation.stopAnimation();
@@ -304,31 +326,19 @@ export function JournalHistoryScreen() {
             </ScrollView>
 
             <View className="gap-4 px-6 pt-5">
-              {!hasHydrated ? (
-                <EmptyHistoryMessage title="Loading your journal..." />
-              ) : journalSections.length === 0 ? (
-                <EmptyHistoryMessage
-                  body={
-                    searchQuery.trim().length > 0 || selectedMood !== "all"
-                      ? "Try a different search or mood filter."
-                      : "Create your first reflection to see it here."
-                  }
-                  ctaLabel={
-                    searchQuery.trim().length > 0 || selectedMood !== "all"
-                      ? undefined
-                      : "Create Entry"
-                  }
-                  onCtaPress={
-                    searchQuery.trim().length > 0 || selectedMood !== "all"
-                      ? undefined
-                      : () => router.push(newJournalEntryHref)
-                  }
-                  title={
-                    searchQuery.trim().length > 0 || selectedMood !== "all"
-                      ? "No matching entries"
-                      : "No journal entries yet"
-                  }
+              {viewState.status === "hydrating" ? (
+                showHydrationState ? (
+                  <ScreenLoadingState title="Preparing your journal..." />
+                ) : null
+              ) : viewState.emptyReason === "first_use" ? (
+                <ScreenEmptyState
+                  actionLabel="Write an entry"
+                  message="Write your first entry and it will appear here."
+                  onAction={() => router.push(newJournalEntryHref)}
+                  title="Your journal begins here"
                 />
+              ) : viewState.emptyReason === "filtered" ? (
+                <FilteredEmptyState onClearFilters={clearFilters} />
               ) : (
                 journalSections.map((section, sectionIndex) => (
                   <View className="gap-4" key={section.title}>
@@ -382,45 +392,6 @@ export function JournalHistoryScreen() {
       </ScrollView>
 
       <BottomTabBar activeTab="History" />
-    </View>
-  );
-}
-
-function EmptyHistoryMessage({
-  body,
-  ctaLabel,
-  onCtaPress,
-  title,
-}: {
-  body?: string;
-  ctaLabel?: string;
-  onCtaPress?: () => void;
-  title: string;
-}) {
-  return (
-    <View
-      className="items-center rounded-[24px] border border-zinc-100 bg-white px-6 py-8"
-      style={{ boxShadow: "0 2px 7px rgba(39, 39, 42, 0.1)" }}
-    >
-      <Text className="text-center text-[18px] font-semibold leading-6 text-zinc-900">
-        {title}
-      </Text>
-      {body ? (
-        <Text className="mt-2 text-center text-[14px] leading-6 text-zinc-500">
-          {body}
-        </Text>
-      ) : null}
-      {ctaLabel && onCtaPress ? (
-        <Pressable
-          accessibilityRole="button"
-          className="mt-5 h-11 items-center justify-center rounded-full bg-[#FF2056] px-5"
-          onPress={onCtaPress}
-        >
-          <Text className="text-[15px] font-semibold leading-5 text-white">
-            {ctaLabel}
-          </Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 }

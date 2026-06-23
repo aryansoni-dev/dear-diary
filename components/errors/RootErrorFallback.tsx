@@ -47,7 +47,7 @@ export function RootErrorFallback({ error, retry }: RootErrorFallbackProps) {
         {retry ? (
           <Pressable
             accessibilityRole="button"
-            className="min-h-[52px] items-center justify-center rounded-full bg-[#FF2056] px-6"
+            className="min-h-[52px] items-center justify-center rounded-full bg-brand-primary px-6"
             onPress={retry}
           >
             <Text className="text-[16px] font-bold leading-6 text-white">

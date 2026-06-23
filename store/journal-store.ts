@@ -1,18 +1,19 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import {
   mergeJournalEntries,
   type MergeResult,
 } from "@/lib/sync/mergeJournalEntries";
 import { normalizeTags } from "@/lib/tags";
+import { normalizePersistedJournalEntries } from "@/lib/validation/persistedDataValidators";
 import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
 import type {
   EntryType,
   JournalEntry,
-  JournalSyncStatus,
   MoodId,
+  JournalSyncStatus,
 } from "@/types/journal";
 
 const journalStorageVersion = 3;
@@ -66,10 +67,6 @@ type JournalState = {
   updateEntry: (id: string, entry: JournalEntryUpdate) => void;
 };
 
-type StoredJournalEntry = Omit<JournalEntry, "tags"> & {
-  tags?: string[];
-};
-
 function createEntryId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -96,65 +93,13 @@ function migrateJournalState(persistedState: unknown) {
       : [];
 
   return {
-    allEntries: persistedEntries
-      .filter(isJournalEntry)
-      .map(normalizeJournalEntry),
+    allEntries: normalizePersistedJournalEntries(persistedEntries),
     entries: [],
   };
 }
 
-function normalizeJournalEntry(entry: StoredJournalEntry): JournalEntry {
-  return {
-    ...entry,
-    tags: normalizeTags(entry.tags ?? []),
-  };
-}
-
-function isJournalEntry(entry: unknown): entry is StoredJournalEntry {
-  if (!isRecord(entry)) {
-    return false;
-  }
-
-  const prompt = entry.prompt;
-  const deletedAt = entry.deletedAt;
-  const syncStatus = entry.syncStatus;
-
-  return (
-    typeof entry.id === "string" &&
-    typeof entry.userId === "string" &&
-    typeof entry.title === "string" &&
-    typeof entry.content === "string" &&
-    (entry.mood === null ||
-      (typeof entry.mood === "string" && isMoodId(entry.mood))) &&
-    typeof entry.type === "string" &&
-    isEntryType(entry.type) &&
-    (prompt === undefined || typeof prompt === "string") &&
-    (entry.tags === undefined ||
-      (Array.isArray(entry.tags) &&
-        entry.tags.every((tag) => typeof tag === "string"))) &&
-    typeof entry.createdAt === "string" &&
-    typeof entry.updatedAt === "string" &&
-    (deletedAt === undefined ||
-      deletedAt === null ||
-      typeof deletedAt === "string") &&
-    (syncStatus === undefined || isJournalSyncStatus(syncStatus))
-  );
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function isEntryType(value: string): value is EntryType {
-  return entryTypes.includes(value as EntryType);
-}
-
-function isMoodId(value: string): value is MoodId {
-  return moodIds.includes(value as MoodId);
-}
-
-function isJournalSyncStatus(value: unknown): value is JournalSyncStatus {
-  return value === "failed" || value === "pending" || value === "synced";
 }
 
 function setSyncStatusForEntries(
@@ -363,14 +308,23 @@ export const useJournalStore = create<JournalState>()(
     {
       name: "dear-diary-journal",
       migrate: migrateJournalState,
-      onRehydrateStorage: (state) => () => {
-        state?.setActiveUserId(state.activeUserId);
-        state?.setHasHydrated(true);
+      onRehydrateStorage: () => (state) => {
+        if (!state) {
+          return;
+        }
+
+        const allEntries = normalizePersistedJournalEntries(state.allEntries);
+
+        useJournalStore.setState({
+          allEntries,
+          entries: getEntriesForUser(allEntries, state.activeUserId),
+          hasHydrated: true,
+        });
       },
       partialize: (state) => ({
         allEntries: state.allEntries,
       }),
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => createPersistStorage()),
       version: journalStorageVersion,
     },
   ),

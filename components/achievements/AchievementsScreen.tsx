@@ -13,7 +13,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ScreenEmptyState } from "@/components/states/ScreenEmptyState";
+import { ScreenLoadingState } from "@/components/states/ScreenLoadingState";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
+import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
 import { getAchievements } from "@/lib/achievements";
 import { useJournalStore } from "@/store/journal-store";
 import type {
@@ -46,6 +49,7 @@ export function AchievementsScreen() {
   const [selectedFilter, setSelectedFilter] =
     useState<AchievementFilter>("all");
   const [filterToggleWidth, setFilterToggleWidth] = useState(0);
+  const showHydrationState = useDelayedVisibility(!hasHydrated);
   const [slideDirection, setSlideDirection] = useState(1);
   const thumbAnimationRef = useRef(new Animated.Value(0));
   const listAnimationRef = useRef(new Animated.Value(1));
@@ -219,7 +223,24 @@ export function AchievementsScreen() {
             transform: [{ translateX: listTranslateX }],
           }}
         >
-          {filteredAchievements.map((achievement) => (
+          {!hasHydrated ? (
+            showHydrationState ? (
+              <ScreenLoadingState title="Preparing achievements..." />
+            ) : null
+          ) : filteredAchievements.length === 0 ? (
+            <ScreenEmptyState
+              message={
+                selectedFilter === "unlocked"
+                  ? "Keep journaling and your milestones will appear here."
+                  : "Try another achievement filter."
+              }
+              title={
+                selectedFilter === "unlocked"
+                  ? "No achievements unlocked yet"
+                  : "No achievements match this filter"
+              }
+            />
+          ) : filteredAchievements.map((achievement) => (
             <AchievementCard achievement={achievement} key={achievement.id} />
           ))}
         </Animated.View>

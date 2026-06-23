@@ -1,5 +1,5 @@
 import { LinearGradient as ExpoLinearGradient } from "expo-linear-gradient";
-import { Link } from "expo-router";
+import { Link, useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { BarChart3, CalendarDays, Sparkles } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
@@ -32,6 +32,7 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { ScreenEmptyState } from "@/components/states/ScreenEmptyState";
 import { TabScreenHeader } from "@/components/ui/tab-screen-header";
 import {
   insightCardStyles,
@@ -104,6 +105,7 @@ type ChartPoint = MoodJourneyPoint & {
 
 export function InsightsScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const entries = useJournalStore((state) => state.entries);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
@@ -146,6 +148,11 @@ export function InsightsScreen() {
       weeklyReportState.report,
     ],
   );
+  const hasNoEntries = hasHydrated && entries.length === 0;
+  const newJournalEntryHref = {
+    pathname: "/journal/new",
+    params: { source: "insights" },
+  } as Href;
 
   return (
     <View className="flex-1 bg-[#FAF7F2]">
@@ -178,6 +185,17 @@ export function InsightsScreen() {
           subtitle="Powered by your journal entries"
           title="Your Insights ✨"
         />
+
+        {hasNoEntries ? (
+          <View className="mt-7">
+            <ScreenEmptyState
+              actionLabel="Write an entry"
+              message="Write a few entries to begin seeing emotional patterns."
+              onAction={() => router.push(newJournalEntryHref)}
+              title="Your insights will grow with your journal"
+            />
+          </View>
+        ) : null}
 
         <View
           className="mt-7 rounded-[30px] bg-white/80 px-6 py-6"
@@ -497,7 +515,7 @@ function getAIInsightCards({
   weeklyReportIsLoading: boolean;
 }) {
   const report = monthlyReport ?? weeklyReport;
-  const isLoading = monthlyReportIsLoading || weeklyReportIsLoading;
+  const isLoading = !report && (monthlyReportIsLoading || weeklyReportIsLoading);
 
   return localCards.map((card) => ({
     ...card,

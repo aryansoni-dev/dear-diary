@@ -161,13 +161,27 @@ export default function AIInsightReportScreen() {
           </AnimatedIconButton>
         </View>
 
-        {reportState.error ? <ErrorBanner message={reportState.error} /> : null}
+        {reportState.error ? (
+          <ErrorBanner
+            message={
+              reportState.report
+                ? `Could not update this report. Your previous report is still available. ${reportState.error}`
+                : reportState.error
+            }
+            onRetry={() => {
+              void reportState.refresh();
+            }}
+            retrying={reportState.isLoading}
+          />
+        ) : null}
 
-        {reportState.isGenerating && reportState.report ? (
+        {(reportState.isGenerating || reportState.isLoading) &&
+        reportState.report ? (
           <UpdatingBanner periodType={period.type} />
         ) : null}
 
-        {reportState.isLoading && !reportState.report ? (
+        {(reportState.isLoading || reportState.isGenerating) &&
+        !reportState.report ? (
           <LoadingState periodType={period.type} />
         ) : reportState.report ? (
           <>

@@ -5,6 +5,7 @@ import {
   fetchAIInsightReport,
   generateAIInsightReport,
 } from "@/lib/insights/aiInsightReportService";
+import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import {
   getReportCacheKey,
   type ReportPeriod,
@@ -47,6 +48,9 @@ export function useAIInsightReport(
   const cachedReport = useAIInsightReportStore((state) =>
     userId ? state.reportsByUser[userId]?.[cacheKey] ?? null : null,
   );
+  const cacheHasHydrated = useAIInsightReportStore(
+    (state) => state.hasHydrated,
+  );
   const removeCachedReport = useAIInsightReportStore(
     (state) => state.removeCachedReport,
   );
@@ -60,6 +64,7 @@ export function useAIInsightReport(
   const [error, setError] = useState<string | null>(null);
   const requestContextVersionRef = useRef(0);
   const requestInFlightRef = useRef(false);
+  const reportRef = useRef<AIInsightReport | null>(report);
 
   const periodEntries = useMemo(
     () => getEntriesInPeriod(entries, period),
@@ -72,6 +77,10 @@ export function useAIInsightReport(
   const isStale = Boolean(
     report && isReportStale(report, localSource),
   );
+
+  useEffect(() => {
+    reportRef.current = report;
+  }, [report]);
 
   useEffect(() => {
     requestContextVersionRef.current += 1;
@@ -102,6 +111,10 @@ export function useAIInsightReport(
       return;
     }
 
+    if (!cacheHasHydrated) {
+      return;
+    }
+
     if (!userId) {
       setError("Please sign in again before viewing reflection reports.");
       return;
@@ -128,7 +141,7 @@ export function useAIInsightReport(
       if (result.report) {
         setReport(result.report);
         setCachedReport(userId, cacheKey, result.report);
-      } else {
+      } else if (!reportRef.current) {
         setReport(null);
         removeCachedReport(userId, cacheKey);
       }
@@ -145,6 +158,7 @@ export function useAIInsightReport(
     }
   }, [
     cacheKey,
+    cacheHasHydrated,
     enabled,
     isCurrentRequestContext,
     period,
@@ -155,10 +169,10 @@ export function useAIInsightReport(
   ]);
 
   useEffect(() => {
-    if (enabled && hasHydrated) {
+    if (enabled && hasHydrated && cacheHasHydrated) {
       void refresh();
     }
-  }, [enabled, hasHydrated, refresh]);
+  }, [cacheHasHydrated, enabled, hasHydrated, refresh]);
 
   const requestGeneration = useCallback(
     async (regenerate: boolean) => {
@@ -166,7 +180,7 @@ export function useAIInsightReport(
         return;
       }
 
-      if (requestInFlightRef.current) {
+      if (!cacheHasHydrated || requestInFlightRef.current) {
         return;
       }
 
@@ -230,6 +244,7 @@ export function useAIInsightReport(
     },
     [
       cacheKey,
+      cacheHasHydrated,
       connectivity.status,
       enabled,
       isCurrentRequestContext,
@@ -245,7 +260,7 @@ export function useAIInsightReport(
     error,
     generate: () => requestGeneration(false),
     isGenerating,
-    isLoading,
+    isLoading: isLoading || (enabled && !cacheHasHydrated),
     isStale,
     legacyReportAvailable,
     refresh,
@@ -387,7 +402,7 @@ function isTimestampAfter(
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message
-    : "Reflection report could not be loaded.";
+  return normalizeAppError(error, {
+    operation: "ai_insight_report",
+  }).userMessage;
 }

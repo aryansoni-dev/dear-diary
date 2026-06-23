@@ -48,6 +48,35 @@ export function EntryAIReflectionCard({
   const isBusy = isGenerating || isLoading;
 
   if (!reflection) {
+    if (isLoading) {
+      return (
+        <View
+          className="mt-8 rounded-[28px] bg-white p-5"
+          style={{ boxShadow: "0 6px 18px rgba(39, 39, 42, 0.12)" }}
+        >
+          <View className="flex-row items-start gap-3">
+            <View className="size-11 items-center justify-center rounded-full bg-[#FFE8F0]">
+              <Sparkles color={colors.accent} size={22} strokeWidth={2.2} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-[18px] font-bold leading-6 text-zinc-950">
+                Reflect with AI ✨
+              </Text>
+              <View className="mt-3 flex-row items-center gap-2">
+                <ActivityIndicator color={colors.accent} size="small" />
+                <Text
+                  className="flex-1 text-[15px] text-[#71717B]"
+                  style={smallTextStyle}
+                >
+                  Checking for an existing reflection...
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View
         className="mt-8 rounded-[28px] bg-white p-5"
@@ -75,7 +104,7 @@ export function EntryAIReflectionCard({
             className="mt-4 text-[14px] text-[#DC2626]"
             style={smallTextStyle}
           >
-            {error}
+            Could not generate this reflection. {error}
           </Text>
         ) : null}
 
@@ -153,7 +182,8 @@ export function EntryAIReflectionCard({
           className="mt-5 text-[14px] text-[#DC2626]"
           style={smallTextStyle}
         >
-          {error}
+          Could not update this reflection. Your previous reflection is still
+          available. {error}
         </Text>
       ) : null}
 
