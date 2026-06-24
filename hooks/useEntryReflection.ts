@@ -40,6 +40,9 @@ export function useEntryReflection({
   const cacheHasHydrated = useEntryReflectionStore(
     (state) => state.hasHydrated,
   );
+  const cacheHydrationError = useEntryReflectionStore(
+    (state) => state.hydrationError,
+  );
   const upsertReflection = useEntryReflectionStore(
     (state) => state.upsertReflection,
   );
@@ -67,6 +70,11 @@ export function useEntryReflection({
   }, []);
 
   const refresh = useCallback(async () => {
+    if (cacheHydrationError) {
+      setError(cacheHydrationError.userMessage);
+      return;
+    }
+
     if (!cacheHasHydrated || !canUseReflection || !entryId || !userId) {
       return;
     }
@@ -97,7 +105,14 @@ export function useEntryReflection({
         setIsLoading(false);
       }
     }
-  }, [cacheHasHydrated, canUseReflection, entryId, upsertReflection, userId]);
+  }, [
+    cacheHasHydrated,
+    cacheHydrationError,
+    canUseReflection,
+    entryId,
+    upsertReflection,
+    userId,
+  ]);
 
   useEffect(() => {
     void refresh();
@@ -106,6 +121,11 @@ export function useEntryReflection({
   const runGeneration = useCallback(
     async (regenerate: boolean) => {
       if (!canUseReflection || !entryId || !userId || isGenerating) {
+        return;
+      }
+
+      if (cacheHydrationError) {
+        setError(cacheHydrationError.userMessage);
         return;
       }
 
@@ -145,6 +165,7 @@ export function useEntryReflection({
     },
     [
       cacheHasHydrated,
+      cacheHydrationError,
       canUseReflection,
       entryId,
       isGenerating,

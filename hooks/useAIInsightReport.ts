@@ -51,6 +51,9 @@ export function useAIInsightReport(
   const cacheHasHydrated = useAIInsightReportStore(
     (state) => state.hasHydrated,
   );
+  const cacheHydrationError = useAIInsightReportStore(
+    (state) => state.hydrationError,
+  );
   const removeCachedReport = useAIInsightReportStore(
     (state) => state.removeCachedReport,
   );
@@ -111,6 +114,11 @@ export function useAIInsightReport(
       return;
     }
 
+    if (cacheHydrationError) {
+      setError(cacheHydrationError.userMessage);
+      return;
+    }
+
     if (!cacheHasHydrated) {
       return;
     }
@@ -159,6 +167,7 @@ export function useAIInsightReport(
   }, [
     cacheKey,
     cacheHasHydrated,
+    cacheHydrationError,
     enabled,
     isCurrentRequestContext,
     period,
@@ -177,6 +186,11 @@ export function useAIInsightReport(
   const requestGeneration = useCallback(
     async (regenerate: boolean) => {
       if (!enabled) {
+        return;
+      }
+
+      if (cacheHydrationError) {
+        setError(cacheHydrationError.userMessage);
         return;
       }
 
@@ -245,6 +259,7 @@ export function useAIInsightReport(
     [
       cacheKey,
       cacheHasHydrated,
+      cacheHydrationError,
       connectivity.status,
       enabled,
       isCurrentRequestContext,

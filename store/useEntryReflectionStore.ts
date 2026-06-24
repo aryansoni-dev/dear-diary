@@ -1,12 +1,14 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import {
   isNonEmptyString,
   isValidTimestamp,
 } from "@/lib/validation/persistedDataValidators";
 import type { EntryAIReflection } from "@/types/entryReflection";
+import type { AppError } from "@/types/appError";
 
 const entryReflectionStorageVersion = 1;
 
@@ -17,9 +19,11 @@ type EntryReflectionState = {
     entryId: string,
   ) => EntryAIReflection | undefined;
   hasHydrated: boolean;
+  hydrationError: AppError | null;
   reflections: EntryAIReflection[];
   removeReflectionForEntry: (userId: string, entryId: string) => void;
   setHasHydrated: (hasHydrated: boolean) => void;
+  setHydrationError: (error: AppError | null) => void;
   upsertReflection: (reflection: EntryAIReflection) => void;
 };
 
@@ -48,6 +52,7 @@ export const useEntryReflectionStore = create<EntryReflectionState>()(
             reflection.userId === userId && reflection.entryId === entryId,
         ),
       hasHydrated: false,
+      hydrationError: null,
       reflections: [],
       removeReflectionForEntry: (userId, entryId) =>
         set((state) => ({
@@ -69,11 +74,22 @@ export const useEntryReflectionStore = create<EntryReflectionState>()(
           };
         }),
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+      setHydrationError: (error) => set({ hydrationError: error }),
     }),
     {
       name: "deardiary-entry-reflections-v1",
       migrate: migrateEntryReflectionState,
-      onRehydrateStorage: (state) => () => {
+      onRehydrateStorage: (state) => (_persistedState, error) => {
+        if (error) {
+          state?.setHydrationError(
+            normalizeAppError(error, {
+              operation: "local_hydration_entry_reflections",
+            }),
+          );
+        } else {
+          state?.setHydrationError(null);
+        }
+
         state?.setHasHydrated(true);
       },
       partialize: (state) => ({ reflections: state.reflections }),

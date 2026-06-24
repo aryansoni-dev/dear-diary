@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { isAIInsightReport } from "@/lib/insights/aiInsightReportMapper";
 import { createPersistStorage } from "@/lib/storage/createPersistStorage";
+import type { AppError } from "@/types/appError";
 import type { AIInsightReport } from "@/types/aiInsightReport";
 
 const reportStorageVersion = 1;
@@ -14,9 +16,11 @@ type AIInsightReportState = {
   clearReportsForUser: (userId: string) => void;
   getCachedReport: (userId: string | null, cacheKey: string) => AIInsightReport | null;
   hasHydrated: boolean;
+  hydrationError: AppError | null;
   removeCachedReport: (userId: string, cacheKey: string) => void;
   setCachedReport: (userId: string, cacheKey: string, report: AIInsightReport) => void;
   setHasHydrated: (hasHydrated: boolean) => void;
+  setHydrationError: (error: AppError | null) => void;
 };
 
 export const useAIInsightReportStore = create<AIInsightReportState>()(
@@ -41,6 +45,7 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
         return get().reportsByUser[userId]?.[cacheKey] ?? null;
       },
       hasHydrated: false,
+      hydrationError: null,
       removeCachedReport: (userId, cacheKey) =>
         set((state) => {
           const userReports = state.reportsByUser[userId];
@@ -61,6 +66,7 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
         }),
       reportsByUser: {},
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+      setHydrationError: (error) => set({ hydrationError: error }),
       setCachedReport: (userId, cacheKey, report) =>
         set((state) => ({
           reportsByUser: {
@@ -79,7 +85,17 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
         reportsByUser: getSanitizedReportsByUser(persistedState),
       }),
       migrate: migrateReportState,
-      onRehydrateStorage: (state) => () => {
+      onRehydrateStorage: (state) => (_persistedState, error) => {
+        if (error) {
+          state?.setHydrationError(
+            normalizeAppError(error, {
+              operation: "local_hydration_ai_reports",
+            }),
+          );
+        } else {
+          state?.setHydrationError(null);
+        }
+
         state?.setHasHydrated(true);
       },
       partialize: (state) => ({ reportsByUser: state.reportsByUser }),

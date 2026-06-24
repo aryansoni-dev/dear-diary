@@ -1,9 +1,11 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import { isRecord } from "@/lib/utils/typeGuards";
 import { normalizeReminderTime } from "@/lib/validation/persistedDataValidators";
+import type { AppError } from "@/types/appError";
 
 export type ReminderKey = "morning" | "evening";
 
@@ -16,10 +18,12 @@ const defaultNotificationPreferences = {
 type NotificationPreferencesState = {
   eveningReminderTime: string;
   hasHydrated: boolean;
+  hydrationError: AppError | null;
   isEnabled: boolean;
   morningReminderTime: string;
   resetNotificationPreferences: () => void;
   setHasHydrated: (hasHydrated: boolean) => void;
+  setHydrationError: (error: AppError | null) => void;
   setIsEnabled: (isEnabled: boolean) => void;
   setReminderTime: (key: ReminderKey, time: string) => void;
 };
@@ -30,11 +34,13 @@ export const useNotificationPreferencesStore =
       (set) => ({
         eveningReminderTime: defaultNotificationPreferences.eveningReminderTime,
         hasHydrated: false,
+        hydrationError: null,
         isEnabled: defaultNotificationPreferences.isEnabled,
         morningReminderTime: defaultNotificationPreferences.morningReminderTime,
         resetNotificationPreferences: () =>
           set(defaultNotificationPreferences),
         setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+        setHydrationError: (error) => set({ hydrationError: error }),
         setIsEnabled: (isEnabled) => set({ isEnabled }),
         setReminderTime: (key, time) => {
           if (key === "morning") {
@@ -51,7 +57,17 @@ export const useNotificationPreferencesStore =
           ...currentState,
           ...getSanitizedNotificationPreferences(persistedState),
         }),
-        onRehydrateStorage: (state) => () => {
+        onRehydrateStorage: (state) => (_persistedState, error) => {
+          if (error) {
+            state?.setHydrationError(
+              normalizeAppError(error, {
+                operation: "local_hydration_notifications",
+              }),
+            );
+          } else {
+            state?.setHydrationError(null);
+          }
+
           state?.setHasHydrated(true);
         },
         partialize: (state) => ({

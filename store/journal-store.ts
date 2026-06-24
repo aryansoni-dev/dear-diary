@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import {
   mergeJournalEntries,
@@ -15,6 +16,7 @@ import type {
   MoodId,
   JournalSyncStatus,
 } from "@/types/journal";
+import type { AppError } from "@/types/appError";
 
 const journalStorageVersion = 3;
 const entryTypes: EntryType[] = [
@@ -55,6 +57,7 @@ type JournalState = {
   entries: JournalEntry[];
   getEntryById: (id: string) => JournalEntry | undefined;
   hasHydrated: boolean;
+  hydrationError: AppError | null;
   markEntriesPendingSync: (userId: string, entryIds: string[]) => void;
   markEntriesSynced: (userId: string, entryIds: string[]) => void;
   markEntriesSyncFailed: (userId: string, entryIds: string[]) => void;
@@ -64,6 +67,7 @@ type JournalState = {
   ) => MergeResult;
   setActiveUserId: (userId: string | null) => void;
   setHasHydrated: (hasHydrated: boolean) => void;
+  setHydrationError: (error: AppError | null) => void;
   updateEntry: (id: string, entry: JournalEntryUpdate) => void;
 };
 
@@ -204,6 +208,7 @@ export const useJournalStore = create<JournalState>()(
       entries: [],
       getEntryById: (id) => get().entries.find((entry) => entry.id === id),
       hasHydrated: false,
+      hydrationError: null,
       markEntriesPendingSync: (userId, entryIds) =>
         set((state) => ({
           allEntries: setSyncStatusForEntries(
@@ -283,6 +288,7 @@ export const useJournalStore = create<JournalState>()(
           entries: getEntriesForUser(state.allEntries, userId),
         })),
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+      setHydrationError: (error) => set({ hydrationError: error }),
       updateEntry: (id, entry) => {
         if (useAccountDeletionStore.getState().deletionInProgress) {
           return;
@@ -308,8 +314,22 @@ export const useJournalStore = create<JournalState>()(
     {
       name: "dear-diary-journal",
       migrate: migrateJournalState,
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          useJournalStore.setState({
+            hasHydrated: true,
+            hydrationError: normalizeAppError(error, {
+              operation: "local_hydration_journal",
+            }),
+          });
+          return;
+        }
+
         if (!state) {
+          useJournalStore.setState({
+            hasHydrated: true,
+            hydrationError: null,
+          });
           return;
         }
 
@@ -319,6 +339,7 @@ export const useJournalStore = create<JournalState>()(
           allEntries,
           entries: getEntriesForUser(allEntries, state.activeUserId),
           hasHydrated: true,
+          hydrationError: null,
         });
       },
       partialize: (state) => ({

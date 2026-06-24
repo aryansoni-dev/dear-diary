@@ -21,6 +21,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
+import { ScreenErrorState } from "@/components/states/ScreenErrorState";
 import { CONNECTION_STATE_COLORS } from "@/constants/theme";
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { useConnectivity } from "@/hooks/useConnectivity";
@@ -82,6 +83,7 @@ export function AiChatScreen({
   const journalEntries = useJournalStore((state) => state.entries);
   const chatMessages = useChatStore((state) => state.messages);
   const chatHasHydrated = useChatStore((state) => state.hasHydrated);
+  const chatHydrationError = useChatStore((state) => state.hydrationError);
   const addMessage = useChatStore((state) => state.addMessage);
   const clearMessagesForUser = useChatStore(
     (state) => state.clearMessagesForUser,
@@ -112,7 +114,9 @@ export function AiChatScreen({
   }, [chatMessages, userId]);
   const showChatHydrationState = useDelayedVisibility(!chatHasHydrated);
   const visibleMessages =
-    chatHasHydrated && currentUserMessages.length > 0
+    chatHydrationError
+      ? []
+      : chatHasHydrated && currentUserMessages.length > 0
       ? currentUserMessages
       : chatHasHydrated
         ? [
@@ -133,6 +137,7 @@ export function AiChatScreen({
     message.trim().length > 0 &&
     !!userId &&
     chatHasHydrated &&
+    !chatHydrationError &&
     !isThinking &&
     !isOffline;
   const shouldUseKeyboardOffset = process.env.EXPO_OS === "android";
@@ -202,6 +207,11 @@ export function AiChatScreen({
       title: "Clear this chat?",
       variant: "destructive",
     });
+  }
+
+  function retryChatHydration() {
+    useChatStore.setState({ hasHydrated: false, hydrationError: null });
+    void useChatStore.persist.rehydrate();
   }
 
   function handleMessageChange(nextMessage: string) {
@@ -429,6 +439,13 @@ export function AiChatScreen({
                 Preparing your conversation...
               </Text>
             </View>
+          ) : null}
+          {chatHydrationError ? (
+            <ScreenErrorState
+              compact
+              error={chatHydrationError}
+              onRetry={retryChatHydration}
+            />
           ) : null}
           {visibleMessages.map((chatMessage, index) => (
             <ChatBubble

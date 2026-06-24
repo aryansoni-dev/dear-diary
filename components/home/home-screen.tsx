@@ -11,6 +11,7 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { ScreenErrorState } from "@/components/states/ScreenErrorState";
 import { images } from "@/constants/images";
 import { moodOptions } from "@/data/home";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
@@ -80,6 +81,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
   const router = useRouter();
   const entries = useJournalStore((state) => state.entries);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
+  const hydrationError = useJournalStore((state) => state.hydrationError);
   const [selectedMood, setSelectedMood] = useState("Happy");
   const showHydrationState = useDelayedVisibility(!hasHydrated);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
@@ -115,9 +117,16 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
     : morningIntentionPrompt;
   const intentionBody = !hasHydrated
     ? "Loading intention..."
+    : hydrationError
+      ? "Saved intention could not be loaded."
     : morningIntention
       ? getEntryPreview(morningIntention)
       : "Tap to write your intention...";
+
+  function retryJournalHydration() {
+    useJournalStore.setState({ hasHydrated: false, hydrationError: null });
+    void useJournalStore.persist.rehydrate();
+  }
 
   return (
     <View className="flex-1 bg-white">
@@ -317,7 +326,13 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
         </View>
 
         <View className="gap-5">
-          {!hasHydrated ? (
+          {hydrationError ? (
+            <ScreenErrorState
+              compact
+              error={hydrationError}
+              onRetry={retryJournalHydration}
+            />
+          ) : !hasHydrated ? (
             showHydrationState ? (
               <RecentEntriesEmptyState
                 body="Preparing your saved reflections..."

@@ -103,6 +103,19 @@ export const normalizeAppError = (
     });
   }
 
+  if (operation?.includes("local_hydration")) {
+    return createAppError({
+      category: "local_storage",
+      code: "local_save_failed",
+      error,
+      operation,
+      retryable: true,
+      severity: "error",
+      userMessage:
+        "DearDiary could not load your saved data on this device. Please try again.",
+    });
+  }
+
   if (operation?.includes("local_save") || message.includes("asyncstorage")) {
     return createAppError({
       category: "local_storage",

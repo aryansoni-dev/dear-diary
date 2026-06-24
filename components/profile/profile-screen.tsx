@@ -18,6 +18,7 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { ScreenErrorState } from "@/components/states/ScreenErrorState";
 import { SyncStatusRow } from "@/components/sync/SyncStatusRow";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { achievementDefinitions } from "@/data/achievements";
@@ -86,6 +87,7 @@ export function ProfileScreen() {
   const connectivity = useConnectivity();
   const entries = useJournalStore((state) => state.entries);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
+  const hydrationError = useJournalStore((state) => state.hydrationError);
   const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
   const achievementHasHydrated = useAchievementStore(
     (state) => state.hasHydrated,
@@ -112,14 +114,20 @@ export function ProfileScreen() {
     fullName: user?.fullName,
   });
   const profileInitial = displayName.charAt(0).toUpperCase();
+  const journalDataReady = hasHydrated && !hydrationError;
 
   const journalingSince = useMemo(
-    () => getJournalingSinceLabel(entries, hasHydrated),
-    [entries, hasHydrated],
+    () =>
+      getJournalingSinceLabel({
+        entries,
+        hasHydrated: journalDataReady,
+        hydrationFailed: Boolean(hydrationError),
+      }),
+    [entries, hydrationError, journalDataReady],
   );
   const profileSummary = useMemo(
-    () => getProfileSummary(entries, hasHydrated),
-    [entries, hasHydrated],
+    () => getProfileSummary(entries, journalDataReady),
+    [entries, journalDataReady],
   );
   const currentUserEntries = useMemo(() => {
     if (!user?.id) {
@@ -359,6 +367,17 @@ export function ProfileScreen() {
       return;
     }
 
+    if (hydrationError) {
+      showDialog({
+        confirmText: "OK",
+        message:
+          "DearDiary could not load your saved journal data on this device. Please try again before exporting.",
+        title: "Journal unavailable",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (currentUserEntries.length === 0) {
       showDialog({
         confirmText: "OK",
@@ -461,6 +480,11 @@ export function ProfileScreen() {
     });
   }
 
+  function retryJournalHydration() {
+    useJournalStore.setState({ hasHydrated: false, hydrationError: null });
+    void useJournalStore.persist.rehydrate();
+  }
+
   return (
     <View className="flex-1 bg-white">
       <StatusBar hidden />
@@ -527,6 +551,16 @@ export function ProfileScreen() {
           </Text>
         </View>
 
+        {hydrationError ? (
+          <View className="pt-7">
+            <ScreenErrorState
+              compact
+              error={hydrationError}
+              onRetry={retryJournalHydration}
+            />
+          </View>
+        ) : null}
+
         <View className="flex-row gap-4 pt-7">
           {profileSummary.stats.map((stat) => (
             <View
@@ -584,7 +618,7 @@ export function ProfileScreen() {
             <View>
               <SectionTitle>Achievements</SectionTitle>
               <Text className="mt-1 text-[14px] font-medium leading-5 text-[#71717B]">
-                {hasHydrated
+                {journalDataReady
                   ? `${profileSummary.unlockedAchievementCount} / ${profileSummary.totalAchievementCount} unlocked`
                   : "Loading achievements..."}
               </Text>
@@ -1113,7 +1147,19 @@ function getLoadingInsights(): ProfileInsight[] {
   ];
 }
 
-function getJournalingSinceLabel(entries: JournalEntry[], hasHydrated: boolean) {
+function getJournalingSinceLabel({
+  entries,
+  hasHydrated,
+  hydrationFailed,
+}: {
+  entries: JournalEntry[];
+  hasHydrated: boolean;
+  hydrationFailed: boolean;
+}) {
+  if (hydrationFailed) {
+    return "Saved journal data needs attention";
+  }
+
   if (!hasHydrated) {
     return "Loading journal history...";
   }

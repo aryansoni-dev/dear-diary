@@ -1,9 +1,11 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import { isRecord } from "@/lib/utils/typeGuards";
 import { isNonEmptyString } from "@/lib/validation/persistedDataValidators";
+import type { AppError } from "@/types/appError";
 
 const achievementStorageVersion = 2;
 
@@ -19,6 +21,7 @@ type AchievementNotificationState = {
   >;
   achievementSyncUserId: string | null;
   hasHydrated: boolean;
+  hydrationError: AppError | null;
   initializeAchievementNotifications: (
     userId: string,
     unlockedIds: string[],
@@ -28,6 +31,7 @@ type AchievementNotificationState = {
   resetAchievementNotifications: (userId: string) => void;
   setAchievementSyncUserId: (userId: string | null) => void;
   setHasHydrated: (value: boolean) => void;
+  setHydrationError: (error: AppError | null) => void;
 };
 
 export const useAchievementStore = create<AchievementNotificationState>()(
@@ -36,6 +40,7 @@ export const useAchievementStore = create<AchievementNotificationState>()(
       achievementNotificationsByUserId: {},
       achievementSyncUserId: null,
       hasHydrated: false,
+      hydrationError: null,
       initializeAchievementNotifications: (userId, unlockedIds) =>
         set((state) => {
           const currentNotifications =
@@ -121,6 +126,7 @@ export const useAchievementStore = create<AchievementNotificationState>()(
       setAchievementSyncUserId: (userId) =>
         set({ achievementSyncUserId: userId }),
       setHasHydrated: (value) => set({ hasHydrated: value }),
+      setHydrationError: (error) => set({ hydrationError: error }),
     }),
     {
       name: "deardiary-achievement-store-v1",
@@ -139,7 +145,17 @@ export const useAchievementStore = create<AchievementNotificationState>()(
             getSanitizedAchievementNotifications(persistedState),
         };
       },
-      onRehydrateStorage: (state) => () => {
+      onRehydrateStorage: (state) => (_persistedState, error) => {
+        if (error) {
+          state?.setHydrationError(
+            normalizeAppError(error, {
+              operation: "local_hydration_achievements",
+            }),
+          );
+        } else {
+          state?.setHydrationError(null);
+        }
+
         state?.setHasHydrated(true);
       },
       partialize: (state) => ({

@@ -1,14 +1,20 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { createPersistStorage } from "@/lib/storage/createPersistStorage";
-import { appErrorCodes, type AppErrorCode } from "@/types/appError";
+import {
+  appErrorCodes,
+  type AppError,
+  type AppErrorCode,
+} from "@/types/appError";
 import { isRecord } from "@/lib/utils/typeGuards";
 
 type SyncState = {
   clearSyncError: () => void;
   clearSyncStateForUser: (userId: string) => void;
   hasHydrated: boolean;
+  hydrationError: AppError | null;
   isSyncing: boolean;
   lastAttemptAt: string | null;
   lastSyncErrorCode: AppErrorCode | null;
@@ -17,6 +23,7 @@ type SyncState = {
   lastSyncedAt: string | null;
   lastSyncUserId: string | null;
   setHasHydrated: (value: boolean) => void;
+  setHydrationError: (error: AppError | null) => void;
   setIsSyncing: (value: boolean) => void;
   setSyncAttempt: (timestamp: string, userId: string) => void;
   setSyncFailure: (
@@ -63,6 +70,7 @@ export const useSyncStore = create<SyncState>()(
           };
         }),
       hasHydrated: false,
+      hydrationError: null,
       isSyncing: false,
       lastAttemptAt: null,
       lastSyncErrorCode: null,
@@ -71,6 +79,7 @@ export const useSyncStore = create<SyncState>()(
       lastSyncedAt: null,
       lastSyncUserId: null,
       setHasHydrated: (value) => set({ hasHydrated: value }),
+      setHydrationError: (error) => set({ hydrationError: error }),
       setIsSyncing: (value) => set({ isSyncing: value }),
       setSyncAttempt: (timestamp, userId) =>
         set({
@@ -101,7 +110,17 @@ export const useSyncStore = create<SyncState>()(
         ...currentState,
         ...getSanitizedSyncMetadata(persistedState),
       }),
-      onRehydrateStorage: (state) => () => {
+      onRehydrateStorage: (state) => (_persistedState, error) => {
+        if (error) {
+          state?.setHydrationError(
+            normalizeAppError(error, {
+              operation: "local_hydration_sync",
+            }),
+          );
+        } else {
+          state?.setHydrationError(null);
+        }
+
         state?.setHasHydrated(true);
       },
       partialize: (state) => ({
