@@ -12,7 +12,10 @@ import {
 } from "@/components/navigation/bottom-tab-bar";
 import { TabScreenHeader } from "@/components/ui/tab-screen-header";
 import { reflectPrompts, type ReflectPrompt } from "@/data/reflect";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import type { JournalEntry } from "@/types/journal";
 
 const colors = {
@@ -24,7 +27,9 @@ export function ReflectScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const entries = useJournalStore((state) => state.entries);
-  const hasHydrated = useJournalStore((state) => state.hasHydrated);
+  const hasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
 
   function handlePromptPress(prompt: ReflectPrompt) {

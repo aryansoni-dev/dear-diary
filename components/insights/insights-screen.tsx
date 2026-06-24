@@ -61,7 +61,11 @@ import {
   getCurrentReportPeriod,
   type ReportPeriod,
 } from "@/lib/insights/reportPeriods";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  retryJournalStoreHydration,
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import type { AIInsightReport } from "@/types/aiInsightReport";
 import type { InsightsPeriod, ThemeFrequency } from "@/types/insights";
 import type { JournalEntry, MoodId } from "@/types/journal";
@@ -114,8 +118,12 @@ export function InsightsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const entries = useJournalStore((state) => state.entries);
-  const hasHydrated = useJournalStore((state) => state.hasHydrated);
-  const hydrationError = useJournalStore((state) => state.hydrationError);
+  const hasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
+  const hydrationError = useJournalHydrationStore(
+    (state) => state.hydrationError,
+  );
   const showHydrationState = useDelayedVisibility(!hasHydrated);
   const [selectedPeriod, setSelectedPeriod] = useState<InsightsPeriod>("week");
   const [selectedReferenceDate, setSelectedReferenceDate] = useState(
@@ -139,8 +147,15 @@ export function InsightsScreen() {
     enabled: hasHydrated,
   });
   const insights = useMemo(
-    () => getLocalInsights(entries, hasHydrated),
-    [entries, hasHydrated],
+    () =>
+      getLocalInsights({
+        entries,
+        hasHydrated,
+        period: selectedPeriod,
+        referenceDate: selectedReferenceDate,
+        userId: userId ?? null,
+      }),
+    [entries, hasHydrated, selectedPeriod, selectedReferenceDate, userId],
   );
   const derivedInsights = useMemo(
     () =>
@@ -183,13 +198,24 @@ export function InsightsScreen() {
       weeklyReportState.report,
     ],
   );
-  const recurringThemes = useMemo(
+  const matchingPeriodReport = useMemo(
     () =>
-      getRecurringThemes(
-        derivedInsights.themes,
-        monthlyReportState.report ?? weeklyReportState.report,
-      ),
-    [derivedInsights.themes, monthlyReportState.report, weeklyReportState.report],
+      getMatchingReportForSelectedPeriod({
+        monthlyReport: monthlyReportState.report,
+        period: selectedPeriod,
+        referenceDate: selectedReferenceDate,
+        weeklyReport: weeklyReportState.report,
+      }),
+    [
+      monthlyReportState.report,
+      selectedPeriod,
+      selectedReferenceDate,
+      weeklyReportState.report,
+    ],
+  );
+  const recurringThemes = useMemo(
+    () => getRecurringThemes(derivedInsights.themes, matchingPeriodReport),
+    [derivedInsights.themes, matchingPeriodReport],
   );
   const hasNoEntries = hasHydrated && entries.length === 0;
   const newJournalEntryHref = {
@@ -198,8 +224,7 @@ export function InsightsScreen() {
   } as Href;
 
   function retryJournalHydration() {
-    useJournalStore.setState({ hasHydrated: false, hydrationError: null });
-    void useJournalStore.persist.rehydrate();
+    retryJournalStoreHydration();
   }
 
   return (
@@ -300,12 +325,12 @@ export function InsightsScreen() {
                     className="flex-1 text-[18px] font-bold leading-5 text-[#27272A]"
                     numberOfLines={1}
                   >
-                    Weekly Mood Journey
+                    Mood Journey
                   </Text>
                 </View>
                 <View className="rounded-full bg-[#F4EFFA] px-4 py-2">
                   <Text className="text-[12px] font-medium leading-5 text-[#52525B]">
-                    This Week
+                    {getMoodJourneyPillLabel(selectedPeriod)}
                   </Text>
                 </View>
               </View>
@@ -538,16 +563,30 @@ type LocalInsights = {
   moodJourney: MoodJourneyPoint[];
 };
 
-function getLocalInsights(
-  entries: JournalEntry[],
-  hasHydrated: boolean,
-): LocalInsights {
+function getLocalInsights({
+  entries,
+  hasHydrated,
+  period,
+  referenceDate,
+  userId,
+}: {
+  entries: JournalEntry[];
+  hasHydrated: boolean;
+  period: InsightsPeriod;
+  referenceDate: Date;
+  userId: string | null;
+}): LocalInsights {
   return {
     cards: insightCardStyles.map((card) => ({
       ...card,
       body: getAIInsightUnavailableBody(card.title, hasHydrated),
     })),
-    moodJourney: getWeeklyMoodJourney(entries),
+    moodJourney: getPeriodMoodJourney({
+      entries,
+      period,
+      referenceDate,
+      userId,
+    }),
   };
 }
 
@@ -705,28 +744,166 @@ function getRecurringThemes(
   }));
 }
 
-function getWeeklyMoodJourney(entries: JournalEntry[]) {
-  const today = startOfLocalDay(new Date());
+function getMatchingReportForSelectedPeriod({
+  monthlyReport,
+  period,
+  referenceDate,
+  weeklyReport,
+}: {
+  monthlyReport: AIInsightReport | null;
+  period: InsightsPeriod;
+  referenceDate: Date;
+  weeklyReport: AIInsightReport | null;
+}) {
+  if (period === "year") {
+    return null;
+  }
 
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - (6 - index));
-    const mood = getMostFrequentMoodForDate(entries, date);
+  const dateRange = getInsightDateRange(period, referenceDate);
+  const periodType = period === "week" ? "weekly" : "monthly";
+  const report = periodType === "weekly" ? weeklyReport : monthlyReport;
 
-    return {
-      day: new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date),
-      emoji: mood ? moodEmoji[mood] : fallbackMoodEmoji,
-      mood: mood ? moodScores[mood] : fallbackMoodScore,
-    };
+  if (!report || report.periodType !== periodType) {
+    return null;
+  }
+
+  return isReportForDateRange(report, dateRange.start, dateRange.end)
+    ? report
+    : null;
+}
+
+function isReportForDateRange(
+  report: AIInsightReport,
+  start: Date,
+  end: Date,
+) {
+  return (
+    getLocalDateKey(new Date(report.periodStart)) === getLocalDateKey(start) &&
+    getLocalDateKey(new Date(report.periodEnd)) === getLocalDateKey(end)
+  );
+}
+
+function getPeriodMoodJourney({
+  entries,
+  period,
+  referenceDate,
+  userId,
+}: {
+  entries: JournalEntry[];
+  period: InsightsPeriod;
+  referenceDate: Date;
+  userId: string | null;
+}) {
+  const dateRange = getInsightDateRange(period, referenceDate);
+  const periodEntries = entries.filter(
+    (entry) =>
+      !entry.deletedAt &&
+      (!userId || entry.userId === userId) &&
+      isEntryInRange(entry, dateRange.start, dateRange.end),
+  );
+
+  if (period === "week") {
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = addDays(dateRange.start, index);
+      const mood = getTopMoodForRange(
+        periodEntries,
+        startOfLocalDay(date),
+        endOfLocalDay(date),
+      );
+
+      return toMoodJourneyPoint(
+        mood,
+        new Intl.DateTimeFormat(getRuntimeLocale(), {
+          weekday: "short",
+        }).format(date),
+      );
+    });
+  }
+
+  if (period === "month") {
+    const points: MoodJourneyPoint[] = [];
+    let cursor = startOfLocalDay(dateRange.start);
+
+    while (cursor.getTime() <= dateRange.end.getTime()) {
+      const bucketStart = new Date(cursor);
+      const bucketEnd = endOfLocalDay(addDays(bucketStart, 6));
+      const mood = getTopMoodForRange(
+        periodEntries,
+        bucketStart,
+        bucketEnd.getTime() > dateRange.end.getTime()
+          ? dateRange.end
+          : bucketEnd,
+      );
+
+      points.push(
+        toMoodJourneyPoint(
+          mood,
+          new Intl.DateTimeFormat(getRuntimeLocale(), {
+            day: "numeric",
+          }).format(bucketStart),
+        ),
+      );
+      cursor = addDays(bucketStart, 7);
+    }
+
+    return points;
+  }
+
+  return Array.from({ length: 12 }, (_, monthIndex) => {
+    const bucketStart = new Date(referenceDate.getFullYear(), monthIndex, 1);
+    const bucketEnd = endOfLocalDay(
+      new Date(referenceDate.getFullYear(), monthIndex + 1, 0),
+    );
+    const mood = getTopMoodForRange(periodEntries, bucketStart, bucketEnd);
+
+    return toMoodJourneyPoint(
+      mood,
+      new Intl.DateTimeFormat(getRuntimeLocale(), {
+        month: "short",
+      }).format(bucketStart),
+    );
   });
 }
 
-function getMostFrequentMoodForDate(entries: JournalEntry[], date: Date) {
-  const entriesForDate = entries.filter(
-    (entry) => entry.mood && isSameDay(new Date(entry.createdAt), date),
-  );
+function getMoodJourneyPillLabel(period: InsightsPeriod) {
+  if (period === "week") {
+    return "This Week";
+  }
 
-  return getTopMood(entriesForDate);
+  if (period === "month") {
+    return "This Month";
+  }
+
+  return "This Year";
+}
+
+function getTopMoodForRange(entries: JournalEntry[], start: Date, end: Date) {
+  return getTopMood(
+    entries.filter(
+      (entry) => entry.mood && isEntryInRange(entry, start, end),
+    ),
+  );
+}
+
+function toMoodJourneyPoint(
+  mood: MoodId | null,
+  day: string,
+): MoodJourneyPoint {
+  return {
+    day,
+    emoji: mood ? moodEmoji[mood] : fallbackMoodEmoji,
+    mood: mood ? moodScores[mood] : fallbackMoodScore,
+  };
+}
+
+function isEntryInRange(entry: JournalEntry, start: Date, end: Date) {
+  const createdAt = Date.parse(entry.createdAt);
+
+  return (
+    Number.isFinite(createdAt) &&
+    createdAt >= start.getTime() &&
+    createdAt <= end.getTime()
+  );
 }
 
 function getTopMood(entries: JournalEntry[]) {
@@ -774,12 +951,27 @@ function startOfLocalDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function isSameDay(firstDate: Date, secondDate: Date) {
-  return (
-    firstDate.getFullYear() === secondDate.getFullYear() &&
-    firstDate.getMonth() === secondDate.getMonth() &&
-    firstDate.getDate() === secondDate.getDate()
+function endOfLocalDay(date: Date) {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    23,
+    59,
+    59,
+    999,
   );
+}
+
+function addDays(date: Date, days: number) {
+  const nextDate = new Date(date);
+
+  nextDate.setDate(date.getDate() + days);
+  return nextDate;
+}
+
+function getRuntimeLocale() {
+  return Intl.DateTimeFormat().resolvedOptions().locale;
 }
 
 function MoodJourneyChart({ data }: { data: MoodJourneyPoint[] }) {

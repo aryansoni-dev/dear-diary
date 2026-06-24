@@ -1,7 +1,10 @@
 import { useMemo } from "react";
 
 import { useConnectivity } from "@/hooks/useConnectivity";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
 import { useMoodLogStore } from "@/store/useMoodLogStore";
 import { useSyncStore } from "@/store/useSyncStore";
@@ -11,7 +14,9 @@ export function useSyncStatus(userId: string | null | undefined) {
   const connectivity = useConnectivity();
   const allEntries = useJournalStore((state) => state.allEntries);
   const allMoodLogs = useMoodLogStore((state) => state.allMoodLogs);
-  const journalHasHydrated = useJournalStore((state) => state.hasHydrated);
+  const journalHasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
   const moodLogHasHydrated = useMoodLogStore((state) => state.hasHydrated);
   const syncHasHydrated = useSyncStore((state) => state.hasHydrated);
   const isSyncing = useSyncStore((state) => state.isSyncing);

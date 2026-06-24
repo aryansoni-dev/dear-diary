@@ -1,15 +1,9 @@
+import { moodList } from "@/constants/moods";
 import { getAuthenticatedSupabaseClient } from "@/lib/supabase";
 import type { MoodId } from "@/types/journal";
 import type { MoodLog } from "@/types/moodLog";
 
-const moodIds: MoodId[] = [
-  "happy",
-  "calm",
-  "sad",
-  "motivated",
-  "anxious",
-  "grateful",
-];
+const moodIds = moodList.map((mood) => mood.id);
 
 const moodLogSelect =
   "id, user_id, mood, note, intensity, created_at, updated_at, deleted_at";
@@ -145,10 +139,16 @@ export async function pullMoodLogsFromCloud({
   }
 
   const rows: unknown[] = data ?? [];
-  const moodLogs = rows
-    .map(parseMoodLogRow)
-    .filter((row) => row.user_id === userId)
-    .map(mapMoodLogRowToMoodLog);
+  const moodLogs = rows.reduce<MoodLog[]>((validMoodLogs, row) => {
+    const moodLogRow = parseMoodLogRow(row);
+
+    if (!moodLogRow || moodLogRow.user_id !== userId) {
+      return validMoodLogs;
+    }
+
+    validMoodLogs.push(mapMoodLogRowToMoodLog(moodLogRow));
+    return validMoodLogs;
+  }, []);
 
   return {
     moodLogs,
@@ -156,9 +156,13 @@ export async function pullMoodLogsFromCloud({
   };
 }
 
-function parseMoodLogRow(row: unknown): MoodLogRow {
+function parseMoodLogRow(row: unknown): MoodLogRow | null {
   if (!isMoodLogRow(row)) {
-    throw new Error("Cloud mood log data is invalid.");
+    if (__DEV__) {
+      console.warn("Skipping invalid cloud mood log row", row);
+    }
+
+    return null;
   }
 
   return row;

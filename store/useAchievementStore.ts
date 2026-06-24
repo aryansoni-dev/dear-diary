@@ -20,8 +20,6 @@ type AchievementNotificationState = {
     UserAchievementNotifications
   >;
   achievementSyncUserId: string | null;
-  hasHydrated: boolean;
-  hydrationError: AppError | null;
   initializeAchievementNotifications: (
     userId: string,
     unlockedIds: string[],
@@ -30,17 +28,28 @@ type AchievementNotificationState = {
   mergeNotifiedAchievementIds: (userId: string, ids: string[]) => void;
   resetAchievementNotifications: (userId: string) => void;
   setAchievementSyncUserId: (userId: string | null) => void;
+};
+
+type AchievementHydrationState = {
+  hasHydrated: boolean;
+  hydrationError: AppError | null;
   setHasHydrated: (value: boolean) => void;
   setHydrationError: (error: AppError | null) => void;
 };
+
+export const useAchievementHydrationStore =
+  create<AchievementHydrationState>()((set) => ({
+    hasHydrated: false,
+    hydrationError: null,
+    setHasHydrated: (value) => set({ hasHydrated: value }),
+    setHydrationError: (error) => set({ hydrationError: error }),
+  }));
 
 export const useAchievementStore = create<AchievementNotificationState>()(
   persist(
     (set) => ({
       achievementNotificationsByUserId: {},
       achievementSyncUserId: null,
-      hasHydrated: false,
-      hydrationError: null,
       initializeAchievementNotifications: (userId, unlockedIds) =>
         set((state) => {
           const currentNotifications =
@@ -125,8 +134,6 @@ export const useAchievementStore = create<AchievementNotificationState>()(
         }),
       setAchievementSyncUserId: (userId) =>
         set({ achievementSyncUserId: userId }),
-      setHasHydrated: (value) => set({ hasHydrated: value }),
-      setHydrationError: (error) => set({ hydrationError: error }),
     }),
     {
       name: "deardiary-achievement-store-v1",
@@ -147,16 +154,16 @@ export const useAchievementStore = create<AchievementNotificationState>()(
       },
       onRehydrateStorage: (state) => (_persistedState, error) => {
         if (error) {
-          state?.setHydrationError(
-            normalizeAppError(error, {
+          useAchievementHydrationStore.setState({
+            hydrationError: normalizeAppError(error, {
               operation: "local_hydration_achievements",
             }),
-          );
+          });
         } else {
-          state?.setHydrationError(null);
+          useAchievementHydrationStore.setState({ hydrationError: null });
         }
 
-        state?.setHasHydrated(true);
+        useAchievementHydrationStore.setState({ hasHydrated: true });
       },
       partialize: (state) => ({
         achievementNotificationsByUserId:

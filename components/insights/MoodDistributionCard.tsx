@@ -24,13 +24,13 @@ export function MoodDistributionCard({
               <View key={item.moodId}>
                 <View className="flex-row items-center gap-3">
                   <Text className="text-[20px] leading-6">{mood.emoji}</Text>
-                  <Text className="flex-1 text-[14px] font-semibold leading-5 text-[#27272A]">
+                  <Text className="flex-1 text-[14px] font-semibold leading-6 text-[#27272A]">
                     {mood.label}
                   </Text>
-                  <Text className="text-[13px] font-bold leading-5 text-[#52525B]">
+                  <Text className="text-[13px] font-bold leading-6 text-[#52525B]">
                     {item.count}
                   </Text>
-                  <Text className="w-11 text-right text-[13px] font-semibold leading-5 text-[#71717B]">
+                  <Text className="w-11 text-right text-[13px] font-semibold leading-6 text-[#71717B]">
                     {item.percentage}%
                   </Text>
                 </View>
@@ -47,14 +47,20 @@ export function MoodDistributionCard({
             );
           })}
           {entriesWithoutMood > 0 ? (
-            <Text className="text-[13px] leading-5 text-[#71717B]">
+            <Text className="text-[13px] leading-6 text-[#71717B]">
               {entriesWithoutMood}{" "}
               {entriesWithoutMood === 1 ? "entry had" : "entries had"} no mood selected.
             </Text>
           ) : null}
         </View>
       ) : (
-        <EmptyCardText text="Mood distribution will appear after you begin adding moods." />
+        <EmptyCardText
+          text={
+            entriesWithoutMood > 0
+              ? "Entries in this period do not have moods selected yet."
+              : "Mood distribution will appear after you begin adding moods."
+          }
+        />
       )}
     </InsightCard>
   );
@@ -77,7 +83,7 @@ function InsightCard({
       <Text className="text-[18px] font-bold leading-6 text-[#18181B]">
         {title}
       </Text>
-      <Text className="mt-1 text-[13px] leading-5 text-[#71717B]">
+      <Text className="mt-1 text-[13px] leading-6 text-[#71717B]">
         {subtitle}
       </Text>
       <View className="mt-5">{children}</View>

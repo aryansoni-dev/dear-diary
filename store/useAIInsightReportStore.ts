@@ -29,13 +29,13 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
       clearReportsForUser: (userId) =>
         set((state) => {
           if (!state.reportsByUser[userId]) {
-            return state;
+            return { hydrationError: null };
           }
 
           const reportsByUser = { ...state.reportsByUser };
           delete reportsByUser[userId];
 
-          return { reportsByUser };
+          return { hydrationError: null, reportsByUser };
         }),
       getCachedReport: (userId, cacheKey) => {
         if (!userId) {

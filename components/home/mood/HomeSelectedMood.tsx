@@ -21,7 +21,7 @@ export function HomeSelectedMood({
     return (
       <View className="items-center gap-3 rounded-[22px] bg-[#FAF7F2] px-5 py-5">
         <View className="size-[72px] items-center justify-center rounded-full bg-white">
-          <Text className="text-[28px] leading-9">...</Text>
+          <Text className="text-[28px] leading-6">...</Text>
         </View>
         <Text className="text-center text-[16px] font-medium leading-6 text-[#71717B]">
           Loading your saved check-in...
@@ -34,7 +34,7 @@ export function HomeSelectedMood({
     return (
       <View className="items-center gap-3 rounded-[22px] bg-[#FAF7F2] px-5 py-5">
         <View className="size-[72px] items-center justify-center rounded-full bg-white">
-          <Text className="text-[34px] leading-10">✦</Text>
+          <Text className="text-[34px] leading-6">✦</Text>
         </View>
         <Text className="text-center text-[16px] font-medium leading-6 text-[#71717B]">
           Choose the feeling that feels closest.
@@ -57,11 +57,11 @@ export function HomeSelectedMood({
         />
       </View>
       <View className="items-center gap-1">
-        <Text className="text-center text-[20px] font-semibold leading-7 text-[#303039]">
+        <Text className="text-center text-[20px] font-semibold leading-6 text-[#303039]">
           {isSaved ? `Feeling ${mood.label}` : `You selected ${mood.label}`}
         </Text>
         {isSaved && savedAt ? (
-          <Text className="text-center text-[13px] font-medium leading-5 text-[#71717B]">
+          <Text className="text-center text-[13px] font-medium leading-6 text-[#71717B]">
             Logged today at {formatSavedTime(savedAt)}
           </Text>
         ) : null}
@@ -71,7 +71,9 @@ export function HomeSelectedMood({
 }
 
 function formatSavedTime(timestamp: string) {
-  return new Intl.DateTimeFormat("en-US", {
+  const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+
+  return new Intl.DateTimeFormat(locale, {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(timestamp));

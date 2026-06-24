@@ -60,6 +60,7 @@ export const useSyncStore = create<SyncState>()(
           }
 
           return {
+            hydrationError: null,
             isSyncing: false,
             lastAttemptAt: null,
             lastSyncErrorCode: null,

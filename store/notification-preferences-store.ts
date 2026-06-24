@@ -38,7 +38,10 @@ export const useNotificationPreferencesStore =
         isEnabled: defaultNotificationPreferences.isEnabled,
         morningReminderTime: defaultNotificationPreferences.morningReminderTime,
         resetNotificationPreferences: () =>
-          set(defaultNotificationPreferences),
+          set({
+            ...defaultNotificationPreferences,
+            hydrationError: null,
+          }),
         setHasHydrated: (hasHydrated) => set({ hasHydrated }),
         setHydrationError: (error) => set({ hydrationError: error }),
         setIsEnabled: (isEnabled) => set({ isEnabled }),

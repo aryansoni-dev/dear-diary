@@ -57,6 +57,7 @@ export const useChatStore = create<ChatState>()(
         })),
       clearMessagesForUser: (userId) =>
         set((state) => ({
+          hydrationError: null,
           messages: state.messages.filter((message) => message.userId !== userId),
         })),
       getMessagesByUserId: (userId) =>

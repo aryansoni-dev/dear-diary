@@ -2,8 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { getAchievements } from "@/lib/achievements";
-import { useJournalStore } from "@/store/journal-store";
-import { useAchievementStore } from "@/store/useAchievementStore";
+import {
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
+import {
+  useAchievementHydrationStore,
+  useAchievementStore,
+} from "@/store/useAchievementStore";
 import type { JournalEntry } from "@/types/journal";
 
 type AchievementWatcherProps = {
@@ -16,8 +22,10 @@ export function AchievementWatcher({ userId }: AchievementWatcherProps) {
   const { showDialog } = useAppDialog();
   const activeUserId = useJournalStore((state) => state.activeUserId);
   const entries = useJournalStore((state) => state.entries);
-  const journalHasHydrated = useJournalStore((state) => state.hasHydrated);
-  const achievementHasHydrated = useAchievementStore(
+  const journalHasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
+  const achievementHasHydrated = useAchievementHydrationStore(
     (state) => state.hasHydrated,
   );
   const achievementSyncUserId = useAchievementStore(

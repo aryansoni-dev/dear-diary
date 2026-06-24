@@ -3,9 +3,15 @@ import { useCallback } from "react";
 
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { requestSync } from "@/lib/sync/requestSync";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
-import { useAchievementStore } from "@/store/useAchievementStore";
+import {
+  useAchievementHydrationStore,
+  useAchievementStore,
+} from "@/store/useAchievementStore";
 import { useMoodLogStore } from "@/store/useMoodLogStore";
 import { useSyncStore } from "@/store/useSyncStore";
 
@@ -25,10 +31,12 @@ export function useAutoSync() {
   const { getToken, isLoaded, userId: authUserId } = useAuth();
   const { user } = useUser();
   const connectivity = useConnectivity();
-  const journalHasHydrated = useJournalStore((state) => state.hasHydrated);
+  const journalHasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
   const moodLogHasHydrated = useMoodLogStore((state) => state.hasHydrated);
   const activeUserId = useJournalStore((state) => state.activeUserId);
-  const achievementHasHydrated = useAchievementStore(
+  const achievementHasHydrated = useAchievementHydrationStore(
     (state) => state.hasHydrated,
   );
   const syncHasHydrated = useSyncStore((state) => state.hasHydrated);

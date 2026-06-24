@@ -19,7 +19,11 @@ import { ScreenLoadingState } from "@/components/states/ScreenLoadingState";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
 import { getAchievements } from "@/lib/achievements";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  retryJournalStoreHydration,
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import type {
   AchievementCategory,
   AchievementStatus,
@@ -46,8 +50,12 @@ const categoryLabels: Record<AchievementCategory, string> = {
 export function AchievementsScreen() {
   const insets = useSafeAreaInsets();
   const entries = useJournalStore((state) => state.entries);
-  const hasHydrated = useJournalStore((state) => state.hasHydrated);
-  const hydrationError = useJournalStore((state) => state.hydrationError);
+  const hasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
+  const hydrationError = useJournalHydrationStore(
+    (state) => state.hydrationError,
+  );
   const [selectedFilter, setSelectedFilter] =
     useState<AchievementFilter>("all");
   const [filterToggleWidth, setFilterToggleWidth] = useState(0);
@@ -128,8 +136,7 @@ export function AchievementsScreen() {
   }
 
   function retryJournalHydration() {
-    useJournalStore.setState({ hasHydrated: false, hydrationError: null });
-    void useJournalStore.persist.rehydrate();
+    retryJournalStoreHydration();
   }
 
   return (

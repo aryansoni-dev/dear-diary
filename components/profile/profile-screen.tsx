@@ -43,9 +43,13 @@ import {
 import { reportAppError } from "@/lib/errors/reportAppError";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
 import { requestSync } from "@/lib/sync/requestSync";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  retryJournalStoreHydration,
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
-import { useAchievementStore } from "@/store/useAchievementStore";
+import { useAchievementHydrationStore } from "@/store/useAchievementStore";
 import { useSyncStore } from "@/store/useSyncStore";
 import type { AchievementCategory } from "@/types/achievement";
 import type { JournalEntry, MoodId } from "@/types/journal";
@@ -86,10 +90,14 @@ export function ProfileScreen() {
   const { showDialog } = useAppDialog();
   const connectivity = useConnectivity();
   const entries = useJournalStore((state) => state.entries);
-  const hasHydrated = useJournalStore((state) => state.hasHydrated);
-  const hydrationError = useJournalStore((state) => state.hydrationError);
+  const hasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
+  const hydrationError = useJournalHydrationStore(
+    (state) => state.hydrationError,
+  );
   const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
-  const achievementHasHydrated = useAchievementStore(
+  const achievementHasHydrated = useAchievementHydrationStore(
     (state) => state.hasHydrated,
   );
   const isSyncing = useSyncStore((state) => state.isSyncing);
@@ -197,7 +205,19 @@ export function ProfileScreen() {
       return;
     }
 
-    if (!hasHydrated || !achievementHasHydrated || !syncHasHydrated) {
+    if (!journalDataReady) {
+      showDialog({
+        confirmText: "OK",
+        message: hydrationError
+          ? "DearDiary could not load your saved journal data on this device. Please retry before syncing."
+          : "Your journal is still loading. Please try again in a moment.",
+        title: hydrationError ? "Journal unavailable" : "Journal loading",
+        variant: hydrationError ? "destructive" : "default",
+      });
+      return;
+    }
+
+    if (!achievementHasHydrated || !syncHasHydrated) {
       showDialog({
         confirmText: "OK",
         message: "Your data is still loading. Please try again in a moment.",
@@ -481,8 +501,7 @@ export function ProfileScreen() {
   }
 
   function retryJournalHydration() {
-    useJournalStore.setState({ hasHydrated: false, hydrationError: null });
-    void useJournalStore.persist.rehydrate();
+    retryJournalStoreHydration();
   }
 
   return (

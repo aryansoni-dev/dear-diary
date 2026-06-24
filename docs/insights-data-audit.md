@@ -1,3 +1,5 @@
+# Insights Data Audit
+
 | Insight | Source | Deterministic? | Minimum data | Safe to display? |
 |---|---|---:|---:|---:|
 | Entry count | Current user's local journal entries | Yes | 1 entry | Yes |

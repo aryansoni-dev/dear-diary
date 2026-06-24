@@ -10,7 +10,10 @@ import { useConnectivity } from "@/hooks/useConnectivity";
 import { createLocalDateKey } from "@/lib/calendar/dateUtils";
 import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { reportAppError } from "@/lib/errors/reportAppError";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import { useMoodLogStore } from "@/store/useMoodLogStore";
 import { useSyncStore } from "@/store/useSyncStore";
 import type { AppError } from "@/types/appError";
@@ -29,7 +32,9 @@ export function HomeMoodCheckInCard() {
   const moodLogHydrationError = useMoodLogStore(
     (state) => state.hydrationError,
   );
-  const journalHasHydrated = useJournalStore((state) => state.hasHydrated);
+  const journalHasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
   const activeUserId = useJournalStore((state) => state.activeUserId);
   const isSyncing = useSyncStore((state) => state.isSyncing);
   const [draftSelectedMoodId, setDraftSelectedMoodId] =
@@ -57,6 +62,7 @@ export function HomeMoodCheckInCard() {
   });
   const actionDisabled =
     !hasHydrated ||
+    Boolean(moodLogHydrationError) ||
     !activeUserId ||
     !selectedMoodId ||
     isSavedSelection ||
@@ -80,7 +86,13 @@ export function HomeMoodCheckInCard() {
   }
 
   async function handleSaveMood() {
-    if (!selectedMoodId || !activeUserId || isSaving) {
+    if (
+      !hasHydrated ||
+      moodLogHydrationError ||
+      !selectedMoodId ||
+      !activeUserId ||
+      isSaving
+    ) {
       return;
     }
 
@@ -145,13 +157,28 @@ export function HomeMoodCheckInCard() {
       />
 
       <MoodSpectrumSelector
-        disabled={!hasHydrated || isSaving}
+        disabled={!hasHydrated || Boolean(moodLogHydrationError) || isSaving}
         moods={moodList}
         onSelectMood={handleSelectMood}
         selectedMoodId={selectedMoodId}
       />
 
-      {saveError ? (
+      {moodLogHydrationError ? (
+        <View className="gap-3 rounded-[18px] bg-[#FFF1F2] px-4 py-4">
+          <Text className="text-[14px] font-semibold leading-6 text-[#BE123C]">
+            {helperText}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            className="self-start rounded-full bg-white px-4 py-2"
+            onPress={retryMoodLogHydration}
+          >
+            <Text className="text-[13px] font-semibold leading-6 text-[#FF2056]">
+              Retry loading
+            </Text>
+          </Pressable>
+        </View>
+      ) : saveError ? (
         <View className="gap-3 rounded-[18px] bg-[#FFF1F2] px-4 py-4">
           <Text className="text-[14px] font-semibold leading-6 text-[#BE123C]">
             We could not save this mood on your device. Please try again.
@@ -161,13 +188,13 @@ export function HomeMoodCheckInCard() {
             className="self-start rounded-full bg-white px-4 py-2"
             onPress={handleSaveMood}
           >
-            <Text className="text-[13px] font-semibold leading-5 text-[#FF2056]">
+            <Text className="text-[13px] font-semibold leading-6 text-[#FF2056]">
               Retry
             </Text>
           </Pressable>
         </View>
       ) : helperText ? (
-        <Text className="text-[13px] font-medium leading-5 text-[#71717B]">
+        <Text className="text-[13px] font-medium leading-6 text-[#71717B]">
           {helperText}
         </Text>
       ) : null}
@@ -180,6 +207,10 @@ export function HomeMoodCheckInCard() {
       />
     </View>
   );
+}
+
+function retryMoodLogHydration() {
+  void useMoodLogStore.persist.rehydrate();
 }
 
 function getTodayMoodLog(moodLogs: MoodLog[], userId: string | null) {
@@ -254,7 +285,7 @@ function getHelperText({
   }
 
   if (moodLogHydrationError) {
-    return "Saved mood logs could not be loaded on this device.";
+    return "Saved mood logs could not be loaded. Retry loading before saving again.";
   }
 
   if (saveError) {

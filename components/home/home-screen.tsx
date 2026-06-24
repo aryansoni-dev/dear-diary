@@ -16,7 +16,11 @@ import { ScreenErrorState } from "@/components/states/ScreenErrorState";
 import { images } from "@/constants/images";
 import { fallbackMoodMetadata, moodMetadata } from "@/constants/moods";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  retryJournalStoreHydration,
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import type { JournalEntry as StoredJournalEntry } from "@/types/journal";
 
 type HomeScreenProps = {
@@ -63,8 +67,12 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const entries = useJournalStore((state) => state.entries);
-  const hasHydrated = useJournalStore((state) => state.hasHydrated);
-  const hydrationError = useJournalStore((state) => state.hydrationError);
+  const hasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
+  const hydrationError = useJournalHydrationStore(
+    (state) => state.hydrationError,
+  );
   const showHydrationState = useDelayedVisibility(!hasHydrated);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const displayName = firstName?.trim() || "Aryan";
@@ -106,8 +114,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
       : "Tap to write your intention...";
 
   function retryJournalHydration() {
-    useJournalStore.setState({ hasHydrated: false, hydrationError: null });
-    void useJournalStore.persist.rehydrate();
+    retryJournalStoreHydration();
   }
 
   return (

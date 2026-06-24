@@ -18,13 +18,16 @@ type EntryReflectionState = {
     userId: string,
     entryId: string,
   ) => EntryAIReflection | undefined;
-  hasHydrated: boolean;
-  hydrationError: AppError | null;
   reflections: EntryAIReflection[];
   removeReflectionForEntry: (userId: string, entryId: string) => void;
+  upsertReflection: (reflection: EntryAIReflection) => void;
+};
+
+type EntryReflectionHydrationState = {
+  hasHydrated: boolean;
+  hydrationError: AppError | null;
   setHasHydrated: (hasHydrated: boolean) => void;
   setHydrationError: (error: AppError | null) => void;
-  upsertReflection: (reflection: EntryAIReflection) => void;
 };
 
 function migrateEntryReflectionState(persistedState: unknown) {
@@ -36,6 +39,14 @@ function migrateEntryReflectionState(persistedState: unknown) {
     reflections: persistedState.reflections.filter(isEntryAIReflection),
   };
 }
+
+export const useEntryReflectionHydrationStore =
+  create<EntryReflectionHydrationState>()((set) => ({
+    hasHydrated: false,
+    hydrationError: null,
+    setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+    setHydrationError: (error) => set({ hydrationError: error }),
+  }));
 
 export const useEntryReflectionStore = create<EntryReflectionState>()(
   persist(
@@ -51,8 +62,6 @@ export const useEntryReflectionStore = create<EntryReflectionState>()(
           (reflection) =>
             reflection.userId === userId && reflection.entryId === entryId,
         ),
-      hasHydrated: false,
-      hydrationError: null,
       reflections: [],
       removeReflectionForEntry: (userId, entryId) =>
         set((state) => ({
@@ -73,24 +82,22 @@ export const useEntryReflectionStore = create<EntryReflectionState>()(
             reflections: [reflection, ...nextReflections],
           };
         }),
-      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
-      setHydrationError: (error) => set({ hydrationError: error }),
     }),
     {
       name: "deardiary-entry-reflections-v1",
       migrate: migrateEntryReflectionState,
-      onRehydrateStorage: (state) => (_persistedState, error) => {
+      onRehydrateStorage: () => (_persistedState, error) => {
         if (error) {
-          state?.setHydrationError(
-            normalizeAppError(error, {
+          useEntryReflectionHydrationStore.setState({
+            hydrationError: normalizeAppError(error, {
               operation: "local_hydration_entry_reflections",
             }),
-          );
+          });
         } else {
-          state?.setHydrationError(null);
+          useEntryReflectionHydrationStore.setState({ hydrationError: null });
         }
 
-        state?.setHasHydrated(true);
+        useEntryReflectionHydrationStore.setState({ hasHydrated: true });
       },
       partialize: (state) => ({ reflections: state.reflections }),
       storage: createJSONStorage(() => createPersistStorage()),

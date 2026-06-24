@@ -38,7 +38,11 @@ import { useEntryReflection } from "@/hooks/useEntryReflection";
 import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { reportAppError } from "@/lib/errors/reportAppError";
 import { formatTagLabel, normalizeTag, normalizeTags } from "@/lib/tags";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  retryJournalStoreHydration,
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import { useEntryReflectionStore } from "@/store/useEntryReflectionStore";
 import { useSyncStore } from "@/store/useSyncStore";
 import type { ConnectivityStatus } from "@/types/connectivity";
@@ -96,8 +100,12 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const removeCachedReflection = useEntryReflectionStore(
     (state) => state.removeReflectionForEntry,
   );
-  const hasHydrated = useJournalStore((state) => state.hasHydrated);
-  const hydrationError = useJournalStore((state) => state.hydrationError);
+  const hasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
+  const hydrationError = useJournalHydrationStore(
+    (state) => state.hydrationError,
+  );
   const activeUserId = useJournalStore((state) => state.activeUserId);
   const isSyncing = useSyncStore((state) => state.isSyncing);
   const [content, setContent] = useState("");
@@ -413,8 +421,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   }
 
   function retryJournalHydration() {
-    useJournalStore.setState({ hasHydrated: false, hydrationError: null });
-    void useJournalStore.persist.rehydrate();
+    retryJournalStoreHydration();
   }
 
   if (!hasHydrated) {

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { moodList } from "@/constants/moods";
 import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import {
   mergeMoodLogs,
@@ -13,14 +14,7 @@ import type { MoodId } from "@/types/journal";
 import type { MoodLog, MoodLogSyncStatus } from "@/types/moodLog";
 
 const moodLogStorageVersion = 1;
-const moodIds: MoodId[] = [
-  "happy",
-  "calm",
-  "sad",
-  "motivated",
-  "anxious",
-  "grateful",
-];
+const moodIds = moodList.map((mood) => mood.id);
 const syncStatuses: MoodLogSyncStatus[] = ["failed", "pending", "synced"];
 
 type MoodLogInput = {
@@ -82,10 +76,14 @@ function setSyncStatusForMoodLogs(
 
 export const useMoodLogStore = create<MoodLogState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       addMoodLog: (userId, moodLog) => {
         if (useAccountDeletionStore.getState().deletionInProgress) {
           throw new Error("Account deletion is in progress.");
+        }
+
+        if (!get().hasHydrated) {
+          throw new Error("Mood logs are still loading.");
         }
 
         if (!userId.trim()) {
@@ -117,6 +115,7 @@ export const useMoodLogStore = create<MoodLogState>()(
           allMoodLogs: state.allMoodLogs.filter(
             (moodLog) => moodLog.userId !== userId,
           ),
+          hydrationError: null,
         })),
       hasHydrated: false,
       hydrationError: null,
@@ -179,6 +178,10 @@ export const useMoodLogStore = create<MoodLogState>()(
       updateMoodLog: (id, userId, moodLog) => {
         if (useAccountDeletionStore.getState().deletionInProgress) {
           return;
+        }
+
+        if (!get().hasHydrated) {
+          throw new Error("Mood logs are still loading.");
         }
 
         const now = new Date().toISOString();

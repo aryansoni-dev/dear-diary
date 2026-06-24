@@ -39,10 +39,10 @@ export function MoodOption({
         className="size-10 items-center justify-center rounded-full"
         style={{ backgroundColor: isSelected ? "white" : mood.backgroundColor }}
       >
-        <Text className="text-[22px] leading-7">{mood.emoji}</Text>
+        <Text className="text-[22px] leading-6">{mood.emoji}</Text>
       </View>
       <Text
-        className="text-center text-[12px] leading-4"
+        className="text-center text-[12px] leading-6"
         style={{
           color: isSelected ? "#303039" : "#71717B",
           fontWeight: isSelected ? "700" : "600",

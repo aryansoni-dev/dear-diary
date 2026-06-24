@@ -34,7 +34,11 @@ import { journalMoodFilters } from "@/data/journal-history";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
 import { formatTagLabel } from "@/lib/tags";
 import { deriveHistoryViewState } from "@/lib/ui/deriveHistoryViewState";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  retryJournalStoreHydration,
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import type {
   MoodId,
   JournalEntry as StoredJournalEntry,
@@ -84,8 +88,12 @@ export function JournalHistoryScreen() {
   const router = useRouter();
   const entries = useJournalStore((state) => state.entries);
   const activeUserId = useJournalStore((state) => state.activeUserId);
-  const hasHydrated = useJournalStore((state) => state.hasHydrated);
-  const hydrationError = useJournalStore((state) => state.hydrationError);
+  const hasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
+  const hydrationError = useJournalHydrationStore(
+    (state) => state.hydrationError,
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMood, setSelectedMood] = useState<MoodFilterId>("all");
   const [viewMode, setViewMode] = useState<JournalHistoryViewMode>("list");
@@ -156,8 +164,7 @@ export function JournalHistoryScreen() {
   }
 
   function retryJournalHydration() {
-    useJournalStore.setState({ hasHydrated: false, hydrationError: null });
-    void useJournalStore.persist.rehydrate();
+    retryJournalStoreHydration();
   }
 
   useEffect(() => {

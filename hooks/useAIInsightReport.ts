@@ -13,7 +13,10 @@ import {
 import { useAutoSync } from "@/hooks/useAutoSync";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useAIInsightReportStore } from "@/store/useAIInsightReportStore";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import type { AIInsightReport } from "@/types/aiInsightReport";
 import type { JournalEntry } from "@/types/journal";
 
@@ -43,7 +46,9 @@ export function useAIInsightReport(
   const { runAutoSync } = useAutoSync();
   const connectivity = useConnectivity();
   const entries = useJournalStore((state) => state.entries);
-  const hasHydrated = useJournalStore((state) => state.hasHydrated);
+  const hasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
   const cacheKey = useMemo(() => getReportCacheKey(period), [period]);
   const cachedReport = useAIInsightReportStore((state) =>
     userId ? state.reportsByUser[userId]?.[cacheKey] ?? null : null,

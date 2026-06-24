@@ -5,7 +5,10 @@ import {
   generateEntryReflection,
 } from "@/lib/ai/entryReflectionService";
 import { normalizeAppError } from "@/lib/errors/normalizeAppError";
-import { useEntryReflectionStore } from "@/store/useEntryReflectionStore";
+import {
+  useEntryReflectionHydrationStore,
+  useEntryReflectionStore,
+} from "@/store/useEntryReflectionStore";
 import type { EntryAIReflection } from "@/types/entryReflection";
 
 type UseEntryReflectionParams = {
@@ -37,10 +40,10 @@ export function useEntryReflection({
       ? state.getReflectionByEntryId(userId, entryId)
       : undefined,
   );
-  const cacheHasHydrated = useEntryReflectionStore(
+  const cacheHasHydrated = useEntryReflectionHydrationStore(
     (state) => state.hasHydrated,
   );
-  const cacheHydrationError = useEntryReflectionStore(
+  const cacheHydrationError = useEntryReflectionHydrationStore(
     (state) => state.hydrationError,
   );
   const upsertReflection = useEntryReflectionStore(
@@ -71,8 +74,16 @@ export function useEntryReflection({
 
   const refresh = useCallback(async () => {
     if (cacheHydrationError) {
-      setError(cacheHydrationError.userMessage);
-      return;
+      const recovered = await rehydrateReflectionCache();
+
+      if (!recovered) {
+        const currentError =
+          useEntryReflectionHydrationStore.getState().hydrationError ??
+          cacheHydrationError;
+
+        setError(currentError.userMessage);
+        return;
+      }
     }
 
     if (!cacheHasHydrated || !canUseReflection || !entryId || !userId) {
@@ -125,8 +136,16 @@ export function useEntryReflection({
       }
 
       if (cacheHydrationError) {
-        setError(cacheHydrationError.userMessage);
-        return;
+        const recovered = await rehydrateReflectionCache();
+
+        if (!recovered) {
+          const currentError =
+            useEntryReflectionHydrationStore.getState().hydrationError ??
+            cacheHydrationError;
+
+          setError(currentError.userMessage);
+          return;
+        }
       }
 
       if (!cacheHasHydrated) {
@@ -207,6 +226,13 @@ export function useEntryReflection({
       regenerate,
     ],
   );
+}
+
+async function rehydrateReflectionCache() {
+  useEntryReflectionHydrationStore.setState({ hasHydrated: false });
+  await useEntryReflectionStore.persist.rehydrate();
+
+  return !useEntryReflectionHydrationStore.getState().hydrationError;
 }
 
 function getReflectionErrorMessage(error: unknown) {
