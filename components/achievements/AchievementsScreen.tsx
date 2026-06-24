@@ -14,11 +14,16 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScreenEmptyState } from "@/components/states/ScreenEmptyState";
+import { ScreenErrorState } from "@/components/states/ScreenErrorState";
 import { ScreenLoadingState } from "@/components/states/ScreenLoadingState";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
 import { getAchievements } from "@/lib/achievements";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  retryJournalStoreHydration,
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import type {
   AchievementCategory,
   AchievementStatus,
@@ -45,7 +50,12 @@ const categoryLabels: Record<AchievementCategory, string> = {
 export function AchievementsScreen() {
   const insets = useSafeAreaInsets();
   const entries = useJournalStore((state) => state.entries);
-  const hasHydrated = useJournalStore((state) => state.hasHydrated);
+  const hasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
+  const hydrationError = useJournalHydrationStore(
+    (state) => state.hydrationError,
+  );
   const [selectedFilter, setSelectedFilter] =
     useState<AchievementFilter>("all");
   const [filterToggleWidth, setFilterToggleWidth] = useState(0);
@@ -125,6 +135,10 @@ export function AchievementsScreen() {
     router.replace("/profile-tab");
   }
 
+  function retryJournalHydration() {
+    retryJournalStoreHydration();
+  }
+
   return (
     <View className="flex-1 bg-white">
       <StatusBar hidden />
@@ -173,7 +187,9 @@ export function AchievementsScreen() {
             Achievements
           </Text>
           <Text className="mt-1 text-[15px] font-medium leading-6 text-[#71717B]">
-            {hasHydrated
+            {hydrationError
+              ? "Saved progress could not be loaded"
+              : hasHydrated
               ? `${unlockedCount} / ${achievements.length} unlocked`
               : "Loading achievements..."}
           </Text>
@@ -223,7 +239,12 @@ export function AchievementsScreen() {
             transform: [{ translateX: listTranslateX }],
           }}
         >
-          {!hasHydrated ? (
+          {hydrationError ? (
+            <ScreenErrorState
+              error={hydrationError}
+              onRetry={retryJournalHydration}
+            />
+          ) : !hasHydrated ? (
             showHydrationState ? (
               <ScreenLoadingState title="Preparing achievements..." />
             ) : null

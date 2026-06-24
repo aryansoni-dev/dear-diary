@@ -12,11 +12,13 @@ import {
 } from "@/lib/supabase";
 import { syncAchievementStatesTwoWay } from "@/lib/sync/achievementSync";
 import { syncJournalEntriesTwoWay } from "@/lib/sync/journalTwoWaySync";
+import { syncMoodLogsTwoWay } from "@/lib/sync/moodLogTwoWaySync";
 import { syncProfileToCloud } from "@/lib/sync/profileSync";
 import { isActiveUser } from "@/lib/validation/activeUser";
 import { useJournalStore } from "@/store/journal-store";
 import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
 import { useAchievementStore } from "@/store/useAchievementStore";
+import { useMoodLogStore } from "@/store/useMoodLogStore";
 import { useSyncStore } from "@/store/useSyncStore";
 import type { ConnectivityStatus } from "@/types/connectivity";
 import type { JournalEntry } from "@/types/journal";
@@ -26,6 +28,7 @@ export type SyncRequestReason =
   | "app_start"
   | "foreground"
   | "journal_change"
+  | "mood_change"
   | "achievement_change"
   | "manual"
   | "reconnect"
@@ -134,14 +137,26 @@ async function runSync({
   const currentUserEntries = useJournalStore
     .getState()
     .allEntries.filter((entry) => entry.userId === userId);
+  const currentUserMoodLogs = useMoodLogStore
+    .getState()
+    .allMoodLogs.filter((moodLog) => moodLog.userId === userId);
   const pendingEntryIds = currentUserEntries
     .filter((entry) => entry.syncStatus !== "synced")
     .map((entry) => entry.id);
+  const pendingMoodLogIds = currentUserMoodLogs
+    .filter((moodLog) => moodLog.syncStatus !== "synced")
+    .map((moodLog) => moodLog.id);
 
   if (pendingEntryIds.length > 0) {
     useJournalStore.getState().markEntriesPendingSync(userId, pendingEntryIds);
   }
+  if (pendingMoodLogIds.length > 0) {
+    useMoodLogStore
+      .getState()
+      .markMoodLogsPendingSync(userId, pendingMoodLogIds);
+  }
   const pendingEntryIdsSet = new Set(pendingEntryIds);
+  const pendingMoodLogIdsSet = new Set(pendingMoodLogIds);
 
   try {
     if (isFaultEnabled("expired_session")) {
@@ -201,6 +216,33 @@ async function runSync({
       pulled = mergeResult.addedCount + mergeResult.updatedCount;
     }
 
+    const moodLogResult = await syncMoodLogsTwoWay({
+      localMoodLogs: currentUserMoodLogs,
+      userId,
+    });
+
+    if (!isActiveUser(userId, useJournalStore.getState().activeUserId)) {
+      return {
+        code: "session_expired",
+        localDataPreserved: true,
+        retryable: false,
+        success: false,
+      };
+    }
+
+    const moodLogStore = useMoodLogStore.getState();
+
+    moodLogStore.markMoodLogsSynced(userId, moodLogResult.syncedMoodLogIds);
+    moodLogStore.markMoodLogsSyncFailed(userId, moodLogResult.failedMoodLogIds);
+
+    if (moodLogResult.pullSucceeded) {
+      const mergeResult = moodLogStore.mergeRemoteMoodLogs(
+        userId,
+        moodLogResult.remoteMoodLogs,
+      );
+      pulled += mergeResult.addedCount + mergeResult.updatedCount;
+    }
+
     const achievementResult = await syncAchievements(userId);
 
     if (!isActiveUser(userId, useJournalStore.getState().activeUserId)) {
@@ -215,6 +257,8 @@ async function runSync({
     if (
       !journalResult.pullSucceeded ||
       journalResult.pushFailedCount > 0 ||
+      !moodLogResult.pullSucceeded ||
+      moodLogResult.pushFailedCount > 0 ||
       achievementResult.failedCount > 0
     ) {
       throw new Error("sync_failed");
@@ -228,7 +272,7 @@ async function runSync({
       completedAt,
       conflictsResolved: 0,
       pulled,
-      pushed: journalResult.pushedCount,
+      pushed: journalResult.pushedCount + moodLogResult.pushedCount,
       success: true,
     };
   } catch (error) {
@@ -254,6 +298,22 @@ async function runSync({
 
     if (failedEntryIds.length > 0) {
       useJournalStore.getState().markEntriesSyncFailed(userId, failedEntryIds);
+    }
+
+    const failedMoodLogIds = useMoodLogStore
+      .getState()
+      .allMoodLogs.filter(
+        (moodLog) =>
+          moodLog.userId === userId &&
+          pendingMoodLogIdsSet.has(moodLog.id) &&
+          moodLog.syncStatus !== "synced",
+      )
+      .map((moodLog) => moodLog.id);
+
+    if (failedMoodLogIds.length > 0) {
+      useMoodLogStore
+        .getState()
+        .markMoodLogsSyncFailed(userId, failedMoodLogIds);
     }
 
     useSyncStore

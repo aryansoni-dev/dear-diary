@@ -7,6 +7,7 @@ import { useAchievementStore } from "@/store/useAchievementStore";
 import { useAIInsightReportStore } from "@/store/useAIInsightReportStore";
 import { useChatStore } from "@/store/useChatStore";
 import { useEntryReflectionStore } from "@/store/useEntryReflectionStore";
+import { useMoodLogStore } from "@/store/useMoodLogStore";
 import { useNotificationPreferencesStore } from "@/store/notification-preferences-store";
 import { useOnboardingStore } from "@/store/onboarding-store";
 import { useSyncStore } from "@/store/useSyncStore";
@@ -32,6 +33,7 @@ export async function clearLocalUserData(userId: string): Promise<void> {
 async function clearInMemoryAndPersistedStores(userId: string) {
   useJournalStore.getState().clearEntriesForUser(userId);
   useJournalStore.getState().setActiveUserId(null);
+  useMoodLogStore.getState().clearMoodLogsForUser(userId);
   useChatStore.getState().clearMessagesForUser(userId);
   useEntryReflectionStore.getState().clearReflectionsForUser(userId);
   useAIInsightReportStore.getState().clearReportsForUser(userId);

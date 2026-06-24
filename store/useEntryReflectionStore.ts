@@ -1,12 +1,14 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import {
   isNonEmptyString,
   isValidTimestamp,
 } from "@/lib/validation/persistedDataValidators";
 import type { EntryAIReflection } from "@/types/entryReflection";
+import type { AppError } from "@/types/appError";
 
 const entryReflectionStorageVersion = 1;
 
@@ -16,11 +18,16 @@ type EntryReflectionState = {
     userId: string,
     entryId: string,
   ) => EntryAIReflection | undefined;
-  hasHydrated: boolean;
   reflections: EntryAIReflection[];
   removeReflectionForEntry: (userId: string, entryId: string) => void;
-  setHasHydrated: (hasHydrated: boolean) => void;
   upsertReflection: (reflection: EntryAIReflection) => void;
+};
+
+type EntryReflectionHydrationState = {
+  hasHydrated: boolean;
+  hydrationError: AppError | null;
+  setHasHydrated: (hasHydrated: boolean) => void;
+  setHydrationError: (error: AppError | null) => void;
 };
 
 function migrateEntryReflectionState(persistedState: unknown) {
@@ -32,6 +39,14 @@ function migrateEntryReflectionState(persistedState: unknown) {
     reflections: persistedState.reflections.filter(isEntryAIReflection),
   };
 }
+
+export const useEntryReflectionHydrationStore =
+  create<EntryReflectionHydrationState>()((set) => ({
+    hasHydrated: false,
+    hydrationError: null,
+    setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+    setHydrationError: (error) => set({ hydrationError: error }),
+  }));
 
 export const useEntryReflectionStore = create<EntryReflectionState>()(
   persist(
@@ -47,7 +62,6 @@ export const useEntryReflectionStore = create<EntryReflectionState>()(
           (reflection) =>
             reflection.userId === userId && reflection.entryId === entryId,
         ),
-      hasHydrated: false,
       reflections: [],
       removeReflectionForEntry: (userId, entryId) =>
         set((state) => ({
@@ -68,13 +82,22 @@ export const useEntryReflectionStore = create<EntryReflectionState>()(
             reflections: [reflection, ...nextReflections],
           };
         }),
-      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
     }),
     {
       name: "deardiary-entry-reflections-v1",
       migrate: migrateEntryReflectionState,
-      onRehydrateStorage: (state) => () => {
-        state?.setHasHydrated(true);
+      onRehydrateStorage: () => (_persistedState, error) => {
+        if (error) {
+          useEntryReflectionHydrationStore.setState({
+            hydrationError: normalizeAppError(error, {
+              operation: "local_hydration_entry_reflections",
+            }),
+          });
+        } else {
+          useEntryReflectionHydrationStore.setState({ hydrationError: null });
+        }
+
+        useEntryReflectionHydrationStore.setState({ hasHydrated: true });
       },
       partialize: (state) => ({ reflections: state.reflections }),
       storage: createJSONStorage(() => createPersistStorage()),

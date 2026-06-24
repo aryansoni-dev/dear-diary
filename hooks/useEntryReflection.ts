@@ -5,7 +5,10 @@ import {
   generateEntryReflection,
 } from "@/lib/ai/entryReflectionService";
 import { normalizeAppError } from "@/lib/errors/normalizeAppError";
-import { useEntryReflectionStore } from "@/store/useEntryReflectionStore";
+import {
+  useEntryReflectionHydrationStore,
+  useEntryReflectionStore,
+} from "@/store/useEntryReflectionStore";
 import type { EntryAIReflection } from "@/types/entryReflection";
 
 type UseEntryReflectionParams = {
@@ -37,8 +40,11 @@ export function useEntryReflection({
       ? state.getReflectionByEntryId(userId, entryId)
       : undefined,
   );
-  const cacheHasHydrated = useEntryReflectionStore(
+  const cacheHasHydrated = useEntryReflectionHydrationStore(
     (state) => state.hasHydrated,
+  );
+  const cacheHydrationError = useEntryReflectionHydrationStore(
+    (state) => state.hydrationError,
   );
   const upsertReflection = useEntryReflectionStore(
     (state) => state.upsertReflection,
@@ -67,6 +73,19 @@ export function useEntryReflection({
   }, []);
 
   const refresh = useCallback(async () => {
+    if (cacheHydrationError) {
+      const recovered = await rehydrateReflectionCache();
+
+      if (!recovered) {
+        const currentError =
+          useEntryReflectionHydrationStore.getState().hydrationError ??
+          cacheHydrationError;
+
+        setError(currentError.userMessage);
+        return;
+      }
+    }
+
     if (!cacheHasHydrated || !canUseReflection || !entryId || !userId) {
       return;
     }
@@ -97,7 +116,14 @@ export function useEntryReflection({
         setIsLoading(false);
       }
     }
-  }, [cacheHasHydrated, canUseReflection, entryId, upsertReflection, userId]);
+  }, [
+    cacheHasHydrated,
+    cacheHydrationError,
+    canUseReflection,
+    entryId,
+    upsertReflection,
+    userId,
+  ]);
 
   useEffect(() => {
     void refresh();
@@ -107,6 +133,19 @@ export function useEntryReflection({
     async (regenerate: boolean) => {
       if (!canUseReflection || !entryId || !userId || isGenerating) {
         return;
+      }
+
+      if (cacheHydrationError) {
+        const recovered = await rehydrateReflectionCache();
+
+        if (!recovered) {
+          const currentError =
+            useEntryReflectionHydrationStore.getState().hydrationError ??
+            cacheHydrationError;
+
+          setError(currentError.userMessage);
+          return;
+        }
       }
 
       if (!cacheHasHydrated) {
@@ -145,6 +184,7 @@ export function useEntryReflection({
     },
     [
       cacheHasHydrated,
+      cacheHydrationError,
       canUseReflection,
       entryId,
       isGenerating,
@@ -186,6 +226,13 @@ export function useEntryReflection({
       regenerate,
     ],
   );
+}
+
+async function rehydrateReflectionCache() {
+  useEntryReflectionHydrationStore.setState({ hasHydrated: false });
+  await useEntryReflectionStore.persist.rehydrate();
+
+  return !useEntryReflectionHydrationStore.getState().hydrationError;
 }
 
 function getReflectionErrorMessage(error: unknown) {

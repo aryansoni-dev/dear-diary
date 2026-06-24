@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import { normalizePersistedChatMessages } from "@/lib/validation/persistedDataValidators";
+import type { AppError } from "@/types/appError";
 import type {
   ChatMessage,
 } from "@/types/chat";
@@ -14,8 +16,10 @@ type ChatState = {
   clearMessagesForUser: (userId: string) => void;
   getMessagesByUserId: (userId: string) => ChatMessage[];
   hasHydrated: boolean;
+  hydrationError: AppError | null;
   messages: ChatMessage[];
   setHasHydrated: (hasHydrated: boolean) => void;
+  setHydrationError: (error: AppError | null) => void;
 };
 
 function migrateChatState(persistedState: unknown) {
@@ -53,6 +57,7 @@ export const useChatStore = create<ChatState>()(
         })),
       clearMessagesForUser: (userId) =>
         set((state) => ({
+          hydrationError: null,
           messages: state.messages.filter((message) => message.userId !== userId),
         })),
       getMessagesByUserId: (userId) =>
@@ -60,13 +65,25 @@ export const useChatStore = create<ChatState>()(
           get().messages.filter((message) => message.userId === userId),
         ),
       hasHydrated: false,
+      hydrationError: null,
       messages: [],
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+      setHydrationError: (error) => set({ hydrationError: error }),
     }),
     {
       name: "deardiary-chat-store-v1",
       migrate: migrateChatState,
-      onRehydrateStorage: (state) => () => {
+      onRehydrateStorage: (state) => (_persistedState, error) => {
+        if (error) {
+          state?.setHydrationError(
+            normalizeAppError(error, {
+              operation: "local_hydration_chat",
+            }),
+          );
+        } else {
+          state?.setHydrationError(null);
+        }
+
         state?.setHasHydrated(true);
       },
       partialize: (state) => ({ messages: state.messages }),

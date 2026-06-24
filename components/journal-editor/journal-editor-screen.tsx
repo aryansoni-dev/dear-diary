@@ -24,6 +24,7 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { ScreenErrorState } from "@/components/states/ScreenErrorState";
 import { ScreenLoadingState } from "@/components/states/ScreenLoadingState";
 import { TagInputModal } from "@/components/tags/tag-input-modal";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
@@ -37,7 +38,11 @@ import { useEntryReflection } from "@/hooks/useEntryReflection";
 import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { reportAppError } from "@/lib/errors/reportAppError";
 import { formatTagLabel, normalizeTag, normalizeTags } from "@/lib/tags";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  retryJournalStoreHydration,
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import { useEntryReflectionStore } from "@/store/useEntryReflectionStore";
 import { useSyncStore } from "@/store/useSyncStore";
 import type { ConnectivityStatus } from "@/types/connectivity";
@@ -95,7 +100,12 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   const removeCachedReflection = useEntryReflectionStore(
     (state) => state.removeReflectionForEntry,
   );
-  const hasHydrated = useJournalStore((state) => state.hasHydrated);
+  const hasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
+  const hydrationError = useJournalHydrationStore(
+    (state) => state.hydrationError,
+  );
   const activeUserId = useJournalStore((state) => state.activeUserId);
   const isSyncing = useSyncStore((state) => state.isSyncing);
   const [content, setContent] = useState("");
@@ -410,6 +420,10 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
     animateButton(scaleValue, 1);
   }
 
+  function retryJournalHydration() {
+    retryJournalStoreHydration();
+  }
+
   if (!hasHydrated) {
     return (
       <View className="flex-1 justify-center bg-white px-8">
@@ -417,6 +431,24 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
         {showHydrationState ? (
           <ScreenLoadingState title="Preparing your journal..." />
         ) : null}
+      </View>
+    );
+  }
+
+  if (hydrationError) {
+    return (
+      <View className="flex-1 bg-white">
+        <StatusBar hidden />
+        <View
+          className="flex-1 justify-center px-8"
+          style={{ paddingBottom: bottomNavHeight }}
+        >
+          <ScreenErrorState
+            error={hydrationError}
+            onRetry={retryJournalHydration}
+          />
+        </View>
+        <BottomTabBar activeTab={activeTab} />
       </View>
     );
   }

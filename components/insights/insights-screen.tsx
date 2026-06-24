@@ -1,3 +1,4 @@
+import { useAuth } from "@clerk/expo";
 import { LinearGradient as ExpoLinearGradient } from "expo-linear-gradient";
 import { Link, useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -32,23 +33,41 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { InsightsPeriodNavigator } from "@/components/insights/InsightsPeriodNavigator";
+import { InsightsPeriodSelector } from "@/components/insights/InsightsPeriodSelector";
+import { InsightsSummaryGrid } from "@/components/insights/InsightsSummaryGrid";
+import { JournalingRhythmCard } from "@/components/insights/JournalingRhythmCard";
+import { MoodDistributionCard } from "@/components/insights/MoodDistributionCard";
+import { RecurringThemesCard } from "@/components/insights/RecurringThemesCard";
 import { ScreenEmptyState } from "@/components/states/ScreenEmptyState";
+import { ScreenErrorState } from "@/components/states/ScreenErrorState";
+import { ScreenLoadingState } from "@/components/states/ScreenLoadingState";
 import { TabScreenHeader } from "@/components/ui/tab-screen-header";
 import {
   insightCardStyles,
-  insightStatStyles,
   type InsightCard,
-  type InsightStat,
   type MoodJourneyPoint,
 } from "@/data/insights";
 import { useAIInsightReport } from "@/hooks/useAIInsightReport";
 import type { UseAIInsightReportResult } from "@/hooks/useAIInsightReport";
+import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
+import { deriveInsights } from "@/lib/insights/deriveInsights";
+import {
+  getInsightDateRange,
+  isFutureInsightPeriod,
+  shiftInsightReferenceDate,
+} from "@/lib/insights/insightPeriodUtils";
 import {
   getCurrentReportPeriod,
   type ReportPeriod,
 } from "@/lib/insights/reportPeriods";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  retryJournalStoreHydration,
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import type { AIInsightReport } from "@/types/aiInsightReport";
+import type { InsightsPeriod, ThemeFrequency } from "@/types/insights";
 import type { JournalEntry, MoodId } from "@/types/journal";
 
 const primaryColor = "#FF2056";
@@ -89,25 +108,27 @@ const moodEmoji: Record<MoodId, string> = {
   sad: "😔",
 };
 
-const moodLabels: Record<MoodId, string> = {
-  anxious: "Anxious",
-  calm: "Calm",
-  grateful: "Grateful",
-  happy: "Happy",
-  motivated: "Motivated",
-  sad: "Sad",
-};
-
 type ChartPoint = MoodJourneyPoint & {
   x: number;
   y: number;
 };
 
 export function InsightsScreen() {
+  const { userId } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const entries = useJournalStore((state) => state.entries);
-  const hasHydrated = useJournalStore((state) => state.hasHydrated);
+  const hasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
+  const hydrationError = useJournalHydrationStore(
+    (state) => state.hydrationError,
+  );
+  const showHydrationState = useDelayedVisibility(!hasHydrated);
+  const [selectedPeriod, setSelectedPeriod] = useState<InsightsPeriod>("week");
+  const [selectedReferenceDate, setSelectedReferenceDate] = useState(
+    () => new Date(),
+  );
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const todayKey = useTodayKey();
   const reportDate = useMemo(() => getLocalDateFromKey(todayKey), [todayKey]);
@@ -119,12 +140,41 @@ export function InsightsScreen() {
     () => getCurrentReportPeriod("monthly", reportDate),
     [reportDate],
   );
-  const weeklyReportState = useAIInsightReport(weeklyPeriod);
-  const monthlyReportState = useAIInsightReport(monthlyPeriod);
+  const weeklyReportState = useAIInsightReport(weeklyPeriod, {
+    enabled: hasHydrated,
+  });
+  const monthlyReportState = useAIInsightReport(monthlyPeriod, {
+    enabled: hasHydrated,
+  });
   const insights = useMemo(
-    () => getLocalInsights(entries, hasHydrated),
-    [entries, hasHydrated],
+    () =>
+      getLocalInsights({
+        entries,
+        hasHydrated,
+        period: selectedPeriod,
+        referenceDate: selectedReferenceDate,
+        userId: userId ?? null,
+      }),
+    [entries, hasHydrated, selectedPeriod, selectedReferenceDate, userId],
   );
+  const derivedInsights = useMemo(
+    () =>
+      deriveInsights({
+        entries,
+        period: selectedPeriod,
+        referenceDate: selectedReferenceDate,
+        userId: userId ?? null,
+      }),
+    [entries, selectedPeriod, selectedReferenceDate, userId],
+  );
+  const nextReferenceDate = useMemo(
+    () => shiftInsightReferenceDate(selectedPeriod, selectedReferenceDate, 1),
+    [selectedPeriod, selectedReferenceDate],
+  );
+  const canGoNext = !isFutureInsightPeriod(selectedPeriod, nextReferenceDate);
+  const showCurrentPeriodAction =
+    derivedInsights.dateRange.start.getTime() !==
+    getInsightDateRange(selectedPeriod, new Date()).start.getTime();
   const aiInsightCards = useMemo(
     () =>
       getAIInsightCards({
@@ -148,11 +198,34 @@ export function InsightsScreen() {
       weeklyReportState.report,
     ],
   );
+  const matchingPeriodReport = useMemo(
+    () =>
+      getMatchingReportForSelectedPeriod({
+        monthlyReport: monthlyReportState.report,
+        period: selectedPeriod,
+        referenceDate: selectedReferenceDate,
+        weeklyReport: weeklyReportState.report,
+      }),
+    [
+      monthlyReportState.report,
+      selectedPeriod,
+      selectedReferenceDate,
+      weeklyReportState.report,
+    ],
+  );
+  const recurringThemes = useMemo(
+    () => getRecurringThemes(derivedInsights.themes, matchingPeriodReport),
+    [derivedInsights.themes, matchingPeriodReport],
+  );
   const hasNoEntries = hasHydrated && entries.length === 0;
   const newJournalEntryHref = {
     pathname: "/journal/new",
     params: { source: "insights" },
   } as Href;
+
+  function retryJournalHydration() {
+    retryJournalStoreHydration();
+  }
 
   return (
     <View className="flex-1 bg-[#FAF7F2]">
@@ -186,7 +259,23 @@ export function InsightsScreen() {
           title="Your Insights ✨"
         />
 
-        {hasNoEntries ? (
+        {hydrationError ? (
+          <View className="mt-7">
+            <ScreenErrorState
+              error={hydrationError}
+              onRetry={retryJournalHydration}
+            />
+          </View>
+        ) : !hasHydrated ? (
+          showHydrationState ? (
+            <View className="mt-7">
+              <ScreenLoadingState
+                message="Your local journal is being prepared."
+                title="Preparing insights..."
+              />
+            </View>
+          ) : null
+        ) : hasNoEntries ? (
           <View className="mt-7">
             <ScreenEmptyState
               actionLabel="Write an entry"
@@ -195,77 +284,109 @@ export function InsightsScreen() {
               title="Your insights will grow with your journal"
             />
           </View>
-        ) : null}
-
-        <View
-          className="mt-7 rounded-[30px] bg-white/80 px-6 py-6"
-          style={{ boxShadow: "0 12px 40px rgba(160, 140, 200, 0.2)" }}
-        >
-          <View className="flex-row items-center justify-between">
-            <View className="flex-1 flex-row items-center gap-3">
-              <Text className="text-[25px] leading-8">📈</Text>
-              <Text
-                className="flex-1 text-[18px] font-bold leading-5 text-[#27272A]"
-                numberOfLines={1}
-              >
-                Weekly Mood Journey
-              </Text>
+        ) : (
+          <>
+            <View className="mt-7">
+              <InsightsPeriodSelector
+                onChange={setSelectedPeriod}
+                value={selectedPeriod}
+              />
+              <InsightsPeriodNavigator
+                canGoNext={canGoNext}
+                label={derivedInsights.dateRange.label}
+                onGoCurrent={() => setSelectedReferenceDate(new Date())}
+                onGoNext={() => {
+                  if (canGoNext) {
+                    setSelectedReferenceDate(nextReferenceDate);
+                  }
+                }}
+                onGoPrevious={() =>
+                  setSelectedReferenceDate((currentDate) =>
+                    shiftInsightReferenceDate(
+                      selectedPeriod,
+                      currentDate,
+                      -1,
+                    ),
+                  )
+                }
+                showCurrentAction={showCurrentPeriodAction}
+              />
+              <InsightsSummaryGrid summary={derivedInsights.summary} />
             </View>
-            <View className="rounded-full bg-[#F4EFFA] px-4 py-2">
-              <Text className="text-[12px] font-medium leading-5 text-[#52525B]">
-                This Week
-              </Text>
-            </View>
-          </View>
 
-          <MoodJourneyChart data={insights.moodJourney} />
-        </View>
-
-        <View className="mt-6 flex-row gap-4">
-          {insights.stats.map((stat) => (
             <View
-              className="h-[132px] flex-1 items-center justify-center rounded-[28px] px-2"
-              key={stat.label}
-              style={{
-                backgroundColor: stat.backgroundColor,
-                boxShadow: `0 8px 24px ${stat.shadowColor}`,
-              }}
+              className="mt-7 rounded-[30px] bg-white/80 px-6 py-6"
+              style={{ boxShadow: "0 12px 40px rgba(160, 140, 200, 0.2)" }}
             >
-              <Text className="text-[28px] leading-5">{stat.emoji}</Text>
-              <Text className="mt-4 text-center text-[18px] font-bold leading-5 text-[#18181B]">
-                {stat.value}
-              </Text>
-              <Text className="mt-2 text-center text-[12px] font-medium leading-5 text-[#71717B]">
-                {stat.label}
-              </Text>
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 flex-row items-center gap-3">
+                  <Text className="text-[25px] leading-8">📈</Text>
+                  <Text
+                    className="flex-1 text-[18px] font-bold leading-5 text-[#27272A]"
+                    numberOfLines={1}
+                  >
+                    Mood Journey
+                  </Text>
+                </View>
+                <View className="rounded-full bg-[#F4EFFA] px-4 py-2">
+                  <Text className="text-[12px] font-medium leading-5 text-[#52525B]">
+                    {getMoodJourneyPillLabel(selectedPeriod)}
+                  </Text>
+                </View>
+              </View>
+
+              <MoodJourneyChart data={insights.moodJourney} />
             </View>
-          ))}
-        </View>
 
-        <View className="mt-7 gap-4">
-          {aiInsightCards.map((card) => (
-            <InsightMessageCard card={card} key={card.title} />
-          ))}
-        </View>
+            <View className="mt-6 gap-4">
+              <MoodDistributionCard
+                entriesWithoutMood={derivedInsights.entriesWithoutMood}
+                moodDistribution={derivedInsights.moodDistribution}
+              />
+              <JournalingRhythmCard patterns={derivedInsights.weekdayPatterns} />
+              <RecurringThemesCard themes={recurringThemes} />
+            </View>
 
-        <View className="mt-7">
-          <Text
-            allowFontScaling={false}
-            className="text-[20px] font-bold leading-7 text-[#18181B]"
-          >
-            Reflection Reports
-          </Text>
-          <View className="mt-4 gap-4">
-            <ReflectionReportCard
-              period={weeklyPeriod}
-              reportState={weeklyReportState}
-            />
-            <ReflectionReportCard
-              period={monthlyPeriod}
-              reportState={monthlyReportState}
-            />
-          </View>
-        </View>
+            <View className="mt-7">
+              <Text
+                allowFontScaling={false}
+                className="text-[20px] font-bold leading-7 text-[#18181B]"
+              >
+                DearDiary Insights
+              </Text>
+              <Text
+                allowFontScaling={false}
+                className="mt-1 text-[14px] leading-5 text-[#71717B]"
+              >
+                AI-generated reflections from your saved reports
+              </Text>
+              <View className="mt-4 gap-4">
+                {aiInsightCards.map((card) => (
+                  <InsightMessageCard card={card} key={card.title} />
+                ))}
+              </View>
+            </View>
+
+            <View className="mt-7">
+              <Text
+                allowFontScaling={false}
+                className="text-[20px] font-bold leading-7 text-[#18181B]"
+              >
+                Reflection Reports
+              </Text>
+              <View className="mt-4 gap-4">
+                <ReflectionReportCard
+                  period={weeklyPeriod}
+                  reportState={weeklyReportState}
+                />
+                <ReflectionReportCard
+                  period={monthlyPeriod}
+                  reportState={monthlyReportState}
+                />
+              </View>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       <BottomTabBar activeTab="Insights" />
@@ -440,37 +561,32 @@ function getReportCardStatus({
 type LocalInsights = {
   cards: InsightCard[];
   moodJourney: MoodJourneyPoint[];
-  stats: InsightStat[];
 };
 
-function getLocalInsights(
-  entries: JournalEntry[],
-  hasHydrated: boolean,
-): LocalInsights {
-  const topMood = getTopMood(entries);
-  const streak = hasHydrated ? getReflectionStreak(entries) : 0;
-  const statValues = {
-    "Current Streak": hasHydrated
-      ? `${streak} ${streak === 1 ? "Day" : "Days"}`
-      : "…",
-    Entries: hasHydrated ? String(entries.length) : "…",
-    "Top Emotion": hasHydrated
-      ? topMood
-        ? moodLabels[topMood]
-        : "No data"
-      : "Loading...",
-  };
-
+function getLocalInsights({
+  entries,
+  hasHydrated,
+  period,
+  referenceDate,
+  userId,
+}: {
+  entries: JournalEntry[];
+  hasHydrated: boolean;
+  period: InsightsPeriod;
+  referenceDate: Date;
+  userId: string | null;
+}): LocalInsights {
   return {
     cards: insightCardStyles.map((card) => ({
       ...card,
       body: getAIInsightUnavailableBody(card.title, hasHydrated),
     })),
-    moodJourney: getWeeklyMoodJourney(entries),
-    stats: insightStatStyles.map((stat) => ({
-      ...stat,
-      value: statValues[stat.label as keyof typeof statValues],
-    })),
+    moodJourney: getPeriodMoodJourney({
+      entries,
+      period,
+      referenceDate,
+      userId,
+    }),
   };
 }
 
@@ -605,28 +721,189 @@ function getCompactInsightText(value: string) {
     : firstSentence;
 }
 
-function getWeeklyMoodJourney(entries: JournalEntry[]) {
-  const today = startOfLocalDay(new Date());
+function getRecurringThemes(
+  localThemes: ThemeFrequency[],
+  report: AIInsightReport | null,
+) {
+  if (localThemes.length > 0) {
+    return localThemes;
+  }
 
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - (6 - index));
-    const mood = getMostFrequentMoodForDate(entries, date);
+  const reportThemes = report?.analytics.recurringThemes ?? [];
+  const totalCount = reportThemes.reduce((total, theme) => total + theme.count, 0);
 
-    return {
-      day: new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date),
-      emoji: mood ? moodEmoji[mood] : fallbackMoodEmoji,
-      mood: mood ? moodScores[mood] : fallbackMoodScore,
-    };
+  if (totalCount === 0) {
+    return [];
+  }
+
+  return reportThemes.slice(0, 5).map((theme) => ({
+    count: theme.count,
+    label: theme.name,
+    percentage: Math.round((theme.count / totalCount) * 100),
+    source: "ai" as const,
+  }));
+}
+
+function getMatchingReportForSelectedPeriod({
+  monthlyReport,
+  period,
+  referenceDate,
+  weeklyReport,
+}: {
+  monthlyReport: AIInsightReport | null;
+  period: InsightsPeriod;
+  referenceDate: Date;
+  weeklyReport: AIInsightReport | null;
+}) {
+  if (period === "year") {
+    return null;
+  }
+
+  const dateRange = getInsightDateRange(period, referenceDate);
+  const periodType = period === "week" ? "weekly" : "monthly";
+  const report = periodType === "weekly" ? weeklyReport : monthlyReport;
+
+  if (!report || report.periodType !== periodType) {
+    return null;
+  }
+
+  return isReportForDateRange(report, dateRange.start, dateRange.end)
+    ? report
+    : null;
+}
+
+function isReportForDateRange(
+  report: AIInsightReport,
+  start: Date,
+  end: Date,
+) {
+  return (
+    getLocalDateKey(new Date(report.periodStart)) === getLocalDateKey(start) &&
+    getLocalDateKey(new Date(report.periodEnd)) === getLocalDateKey(end)
+  );
+}
+
+function getPeriodMoodJourney({
+  entries,
+  period,
+  referenceDate,
+  userId,
+}: {
+  entries: JournalEntry[];
+  period: InsightsPeriod;
+  referenceDate: Date;
+  userId: string | null;
+}) {
+  const dateRange = getInsightDateRange(period, referenceDate);
+  const periodEntries = entries.filter(
+    (entry) =>
+      !entry.deletedAt &&
+      (!userId || entry.userId === userId) &&
+      isEntryInRange(entry, dateRange.start, dateRange.end),
+  );
+
+  if (period === "week") {
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = addDays(dateRange.start, index);
+      const mood = getTopMoodForRange(
+        periodEntries,
+        startOfLocalDay(date),
+        endOfLocalDay(date),
+      );
+
+      return toMoodJourneyPoint(
+        mood,
+        new Intl.DateTimeFormat(getRuntimeLocale(), {
+          weekday: "short",
+        }).format(date),
+      );
+    });
+  }
+
+  if (period === "month") {
+    const points: MoodJourneyPoint[] = [];
+    let cursor = startOfLocalDay(dateRange.start);
+
+    while (cursor.getTime() <= dateRange.end.getTime()) {
+      const bucketStart = new Date(cursor);
+      const bucketEnd = endOfLocalDay(addDays(bucketStart, 6));
+      const mood = getTopMoodForRange(
+        periodEntries,
+        bucketStart,
+        bucketEnd.getTime() > dateRange.end.getTime()
+          ? dateRange.end
+          : bucketEnd,
+      );
+
+      points.push(
+        toMoodJourneyPoint(
+          mood,
+          new Intl.DateTimeFormat(getRuntimeLocale(), {
+            day: "numeric",
+          }).format(bucketStart),
+        ),
+      );
+      cursor = addDays(bucketStart, 7);
+    }
+
+    return points;
+  }
+
+  return Array.from({ length: 12 }, (_, monthIndex) => {
+    const bucketStart = new Date(referenceDate.getFullYear(), monthIndex, 1);
+    const bucketEnd = endOfLocalDay(
+      new Date(referenceDate.getFullYear(), monthIndex + 1, 0),
+    );
+    const mood = getTopMoodForRange(periodEntries, bucketStart, bucketEnd);
+
+    return toMoodJourneyPoint(
+      mood,
+      new Intl.DateTimeFormat(getRuntimeLocale(), {
+        month: "short",
+      }).format(bucketStart),
+    );
   });
 }
 
-function getMostFrequentMoodForDate(entries: JournalEntry[], date: Date) {
-  const entriesForDate = entries.filter(
-    (entry) => entry.mood && isSameDay(new Date(entry.createdAt), date),
-  );
+function getMoodJourneyPillLabel(period: InsightsPeriod) {
+  if (period === "week") {
+    return "This Week";
+  }
 
-  return getTopMood(entriesForDate);
+  if (period === "month") {
+    return "This Month";
+  }
+
+  return "This Year";
+}
+
+function getTopMoodForRange(entries: JournalEntry[], start: Date, end: Date) {
+  return getTopMood(
+    entries.filter(
+      (entry) => entry.mood && isEntryInRange(entry, start, end),
+    ),
+  );
+}
+
+function toMoodJourneyPoint(
+  mood: MoodId | null,
+  day: string,
+): MoodJourneyPoint {
+  return {
+    day,
+    emoji: mood ? moodEmoji[mood] : fallbackMoodEmoji,
+    mood: mood ? moodScores[mood] : fallbackMoodScore,
+  };
+}
+
+function isEntryInRange(entry: JournalEntry, start: Date, end: Date) {
+  const createdAt = Date.parse(entry.createdAt);
+
+  return (
+    Number.isFinite(createdAt) &&
+    createdAt >= start.getTime() &&
+    createdAt <= end.getTime()
+  );
 }
 
 function getTopMood(entries: JournalEntry[]) {
@@ -656,38 +933,6 @@ function getTopMood(entries: JournalEntry[]) {
   );
 }
 
-function getReflectionStreak(entries: JournalEntry[]) {
-  if (entries.length === 0) {
-    return 0;
-  }
-
-  const entryDays = new Set(
-    entries.map((entry) => getLocalDateKey(new Date(entry.createdAt))),
-  );
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-
-  let cursor = startOfLocalDay(today);
-
-  if (!entryDays.has(getLocalDateKey(cursor))) {
-    if (!entryDays.has(getLocalDateKey(yesterday))) {
-      return 0;
-    }
-
-    cursor = startOfLocalDay(yesterday);
-  }
-
-  let streak = 0;
-
-  while (entryDays.has(getLocalDateKey(cursor))) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  return streak;
-}
-
 function getLocalDateKey(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -706,12 +951,27 @@ function startOfLocalDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function isSameDay(firstDate: Date, secondDate: Date) {
-  return (
-    firstDate.getFullYear() === secondDate.getFullYear() &&
-    firstDate.getMonth() === secondDate.getMonth() &&
-    firstDate.getDate() === secondDate.getDate()
+function endOfLocalDay(date: Date) {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    23,
+    59,
+    59,
+    999,
   );
+}
+
+function addDays(date: Date, days: number) {
+  const nextDate = new Date(date);
+
+  nextDate.setDate(date.getDate() + days);
+  return nextDate;
+}
+
+function getRuntimeLocale() {
+  return Intl.DateTimeFormat().resolvedOptions().locale;
 }
 
 function MoodJourneyChart({ data }: { data: MoodJourneyPoint[] }) {

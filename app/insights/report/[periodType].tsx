@@ -294,7 +294,7 @@ export default function AIInsightReportScreen() {
               prompt={reportState.report.narrative.reflectionPrompt}
             />
           </>
-        ) : reportState.legacyReportAvailable ? (
+        ) : reportState.error ? null : reportState.legacyReportAvailable ? (
           <OlderFormatState
             disabled={reportState.isGenerating || !hasEnoughEntries}
             hasEnoughEntries={hasEnoughEntries}

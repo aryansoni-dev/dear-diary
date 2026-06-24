@@ -21,6 +21,7 @@ import {
 } from "@/components/navigation/bottom-tab-bar";
 import { FilteredEmptyState } from "@/components/states/FilteredEmptyState";
 import { ScreenEmptyState } from "@/components/states/ScreenEmptyState";
+import { ScreenErrorState } from "@/components/states/ScreenErrorState";
 import { ScreenLoadingState } from "@/components/states/ScreenLoadingState";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { TabScreenHeader } from "@/components/ui/tab-screen-header";
@@ -33,7 +34,11 @@ import { journalMoodFilters } from "@/data/journal-history";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
 import { formatTagLabel } from "@/lib/tags";
 import { deriveHistoryViewState } from "@/lib/ui/deriveHistoryViewState";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  retryJournalStoreHydration,
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import type {
   MoodId,
   JournalEntry as StoredJournalEntry,
@@ -83,7 +88,12 @@ export function JournalHistoryScreen() {
   const router = useRouter();
   const entries = useJournalStore((state) => state.entries);
   const activeUserId = useJournalStore((state) => state.activeUserId);
-  const hasHydrated = useJournalStore((state) => state.hasHydrated);
+  const hasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
+  const hydrationError = useJournalHydrationStore(
+    (state) => state.hydrationError,
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMood, setSelectedMood] = useState<MoodFilterId>("all");
   const [viewMode, setViewMode] = useState<JournalHistoryViewMode>("list");
@@ -151,6 +161,10 @@ export function JournalHistoryScreen() {
   function clearFilters() {
     setSearchQuery("");
     setSelectedMood("all");
+  }
+
+  function retryJournalHydration() {
+    retryJournalStoreHydration();
   }
 
   useEffect(() => {
@@ -326,7 +340,12 @@ export function JournalHistoryScreen() {
             </ScrollView>
 
             <View className="gap-4 px-6 pt-5">
-              {viewState.status === "hydrating" ? (
+              {hydrationError ? (
+                <ScreenErrorState
+                  error={hydrationError}
+                  onRetry={retryJournalHydration}
+                />
+              ) : viewState.status === "hydrating" ? (
                 showHydrationState ? (
                   <ScreenLoadingState title="Preparing your journal..." />
                 ) : null
@@ -369,6 +388,8 @@ export function JournalHistoryScreen() {
               currentUserId={activeUserId}
               entries={entries}
               hasHydrated={hasHydrated}
+              hydrationError={hydrationError}
+              onRetryHydration={retryJournalHydration}
               renderSelectedEntries={(day) => (
                 <View className="gap-4">
                   {day.entries.map((entry, entryIndex) => (

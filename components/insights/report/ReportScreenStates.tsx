@@ -193,7 +193,7 @@ export function ReportRegenerateCard({
         style={({ pressed }) => ({ opacity: disabled ? 0.7 : pressed ? 0.88 : 1 })}
       >
         <View
-          className="h-[52px] w-full items-center justify-center rounded-full"
+          className="min-h-[54px] w-full items-center justify-center rounded-full px-4 py-3"
           style={{
             backgroundColor: disabled
               ? reportColors.disabled
@@ -202,7 +202,7 @@ export function ReportRegenerateCard({
         >
           <Text
             allowFontScaling={false}
-            className="text-[16px] font-bold leading-6"
+            className="text-center text-[16px] font-bold leading-6"
             style={{ color: disabled ? reportColors.muted : reportColors.card }}
           >
             Regenerate Reflection
@@ -363,29 +363,35 @@ export function PrimaryButton({
   }
 
   return (
-    <Animated.View className="mt-6" style={{ transform: [{ scale }] }}>
+    <Animated.View className="mt-6 w-full" style={{ transform: [{ scale }] }}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ disabled: disabled === true }}
-        className="h-[52px] flex-row items-center justify-center rounded-full px-5"
+        className="w-full"
         disabled={disabled}
         onPress={onPress}
         onPressIn={() => animatePress(1)}
         onPressOut={() => animatePress(0)}
         style={({ pressed }) => ({
-          backgroundColor: disabled
-            ? reportColors.disabled
-            : reportColors.primary,
-          opacity: disabled ? 0.7 : pressed ? 0.88 : 1,
+          opacity: disabled ? 1 : pressed ? 0.88 : 1,
         })}
       >
-        <Text
-          allowFontScaling={false}
-          className="text-[16px] font-bold leading-6"
-          style={{ color: disabled ? reportColors.muted : reportColors.card }}
+        <View
+          className="min-h-[54px] w-full flex-row items-center justify-center rounded-full px-4 py-3"
+          style={{
+            backgroundColor: disabled
+              ? reportColors.disabled
+              : reportColors.primary,
+          }}
         >
-          {label}
-        </Text>
+          <Text
+            allowFontScaling={false}
+            className="flex-shrink text-center text-[16px] font-bold leading-6"
+            style={{ color: disabled ? reportColors.muted : reportColors.card }}
+          >
+            {label}
+          </Text>
+        </View>
       </Pressable>
     </Animated.View>
   );

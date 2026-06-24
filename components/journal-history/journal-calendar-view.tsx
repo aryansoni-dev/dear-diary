@@ -8,6 +8,7 @@ import {
 import { type ReactNode, useMemo, useRef, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 
+import { ScreenErrorState } from "@/components/states/ScreenErrorState";
 import { ScreenLoadingState } from "@/components/states/ScreenLoadingState";
 import {
   fallbackMoodMetadata,
@@ -23,6 +24,7 @@ import {
 } from "@/lib/calendar/dateUtils";
 import type { JournalEntry } from "@/types/journal";
 import type { CalendarDayStatus } from "@/types/journalCalendar";
+import type { AppError } from "@/types/appError";
 
 const colors = {
   activityBorderEmpty: "#E4E4E7",
@@ -76,11 +78,15 @@ export function JournalCalendarView({
   currentUserId,
   entries,
   hasHydrated,
+  hydrationError,
+  onRetryHydration,
   renderSelectedEntries,
 }: {
   currentUserId: string | null;
   entries: JournalEntry[];
   hasHydrated: boolean;
+  hydrationError: AppError | null;
+  onRetryHydration: () => void;
   renderSelectedEntries: (day: CalendarDayStatus) => ReactNode;
 }) {
   const todayDateKey = createLocalDateKey(new Date());
@@ -150,6 +156,14 @@ export function JournalCalendarView({
         {showHydrationState ? (
           <ScreenLoadingState title="Preparing your calendar..." />
         ) : null}
+      </View>
+    );
+  }
+
+  if (hydrationError) {
+    return (
+      <View className="px-6 pt-5">
+        <ScreenErrorState error={hydrationError} onRetry={onRetryHydration} />
       </View>
     );
   }

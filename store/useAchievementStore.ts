@@ -1,9 +1,11 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import { isRecord } from "@/lib/utils/typeGuards";
 import { isNonEmptyString } from "@/lib/validation/persistedDataValidators";
+import type { AppError } from "@/types/appError";
 
 const achievementStorageVersion = 2;
 
@@ -18,7 +20,6 @@ type AchievementNotificationState = {
     UserAchievementNotifications
   >;
   achievementSyncUserId: string | null;
-  hasHydrated: boolean;
   initializeAchievementNotifications: (
     userId: string,
     unlockedIds: string[],
@@ -27,15 +28,28 @@ type AchievementNotificationState = {
   mergeNotifiedAchievementIds: (userId: string, ids: string[]) => void;
   resetAchievementNotifications: (userId: string) => void;
   setAchievementSyncUserId: (userId: string | null) => void;
-  setHasHydrated: (value: boolean) => void;
 };
+
+type AchievementHydrationState = {
+  hasHydrated: boolean;
+  hydrationError: AppError | null;
+  setHasHydrated: (value: boolean) => void;
+  setHydrationError: (error: AppError | null) => void;
+};
+
+export const useAchievementHydrationStore =
+  create<AchievementHydrationState>()((set) => ({
+    hasHydrated: false,
+    hydrationError: null,
+    setHasHydrated: (value) => set({ hasHydrated: value }),
+    setHydrationError: (error) => set({ hydrationError: error }),
+  }));
 
 export const useAchievementStore = create<AchievementNotificationState>()(
   persist(
     (set) => ({
       achievementNotificationsByUserId: {},
       achievementSyncUserId: null,
-      hasHydrated: false,
       initializeAchievementNotifications: (userId, unlockedIds) =>
         set((state) => {
           const currentNotifications =
@@ -120,7 +134,6 @@ export const useAchievementStore = create<AchievementNotificationState>()(
         }),
       setAchievementSyncUserId: (userId) =>
         set({ achievementSyncUserId: userId }),
-      setHasHydrated: (value) => set({ hasHydrated: value }),
     }),
     {
       name: "deardiary-achievement-store-v1",
@@ -139,8 +152,18 @@ export const useAchievementStore = create<AchievementNotificationState>()(
             getSanitizedAchievementNotifications(persistedState),
         };
       },
-      onRehydrateStorage: (state) => () => {
-        state?.setHasHydrated(true);
+      onRehydrateStorage: (state) => (_persistedState, error) => {
+        if (error) {
+          useAchievementHydrationStore.setState({
+            hydrationError: normalizeAppError(error, {
+              operation: "local_hydration_achievements",
+            }),
+          });
+        } else {
+          useAchievementHydrationStore.setState({ hydrationError: null });
+        }
+
+        useAchievementHydrationStore.setState({ hasHydrated: true });
       },
       partialize: (state) => ({
         achievementNotificationsByUserId:

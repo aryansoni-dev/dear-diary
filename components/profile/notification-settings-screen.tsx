@@ -18,6 +18,7 @@ import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
+import { ScreenErrorState } from "@/components/states/ScreenErrorState";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { useAppDialog } from "@/hooks/useAppDialog";
 import {
@@ -50,6 +51,9 @@ export function NotificationSettingsScreen() {
   const isEnabled = useNotificationPreferencesStore((state) => state.isEnabled);
   const hasHydrated = useNotificationPreferencesStore(
     (state) => state.hasHydrated,
+  );
+  const hydrationError = useNotificationPreferencesStore(
+    (state) => state.hydrationError,
   );
   const morningReminderTime = useNotificationPreferencesStore(
     (state) => state.morningReminderTime,
@@ -89,9 +93,7 @@ export function NotificationSettingsScreen() {
       setIsEnabled(false);
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "We could not update your reminder settings.";
+        getNotificationFailureMessage(error, "update");
       showDialog({
         confirmText: "OK",
         message,
@@ -127,9 +129,7 @@ export function NotificationSettingsScreen() {
     } catch (error) {
       setReminderTime(key, currentTime);
       const message =
-        error instanceof Error
-          ? error.message
-          : "We could not reschedule your reminder.";
+        getNotificationFailureMessage(error, "reschedule");
       showDialog({
         confirmText: "OK",
         message,
@@ -148,6 +148,14 @@ export function NotificationSettingsScreen() {
     }
 
     router.replace("/profile-tab");
+  }
+
+  function retryNotificationHydration() {
+    useNotificationPreferencesStore.setState({
+      hasHydrated: false,
+      hydrationError: null,
+    });
+    void useNotificationPreferencesStore.persist.rehydrate();
   }
 
   return (
@@ -205,7 +213,9 @@ export function NotificationSettingsScreen() {
                 </Text>
                 <Text className="mt-1 text-[13px] leading-5 text-[#71717B]">
                   {hasHydrated
-                    ? isEnabled
+                    ? hydrationError
+                      ? "Saved reminder settings need attention"
+                      : isEnabled
                       ? "Daily reflection reminders are on"
                       : "No reminders yet"
                     : "Loading reminder settings..."}
@@ -215,7 +225,7 @@ export function NotificationSettingsScreen() {
                 <ActivityIndicator color={colors.primary} size="small" />
               ) : (
                 <Switch
-                  disabled={!hasHydrated}
+                  disabled={!hasHydrated || Boolean(hydrationError)}
                   ios_backgroundColor="#E4E4E7"
                   onValueChange={handleToggleNotifications}
                   thumbColor="#FFFFFF"
@@ -227,9 +237,19 @@ export function NotificationSettingsScreen() {
           </View>
         </View>
 
+        {hydrationError ? (
+          <View className="pt-7">
+            <ScreenErrorState
+              compact
+              error={hydrationError}
+              onRetry={retryNotificationHydration}
+            />
+          </View>
+        ) : null}
+
         <View className="pt-7 gap-4">
           <ReminderTimeRow
-            disabled={!hasHydrated}
+            disabled={!hasHydrated || Boolean(hydrationError)}
             label="Morning Intention reminder time"
             onPress={() =>
               setActivePicker({
@@ -241,7 +261,7 @@ export function NotificationSettingsScreen() {
             time={morningReminderTime}
           />
           <ReminderTimeRow
-            disabled={!hasHydrated}
+            disabled={!hasHydrated || Boolean(hydrationError)}
             label="Evening Reflection reminder time"
             onPress={() =>
               setActivePicker({
@@ -619,4 +639,27 @@ function getHourFromClockValue(value: number, period: "AM" | "PM") {
   }
 
   return value === 12 ? 12 : value + 12;
+}
+
+function getNotificationFailureMessage(
+  error: unknown,
+  operation: "reschedule" | "update",
+) {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+  if (message.includes("permission")) {
+    return "Notifications are turned off. You can enable them in your device settings to receive journal reminders.";
+  }
+
+  if (
+    message.includes("expo go") ||
+    message.includes("development build") ||
+    message.includes("not support")
+  ) {
+    return "Notifications are not supported in this app environment. Reminder settings remain saved on this device.";
+  }
+
+  return operation === "reschedule"
+    ? "We could not reschedule your reminder. Please try again."
+    : "We could not update your reminder settings. Please try again.";
 }

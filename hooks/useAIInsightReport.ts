@@ -13,7 +13,10 @@ import {
 import { useAutoSync } from "@/hooks/useAutoSync";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useAIInsightReportStore } from "@/store/useAIInsightReportStore";
-import { useJournalStore } from "@/store/journal-store";
+import {
+  useJournalHydrationStore,
+  useJournalStore,
+} from "@/store/journal-store";
 import type { AIInsightReport } from "@/types/aiInsightReport";
 import type { JournalEntry } from "@/types/journal";
 
@@ -43,13 +46,18 @@ export function useAIInsightReport(
   const { runAutoSync } = useAutoSync();
   const connectivity = useConnectivity();
   const entries = useJournalStore((state) => state.entries);
-  const hasHydrated = useJournalStore((state) => state.hasHydrated);
+  const hasHydrated = useJournalHydrationStore(
+    (state) => state.hasHydrated,
+  );
   const cacheKey = useMemo(() => getReportCacheKey(period), [period]);
   const cachedReport = useAIInsightReportStore((state) =>
     userId ? state.reportsByUser[userId]?.[cacheKey] ?? null : null,
   );
   const cacheHasHydrated = useAIInsightReportStore(
     (state) => state.hasHydrated,
+  );
+  const cacheHydrationError = useAIInsightReportStore(
+    (state) => state.hydrationError,
   );
   const removeCachedReport = useAIInsightReportStore(
     (state) => state.removeCachedReport,
@@ -111,6 +119,11 @@ export function useAIInsightReport(
       return;
     }
 
+    if (cacheHydrationError) {
+      setError(cacheHydrationError.userMessage);
+      return;
+    }
+
     if (!cacheHasHydrated) {
       return;
     }
@@ -159,6 +172,7 @@ export function useAIInsightReport(
   }, [
     cacheKey,
     cacheHasHydrated,
+    cacheHydrationError,
     enabled,
     isCurrentRequestContext,
     period,
@@ -177,6 +191,11 @@ export function useAIInsightReport(
   const requestGeneration = useCallback(
     async (regenerate: boolean) => {
       if (!enabled) {
+        return;
+      }
+
+      if (cacheHydrationError) {
+        setError(cacheHydrationError.userMessage);
         return;
       }
 
@@ -245,6 +264,7 @@ export function useAIInsightReport(
     [
       cacheKey,
       cacheHasHydrated,
+      cacheHydrationError,
       connectivity.status,
       enabled,
       isCurrentRequestContext,

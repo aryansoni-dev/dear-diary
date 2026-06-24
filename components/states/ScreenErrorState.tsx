@@ -32,6 +32,7 @@ export function ScreenErrorState({
       </Text>
       {error.retryable && onRetry ? (
         <Pressable
+          accessibilityLabel={retrying ? "Retrying" : "Retry"}
           accessibilityRole="button"
           accessibilityState={{ disabled: retrying }}
           className="mt-5 min-h-11 items-center justify-center rounded-full bg-white px-5"

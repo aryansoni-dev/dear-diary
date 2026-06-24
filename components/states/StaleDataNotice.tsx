@@ -21,6 +21,7 @@ export function StaleDataNotice({
       </Text>
       {onRetry ? (
         <Pressable
+          accessibilityLabel={retrying ? "Retrying" : "Retry"}
           accessibilityRole="button"
           accessibilityState={{ disabled: retrying }}
           className="mt-3 min-h-10 items-center justify-center rounded-full bg-white px-4"

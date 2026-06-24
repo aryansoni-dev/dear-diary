@@ -6,6 +6,7 @@ import { useConnectivity } from "@/hooks/useConnectivity";
 import { useAutoSync } from "@/hooks/useAutoSync";
 import { useJournalStore } from "@/store/journal-store";
 import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
+import { useMoodLogStore } from "@/store/useMoodLogStore";
 import { useSyncStore } from "@/store/useSyncStore";
 
 const journalChangeDebounceMs = 1500;
@@ -20,6 +21,7 @@ export function AutoSyncManager() {
   const previousConnectivityStatusRef = useRef(connectivity.status);
   const retryAttemptRef = useRef(0);
   const allEntries = useJournalStore((state) => state.allEntries);
+  const allMoodLogs = useMoodLogStore((state) => state.allMoodLogs);
   const isSyncing = useSyncStore((state) => state.isSyncing);
   const lastSyncedAt = useSyncStore((state) => state.lastSyncedAt);
   const lastSyncFailedAt = useSyncStore((state) => state.lastSyncFailedAt);
@@ -41,7 +43,22 @@ export function AutoSyncManager() {
       .sort()
       .join("|");
   }, [allEntries, userId]);
-  const hasPendingChanges = pendingEntryKey.length > 0;
+  const pendingMoodLogKey = useMemo(() => {
+    if (!userId) {
+      return "";
+    }
+
+    return allMoodLogs
+      .filter(
+        (moodLog) =>
+          moodLog.userId === userId && moodLog.syncStatus !== "synced",
+      )
+      .map((moodLog) => `${moodLog.id}:${moodLog.updatedAt}`)
+      .sort()
+      .join("|");
+  }, [allMoodLogs, userId]);
+  const hasPendingChanges =
+    pendingEntryKey.length > 0 || pendingMoodLogKey.length > 0;
 
   useEffect(() => {
     if (!isLoaded || !userId) {
@@ -74,7 +91,13 @@ export function AutoSyncManager() {
     }, journalChangeDebounceMs);
 
     return () => clearTimeout(timeout);
-  }, [hasPendingChanges, pendingEntryKey, runAutoSync, userId]);
+  }, [
+    hasPendingChanges,
+    pendingEntryKey,
+    pendingMoodLogKey,
+    runAutoSync,
+    userId,
+  ]);
 
   useEffect(() => {
     const previousStatus = previousConnectivityStatusRef.current;

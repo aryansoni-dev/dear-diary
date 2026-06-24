@@ -278,3 +278,5 @@ Before every feature:
 - Do not install new libraries without approval.
 
 - Don't change the design of the Nav, only add the routing functionality.
+
+- Keep 'leading-6' in all components, and fix if you find any un-matching ones.
