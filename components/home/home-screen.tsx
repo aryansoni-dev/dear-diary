@@ -3,23 +3,21 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { HomeMoodCheckInCard } from "@/components/home/mood/HomeMoodCheckInCard";
 import {
   BottomTabBar,
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
 import { ScreenErrorState } from "@/components/states/ScreenErrorState";
 import { images } from "@/constants/images";
-import { moodOptions } from "@/data/home";
+import { fallbackMoodMetadata, moodMetadata } from "@/constants/moods";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
 import { useJournalStore } from "@/store/journal-store";
-import type {
-  MoodId,
-  JournalEntry as StoredJournalEntry,
-} from "@/types/journal";
+import type { JournalEntry as StoredJournalEntry } from "@/types/journal";
 
 type HomeScreenProps = {
   avatarUrl?: string;
@@ -61,28 +59,12 @@ type HomeRecentEntry = {
   title: string;
 };
 
-const moodVisuals: Record<MoodId, { backgroundColor: string; emoji: string }> =
-  {
-    anxious: { backgroundColor: "#F4EFFA", emoji: "😰" },
-    calm: { backgroundColor: "#D8EEDB", emoji: "😌" },
-    grateful: { backgroundColor: "#DDEFFF", emoji: "🙏" },
-    happy: { backgroundColor: "#FFDDE8", emoji: "😊" },
-    motivated: { backgroundColor: "#FFE8D8", emoji: "🔥" },
-    sad: { backgroundColor: "#DDEFFF", emoji: "😔" },
-  };
-
-const fallbackMoodVisual = {
-  backgroundColor: "#F4F4F5",
-  emoji: "✍️",
-};
-
 export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const entries = useJournalStore((state) => state.entries);
   const hasHydrated = useJournalStore((state) => state.hasHydrated);
   const hydrationError = useJournalStore((state) => state.hydrationError);
-  const [selectedMood, setSelectedMood] = useState("Happy");
   const showHydrationState = useDelayedVisibility(!hasHydrated);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const displayName = firstName?.trim() || "Aryan";
@@ -226,40 +208,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
           </Pressable>
         </View>
 
-        <View className="mb-9 gap-4">
-          <Text className="text-[23px] font-semibold leading-8 text-[#27272A]">
-            How are you feeling today?
-          </Text>
-          <View className="flex-row flex-wrap gap-2.5">
-            {moodOptions.map((mood) => {
-              const isSelected = selectedMood === mood.label;
-
-              return (
-                <Pressable
-                  accessibilityRole="button"
-                  className="h-12 flex-row items-center gap-2 rounded-full border px-5"
-                  key={mood.label}
-                  onPress={() => setSelectedMood(mood.label)}
-                  style={{
-                    backgroundColor: mood.backgroundColor,
-                    borderColor: isSelected ? "#FFA1B9" : "transparent",
-                  }}
-                >
-                  <Text className="text-[18px] leading-6">{mood.emoji}</Text>
-                  <Text
-                    className="text-[16px] leading-6"
-                    style={{
-                      color: isSelected ? colors.primary : "#51515B",
-                      fontWeight: isSelected ? "600" : "500",
-                    }}
-                  >
-                    {mood.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
+        <HomeMoodCheckInCard />
 
         <View className="mb-9 gap-4">
           <Text className="text-[23px] font-semibold leading-8 text-[#27272A]">
@@ -435,7 +384,7 @@ function RecentEntriesEmptyState({
 }
 
 function toHomeRecentEntry(entry: StoredJournalEntry): HomeRecentEntry {
-  const visual = entry.mood ? moodVisuals[entry.mood] : fallbackMoodVisual;
+  const visual = entry.mood ? moodMetadata[entry.mood] : fallbackMoodMetadata;
   const content = entry.content.trim();
 
   return {

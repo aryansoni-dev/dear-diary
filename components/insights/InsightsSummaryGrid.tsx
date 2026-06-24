@@ -43,7 +43,7 @@ export function InsightsSummaryGrid({ summary }: InsightsSummaryGridProps) {
           <Text className="mt-3 text-center text-[18px] font-bold leading-6 text-[#18181B]">
             {card.value}
           </Text>
-          <Text className="mt-1 text-center text-[12px] font-semibold leading-4 text-[#71717B]">
+          <Text className="mt-1 text-center text-[12px] font-semibold leading-6 text-[#71717B]">
             {card.detail}
           </Text>
         </View>

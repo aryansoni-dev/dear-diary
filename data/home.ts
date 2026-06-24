@@ -1,9 +1,3 @@
-export type MoodOption = {
-  backgroundColor: string;
-  emoji: string;
-  label: string;
-};
-
 export type RecentEntry = {
   backgroundColor: string;
   date: string;
@@ -11,15 +5,6 @@ export type RecentEntry = {
   excerpt: string;
   title: string;
 };
-
-export const moodOptions: MoodOption[] = [
-  { emoji: "😊", label: "Happy", backgroundColor: "#FFDDE8" },
-  { emoji: "😌", label: "Calm", backgroundColor: "#D8EEDB" },
-  { emoji: "😔", label: "Sad", backgroundColor: "#DDEFFF" },
-  { emoji: "🔥", label: "Motivated", backgroundColor: "#F4EFFA" },
-  { emoji: "😰", label: "Anxious", backgroundColor: "#FFDDE8" },
-  { emoji: "🙏", label: "Grateful", backgroundColor: "#D8EEDB" },
-];
 
 export const recentEntries: RecentEntry[] = [
   {

@@ -64,7 +64,7 @@ export function SyncStatusIndicator({ status }: SyncStatusIndicatorProps) {
     >
       {icon}
       <Text
-        className="text-[12px] font-bold leading-4"
+        className="text-[12px] font-bold leading-6"
         style={{ color: theme.color }}
       >
         {theme.label}

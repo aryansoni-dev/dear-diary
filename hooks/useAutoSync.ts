@@ -6,12 +6,14 @@ import { requestSync } from "@/lib/sync/requestSync";
 import { useJournalStore } from "@/store/journal-store";
 import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
 import { useAchievementStore } from "@/store/useAchievementStore";
+import { useMoodLogStore } from "@/store/useMoodLogStore";
 import { useSyncStore } from "@/store/useSyncStore";
 
 export type AutoSyncReason =
   | "app_start"
   | "foreground"
   | "journal_change"
+  | "mood_change"
   | "achievement_change"
   | "manual_background"
   | "reconnect"
@@ -24,6 +26,7 @@ export function useAutoSync() {
   const { user } = useUser();
   const connectivity = useConnectivity();
   const journalHasHydrated = useJournalStore((state) => state.hasHydrated);
+  const moodLogHasHydrated = useMoodLogStore((state) => state.hasHydrated);
   const activeUserId = useJournalStore((state) => state.activeUserId);
   const achievementHasHydrated = useAchievementStore(
     (state) => state.hasHydrated,
@@ -39,6 +42,7 @@ export function useAutoSync() {
         !user ||
         authUserId !== user.id ||
         !journalHasHydrated ||
+        !moodLogHasHydrated ||
         !achievementHasHydrated ||
         !syncHasHydrated ||
         activeUserId !== user.id
@@ -60,15 +64,22 @@ export function useAutoSync() {
       const currentUserEntries = useJournalStore
         .getState()
         .allEntries.filter((entry) => entry.userId === userId);
+      const currentUserMoodLogs = useMoodLogStore
+        .getState()
+        .allMoodLogs.filter((moodLog) => moodLog.userId === userId);
       const hasPendingJournalChanges = currentUserEntries.some(
         (entry) => entry.syncStatus !== "synced",
       );
+      const hasPendingMoodLogChanges = currentUserMoodLogs.some(
+        (moodLog) => moodLog.syncStatus !== "synced",
+      );
       const shouldBypassCooldown =
         (reason === "journal_change" ||
+          reason === "mood_change" ||
           reason === "manual_background" ||
           reason === "reconnect" ||
           reason === "retry") &&
-        hasPendingJournalChanges;
+        (hasPendingJournalChanges || hasPendingMoodLogChanges);
 
       if (
         !shouldBypassCooldown &&
@@ -96,6 +107,7 @@ export function useAutoSync() {
       getToken,
       isLoaded,
       journalHasHydrated,
+      moodLogHasHydrated,
       syncHasHydrated,
       user,
     ],

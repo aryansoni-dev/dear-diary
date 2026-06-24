@@ -3,13 +3,16 @@ import { useMemo } from "react";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useJournalStore } from "@/store/journal-store";
 import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
+import { useMoodLogStore } from "@/store/useMoodLogStore";
 import { useSyncStore } from "@/store/useSyncStore";
 import type { SyncStatusSnapshot, UserSyncStatus } from "@/types/syncStatus";
 
 export function useSyncStatus(userId: string | null | undefined) {
   const connectivity = useConnectivity();
   const allEntries = useJournalStore((state) => state.allEntries);
+  const allMoodLogs = useMoodLogStore((state) => state.allMoodLogs);
   const journalHasHydrated = useJournalStore((state) => state.hasHydrated);
+  const moodLogHasHydrated = useMoodLogStore((state) => state.hasHydrated);
   const syncHasHydrated = useSyncStore((state) => state.hasHydrated);
   const isSyncing = useSyncStore((state) => state.isSyncing);
   const lastAttemptAt = useSyncStore((state) => state.lastAttemptAt);
@@ -30,7 +33,7 @@ export function useSyncStatus(userId: string | null | undefined) {
       });
     }
 
-    if (!journalHasHydrated || !syncHasHydrated) {
+    if (!journalHasHydrated || !moodLogHasHydrated || !syncHasHydrated) {
       return createSnapshot({ status: "idle" });
     }
 
@@ -43,6 +46,17 @@ export function useSyncStatus(userId: string | null | undefined) {
     const failedCount = currentUserEntries.filter(
       (entry) => entry.syncStatus === "failed",
     ).length;
+    const currentUserMoodLogs = allMoodLogs.filter(
+      (moodLog) => moodLog.userId === currentUserId,
+    );
+    const pendingMoodLogCount = currentUserMoodLogs.filter(
+      (moodLog) => moodLog.syncStatus !== "synced",
+    ).length;
+    const failedMoodLogCount = currentUserMoodLogs.filter(
+      (moodLog) => moodLog.syncStatus === "failed",
+    ).length;
+    const totalPendingCount = pendingCount + pendingMoodLogCount;
+    const totalFailedCount = failedCount + failedMoodLogCount;
     const metadataBelongsToUser = lastSyncUserId === currentUserId;
     const scopedLastSyncedAt = metadataBelongsToUser ? lastSyncedAt : null;
     const scopedLastAttemptAt = metadataBelongsToUser ? lastAttemptAt : null;
@@ -52,12 +66,12 @@ export function useSyncStatus(userId: string | null | undefined) {
       Boolean(scopedLastFailureAt) &&
       (!scopedLastSyncedAt ||
         Date.parse(scopedLastFailureAt ?? "") > Date.parse(scopedLastSyncedAt));
-    const hasRetryableFailure = failedCount > 0 || hasFreshFailure;
+    const hasRetryableFailure = totalFailedCount > 0 || hasFreshFailure;
     const status = getUserSyncStatus({
       connectivityStatus: connectivity.status,
       hasRetryableFailure,
       isSyncing,
-      pendingCount,
+      pendingCount: totalPendingCount,
       scopedLastSyncedAt,
     });
 
@@ -67,20 +81,22 @@ export function useSyncStatus(userId: string | null | undefined) {
         !isSyncing &&
         !deletionInProgress &&
         connectivity.status !== "offline" &&
-        (pendingCount > 0 || hasRetryableFailure),
+        (totalPendingCount > 0 || hasRetryableFailure),
       errorCode: scopedErrorCode,
-      failedCount,
+      failedCount: totalFailedCount,
       lastAttemptAt: scopedLastAttemptAt,
       lastSuccessfulSyncAt: scopedLastSyncedAt,
-      pendingCount,
+      pendingCount: totalPendingCount,
       status,
     };
   }, [
     allEntries,
+    allMoodLogs,
     connectivity.status,
     deletionInProgress,
     isSyncing,
     journalHasHydrated,
+    moodLogHasHydrated,
     lastAttemptAt,
     lastSyncErrorCode,
     lastSyncFailedAt,
