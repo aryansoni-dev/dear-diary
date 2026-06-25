@@ -68,15 +68,21 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       setHydrationError: (error) => set({ hydrationError: error }),
       setCachedReport: (userId, cacheKey, report) =>
-        set((state) => ({
-          reportsByUser: {
-            ...state.reportsByUser,
-            [userId]: {
-              ...(state.reportsByUser[userId] ?? {}),
-              [cacheKey]: report,
+        set((state) => {
+          if (report.userId !== userId) {
+            return state;
+          }
+
+          return {
+            reportsByUser: {
+              ...state.reportsByUser,
+              [userId]: {
+                ...(state.reportsByUser[userId] ?? {}),
+                [cacheKey]: report,
+              },
             },
-          },
-        })),
+          };
+        }),
     }),
     {
       name: "dear-diary-ai-insight-reports",
@@ -128,7 +134,7 @@ function getSanitizedReportsByUser(
 
       const validReports = Object.entries(userReports).reduce<UserReportCache>(
         (reports, [cacheKey, report]) => {
-          if (isAIInsightReport(report)) {
+          if (isAIInsightReport(report) && report.userId === userId) {
             reports[cacheKey] = report;
           }
 

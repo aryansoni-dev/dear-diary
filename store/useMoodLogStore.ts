@@ -268,22 +268,23 @@ function normalizePersistedMoodLog(value: unknown): MoodLog | null {
 }
 
 function dedupeMoodLogs(moodLogs: MoodLog[]) {
-  const moodLogsById = new Map<string, MoodLog>();
+  const moodLogsByScopedId = new Map<string, MoodLog>();
 
   moodLogs.forEach((moodLog) => {
-    const existingMoodLog = moodLogsById.get(moodLog.id);
+    const scopedId = `${moodLog.userId}:${moodLog.id}`;
+    const existingMoodLog = moodLogsByScopedId.get(scopedId);
 
     if (!existingMoodLog) {
-      moodLogsById.set(moodLog.id, moodLog);
+      moodLogsByScopedId.set(scopedId, moodLog);
       return;
     }
 
     if (Date.parse(moodLog.updatedAt) > Date.parse(existingMoodLog.updatedAt)) {
-      moodLogsById.set(moodLog.id, moodLog);
+      moodLogsByScopedId.set(scopedId, moodLog);
     }
   });
 
-  return Array.from(moodLogsById.values());
+  return Array.from(moodLogsByScopedId.values());
 }
 
 function isStoredMoodLog(value: unknown): value is MoodLog {

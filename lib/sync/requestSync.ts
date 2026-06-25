@@ -352,6 +352,14 @@ async function syncAchievements(userId: string) {
     userId,
   });
 
+  if (!isActiveUser(userId, useJournalStore.getState().activeUserId)) {
+    return {
+      failedCount: 0,
+      pulledNotifiedIds: [],
+      syncedCount: 0,
+    };
+  }
+
   achievementStore.mergeNotifiedAchievementIds(
     userId,
     achievementResult.pulledNotifiedIds,

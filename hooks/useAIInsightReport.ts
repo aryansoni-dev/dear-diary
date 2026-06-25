@@ -90,6 +90,14 @@ export function useAIInsightReport(
     reportRef.current = report;
   }, [report]);
 
+  useEffect(
+    () => () => {
+      requestContextVersionRef.current += 1;
+      requestInFlightRef.current = false;
+    },
+    [],
+  );
+
   useEffect(() => {
     requestContextVersionRef.current += 1;
     requestInFlightRef.current = false;
@@ -151,7 +159,7 @@ export function useAIInsightReport(
 
       setLegacyReportAvailable(result.legacyReportAvailable);
 
-      if (result.report) {
+      if (result.report?.userId === userId) {
         setReport(result.report);
         setCachedReport(userId, cacheKey, result.report);
       } else if (!reportRef.current) {
@@ -242,6 +250,11 @@ export function useAIInsightReport(
         });
 
         if (!isCurrentRequestContext(requestVersion)) {
+          return;
+        }
+
+        if (generatedReport.userId !== userId) {
+          setError("Reflection report could not be loaded for this account.");
           return;
         }
 
