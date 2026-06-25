@@ -271,7 +271,7 @@ function dedupeMoodLogs(moodLogs: MoodLog[]) {
   const moodLogsByScopedId = new Map<string, MoodLog>();
 
   moodLogs.forEach((moodLog) => {
-    const scopedId = `${moodLog.userId}:${moodLog.id}`;
+    const scopedId = JSON.stringify([moodLog.userId, moodLog.id]);
     const existingMoodLog = moodLogsByScopedId.get(scopedId);
 
     if (!existingMoodLog) {
