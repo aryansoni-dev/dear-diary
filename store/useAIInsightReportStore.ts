@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { normalizeAppError } from "@/lib/errors/normalizeAppError";
+import { getAIInsightReportTextLength } from "@/lib/ai/get-ai-text-length";
+import { logAITextIntegrity } from "@/lib/ai/log-ai-text-integrity";
 import { isAIInsightReport } from "@/lib/insights/aiInsightReportMapper";
 import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import type { AppError } from "@/types/appError";
@@ -72,6 +74,12 @@ export const useAIInsightReportStore = create<AIInsightReportState>()(
           if (report.userId !== userId) {
             return state;
           }
+
+          logAITextIntegrity({
+            length: getAIInsightReportTextLength(report),
+            stage: "stored",
+            surface: `${report.periodType}_insight_report`,
+          });
 
           return {
             reportsByUser: {

@@ -127,6 +127,7 @@ export function ErrorBanner({
       <Text
         allowFontScaling={false}
         className="text-[15px] leading-6"
+        selectable
         style={{ color: reportColors.errorText }}
       >
         {message}

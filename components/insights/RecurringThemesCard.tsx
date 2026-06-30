@@ -1,5 +1,6 @@
 import { Text, View } from "react-native";
 
+import { addSafeBreakOpportunities } from "@/lib/text/add-safe-break-opportunities";
 import type { ThemeFrequency } from "@/types/insights";
 
 type RecurringThemesCardProps = {
@@ -29,8 +30,11 @@ export function RecurringThemesCard({ themes }: RecurringThemesCardProps) {
           {themes.map((theme) => (
             <View key={theme.label}>
               <View className="flex-row items-center gap-3">
-                <Text className="flex-1 text-[14px] font-semibold leading-5 text-[#27272A]">
-                  {theme.label}
+                <Text
+                  className="min-w-0 flex-1 text-[14px] font-semibold leading-6 text-[#27272A]"
+                  selectable
+                >
+                  {addSafeBreakOpportunities(theme.label)}
                 </Text>
                 <Text className="text-[13px] font-bold leading-5 text-[#52525B]">
                   {theme.count} {theme.count === 1 ? "entry" : "entries"}

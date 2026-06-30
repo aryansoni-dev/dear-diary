@@ -8,6 +8,8 @@ import {
   isFaultEnabled,
   throwIfFaultEnabled,
 } from "@/lib/dev/faultInjection";
+import { getEntryReflectionTextLength } from "@/lib/ai/get-ai-text-length";
+import { logAITextIntegrity } from "@/lib/ai/log-ai-text-integrity";
 import {
   getAuthenticatedSupabaseClient,
   SupabaseConfigurationError,
@@ -92,6 +94,12 @@ export const generateEntryReflection = async (params: {
       "invalid_response",
     );
   }
+
+  logAITextIntegrity({
+    length: getEntryReflectionTextLength(data.reflection),
+    stage: "validated",
+    surface: "entry_reflection",
+  });
 
   return data.reflection;
 };

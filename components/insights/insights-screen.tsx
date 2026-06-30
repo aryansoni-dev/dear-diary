@@ -29,6 +29,7 @@ import Svg, {
   LinearGradient as SvgLinearGradient,
 } from "react-native-svg";
 
+import { AIResponseRenderer } from "@/components/ai/ai-response-renderer";
 import {
   BottomTabBar,
   bottomTabBarBaseHeight,
@@ -714,11 +715,7 @@ function getCompactInsightText(value: string) {
   }
 
   const sentenceMatch = normalizedText.match(/^.*?[.!?](?:\s|$)/);
-  const firstSentence = sentenceMatch?.[0].trim() ?? normalizedText;
-
-  return firstSentence.length > 180
-    ? `${firstSentence.slice(0, 177).trim()}...`
-    : firstSentence;
+  return sentenceMatch?.[0].trim() ?? normalizedText;
 }
 
 function getRecurringThemes(
@@ -1164,9 +1161,13 @@ function InsightMessageCard({ card }: { card: InsightCard }) {
           {card.title}
         </Text>
       </View>
-      <Text className="mt-7 text-[17px] leading-6 text-[#52525B]">
-        {card.body}
-      </Text>
+      <View className="mt-7 min-w-0">
+        <AIResponseRenderer
+          content={card.body}
+          diagnosticLabel={`insight_card_${card.title.toLowerCase().replace(/\s+/g, "_")}`}
+          variant="insight"
+        />
+      </View>
     </View>
   );
 }

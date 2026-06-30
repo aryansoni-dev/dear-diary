@@ -7,6 +7,7 @@ export type ChatMessage = {
   role: ChatMessageRole;
   content: string;
   createdAt: string;
+  isPartial?: boolean;
   relatedEntryIds?: string[];
   source?: ChatMessageSource;
 };

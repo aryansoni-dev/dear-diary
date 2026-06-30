@@ -44,10 +44,7 @@ const journalEntrySelectWithoutTags =
   "id,title,content,mood,type,prompt,created_at,updated_at";
 const maxEntryContentLength = 8000;
 const maxTagCount = 10;
-const maxEmotionsCount = 6;
-const maxThemesCount = 6;
 const maxReflectionAttempts = 3;
-const maxReflectionTextLength = 220;
 
 type ReflectOnEntryRequest = {
   entryId: string;
@@ -99,10 +96,10 @@ type ValidReflectionResult = {
 
 type ChatCompletionRequestBody = {
   max_tokens: number;
-  messages: Array<{
+  messages: {
     content: string;
     role: "system" | "user";
-  }>;
+  }[];
   model: string;
   response_format?: { type: "json_object" };
   temperature: number;
@@ -531,7 +528,6 @@ Return JSON with exactly these keys:
 
 Rules for the JSON values:
 - summary, observation, followUpQuestion, and suggestion must be complete.
-- summary, observation, followUpQuestion, and suggestion must each be 220 characters or fewer.
 - followUpQuestion must end with a question mark.
 - summary, observation, and suggestion must end with punctuation.
 - Do not end any field with an unfinished phrase like "in your", "with", "to", "for", or "...".`;
@@ -640,6 +636,10 @@ async function callAIProvider(finalPrompt: string) {
       );
     }
 
+    console.info("reflect-on-entry provider_response_received", {
+      characterCount: content.length,
+    });
+
     return content;
   } finally {
     clearTimeout(timeout);
@@ -687,14 +687,8 @@ function parseReflectionResult(
     "question",
   );
   const suggestion = getReflectionText(parsedValue.suggestion, "punctuation");
-  const emotions = getTrimmedStringArray(parsedValue.emotions).slice(
-    0,
-    maxEmotionsCount,
-  );
-  const themes = getTrimmedStringArray(parsedValue.themes).slice(
-    0,
-    maxThemesCount,
-  );
+  const emotions = getTrimmedStringArray(parsedValue.emotions);
+  const themes = getTrimmedStringArray(parsedValue.themes);
 
   if (!summary) {
     return { ok: false, reason: "invalid_summary" };
@@ -939,45 +933,19 @@ function getReflectionText(
     return null;
   }
 
-  const trimmedValue = cleanSingleLine(value);
+  const trimmedValue = value.trim();
 
   if (!trimmedValue) {
     return null;
   }
 
-  const sanitizedValue = ensureReflectionTerminal(
-    truncateReflectionText(trimmedValue, maxReflectionTextLength),
-    terminal,
-  );
+  const sanitizedValue = ensureReflectionTerminal(trimmedValue, terminal);
 
   if (!sanitizedValue || isIncompleteReflectionText(sanitizedValue)) {
     return null;
   }
 
   return sanitizedValue;
-}
-
-function truncateReflectionText(value: string, maxLength: number) {
-  if (value.length <= maxLength) {
-    return value;
-  }
-
-  const sentenceEndMatch = value
-    .slice(0, maxLength + 1)
-    .match(/^([\s\S]*[.!?।])(?:\s|$)/);
-
-  if (sentenceEndMatch?.[1]) {
-    return sentenceEndMatch[1].trim();
-  }
-
-  const truncatedValue = value.slice(0, maxLength).trimEnd();
-  const lastSpaceIndex = truncatedValue.lastIndexOf(" ");
-
-  if (lastSpaceIndex > Math.floor(maxLength * 0.7)) {
-    return truncatedValue.slice(0, lastSpaceIndex).trimEnd();
-  }
-
-  return truncatedValue;
 }
 
 function ensureReflectionTerminal(
@@ -993,21 +961,10 @@ function ensureReflectionTerminal(
       return null;
     }
 
-    return looksLikeQuestion(value) ? appendTerminal(value, "?") : null;
+    return looksLikeQuestion(value) ? `${value}?` : null;
   }
 
-  return hasTerminalPunctuation(value) ? value : appendTerminal(value, ".");
-}
-
-function appendTerminal(value: string, terminal: "." | "?") {
-  if (value.length < maxReflectionTextLength) {
-    return `${value}${terminal}`;
-  }
-
-  return `${truncateReflectionText(
-    value,
-    maxReflectionTextLength - terminal.length,
-  )}${terminal}`;
+  return hasTerminalPunctuation(value) ? value : `${value}.`;
 }
 
 function looksLikeQuestion(value: string) {
@@ -1024,7 +981,6 @@ function isIncompleteReflectionText(value: string) {
   const trimmedValue = value.trim();
 
   if (
-    trimmedValue.length > maxReflectionTextLength ||
     /(\.\.\.|…)$/.test(trimmedValue) ||
     /[,;:]$/.test(trimmedValue)
   ) {

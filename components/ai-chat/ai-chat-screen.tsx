@@ -9,6 +9,8 @@ import {
   Animated,
   Keyboard,
   KeyboardAvoidingView,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   ScrollView,
   Text,
@@ -21,6 +23,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
+import { AIResponseRenderer } from "@/components/ai/ai-response-renderer";
 import { ScreenErrorState } from "@/components/states/ScreenErrorState";
 import { CONNECTION_STATE_COLORS } from "@/constants/theme";
 import { useAppDialog } from "@/hooks/useAppDialog";
@@ -28,6 +31,7 @@ import { useConnectivity } from "@/hooks/useConnectivity";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
 import { generateLocalJournalResponse } from "@/lib/ai/localJournalAssistant";
 import { generateRemoteJournalResponse } from "@/lib/ai/remoteJournalAssistant";
+import { addSafeBreakOpportunities } from "@/lib/text/add-safe-break-opportunities";
 import { useJournalStore } from "@/store/journal-store";
 import { useChatStore } from "@/store/useChatStore";
 import type { ChatMessage } from "@/types/chat";
@@ -52,15 +56,7 @@ const chatMessageTextStyle = {
   paddingBottom: 8,
   paddingTop: 3,
 } as const;
-const assistantMessageTextStyle = {
-  flexShrink: 1,
-  flexWrap: "wrap",
-  includeFontPadding: true,
-  overflow: "visible",
-  paddingBottom: 8,
-  paddingRight: 3,
-  paddingTop: 3,
-} as const;
+const nearBottomThreshold = 80;
 
 export function AiChatScreen({
   avatarUrl,
@@ -73,6 +69,7 @@ export function AiChatScreen({
   const connectivity = useConnectivity();
   const requestIdRef = useRef(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const isNearBottomRef = useRef(true);
   const [message, setMessage] = useState("");
   const [composerTextHeight, setComposerTextHeight] = useState(
     minComposerTextHeight,
@@ -80,6 +77,7 @@ export function AiChatScreen({
   const [isThinking, setIsThinking] = useState(false);
   const [isEmojiPickerVisible, setIsEmojiPickerVisible] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const journalEntries = useJournalStore((state) => state.entries);
   const chatMessages = useChatStore((state) => state.messages);
   const chatHasHydrated = useChatStore((state) => state.hasHydrated);
@@ -151,7 +149,9 @@ export function AiChatScreen({
 
   useEffect(() => {
     requestIdRef.current += 1;
+    isNearBottomRef.current = true;
     setIsThinking(false);
+    setShowJumpToLatest(false);
   }, [userId]);
 
   useEffect(() => {
@@ -236,6 +236,36 @@ export function AiChatScreen({
     );
   }
 
+  function handleChatScroll(
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const isNearBottom =
+      contentOffset.y + layoutMeasurement.height >=
+      contentSize.height - nearBottomThreshold;
+
+    isNearBottomRef.current = isNearBottom;
+
+    if (isNearBottom) {
+      setShowJumpToLatest(false);
+    }
+  }
+
+  function handleChatContentSizeChange() {
+    if (isNearBottomRef.current) {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+      return;
+    }
+
+    setShowJumpToLatest(true);
+  }
+
+  function handleJumpToLatest() {
+    isNearBottomRef.current = true;
+    setShowJumpToLatest(false);
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  }
+
   async function handleSendMessage(nextMessage = message) {
     const trimmedMessage = nextMessage.trim();
 
@@ -299,6 +329,7 @@ export function AiChatScreen({
         content: remoteResponse.message,
         createdAt: new Date().toISOString(),
         id: createChatMessageId(),
+        isPartial: remoteResponse.isPartial,
         relatedEntryIds: remoteResponse.relatedEntryIds,
         role: "assistant",
         source: remoteResponse.source,
@@ -414,8 +445,10 @@ export function AiChatScreen({
           paddingTop: 16,
         }}
         keyboardShouldPersistTaps="handled"
-        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd()}
+        onContentSizeChange={handleChatContentSizeChange}
+        onScroll={handleChatScroll}
         ref={scrollViewRef}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
         <View className="items-center">
@@ -472,6 +505,21 @@ export function AiChatScreen({
         </View>
 
       </ScrollView>
+
+      {showJumpToLatest ? (
+        <View className="items-center px-6 pb-2">
+          <Pressable
+            accessibilityRole="button"
+            className="min-h-10 items-center justify-center rounded-full bg-white px-5"
+            onPress={handleJumpToLatest}
+            style={{ boxShadow: "0 3px 10px rgba(39, 39, 42, 0.16)" }}
+          >
+            <Text className="text-[14px] font-bold leading-6 text-[#FF2056]">
+              Jump to latest
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <LinearGradient
         colors={["rgba(250, 247, 242, 0)", "#FAF7F2"]}
@@ -707,12 +755,22 @@ function ChatBubble({
           overflow: "visible",
         }}
       >
-        <BubbleMessageText
-          className="text-[16px] text-[#51515B]"
-          style={assistantMessageTextStyle}
-          text={messageText}
-          selectable={false}
+        <AIResponseRenderer
+          content={messageText}
+          diagnosticLabel="ai_chat_message"
+          testID={`assistant-message-${message.id}`}
+          variant="chat"
         />
+        {message.isPartial ? (
+          <Text
+            accessibilityRole="alert"
+            className="mt-3 text-[13px] font-semibold leading-6 text-[#9F1239]"
+            selectable
+          >
+            This response stopped before it was complete. Ask DearDiary to
+            continue, or try your question again.
+          </Text>
+        ) : null}
       </LinearGradient>
       <Text className="mt-2 pl-1 text-[11px] font-medium leading-4 text-[#A1A1AA]">
         {messageTime}
@@ -739,7 +797,7 @@ function BubbleMessageText({
       selectable={selectable}
       style={style}
     >
-      {text}
+      {addSafeBreakOpportunities(text)}
     </Text>
   );
 }

@@ -1,5 +1,6 @@
 import { ScrollView, Text, View } from "react-native";
 
+import { AIResponseRenderer } from "@/components/ai/ai-response-renderer";
 import {
   formatMoodLabel,
   formatReportDate,
@@ -95,13 +96,13 @@ export function MoodJourneyChart({ data, explanation }: MoodJourneyChartProps) {
           </View>
         ))}
       </ScrollView>
-      <Text
-        allowFontScaling={false}
-        className="mt-4 text-[15px] leading-6"
-        style={{ color: moodJourneyColors.explanationText }}
-      >
-        {explanation}
-      </Text>
+      <View className="mt-4 min-w-0">
+        <AIResponseRenderer
+          content={explanation}
+          diagnosticLabel="insight_report_emotional_journey"
+          variant="report"
+        />
+      </View>
     </View>
   );
 }

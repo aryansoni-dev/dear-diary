@@ -8,6 +8,8 @@ import {
   isFaultEnabled,
   throwIfFaultEnabled,
 } from "@/lib/dev/faultInjection";
+import { getAIInsightReportTextLength } from "@/lib/ai/get-ai-text-length";
+import { logAITextIntegrity } from "@/lib/ai/log-ai-text-integrity";
 import {
   isAIInsightReport,
   mapAIInsightReportRow,
@@ -127,6 +129,12 @@ export async function generateAIInsightReport(params: {
       "invalid_response",
     );
   }
+
+  logAITextIntegrity({
+    length: getAIInsightReportTextLength(data.report),
+    stage: "validated",
+    surface: `${data.report.periodType}_insight_report`,
+  });
 
   return data.report;
 }

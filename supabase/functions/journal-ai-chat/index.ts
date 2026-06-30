@@ -144,6 +144,7 @@ type JournalEntryRow = {
 
 type ProviderMessage = {
   content: string;
+  finishReason: string | null;
   role: "assistant";
 };
 
@@ -164,6 +165,7 @@ class AIProviderError extends Error {
     message: string,
     readonly code: string,
     readonly status?: number,
+    readonly partialContent?: string,
   ) {
     super(message);
     this.name = "AIProviderError";
@@ -496,6 +498,18 @@ Deno.serve(async (request) => {
         source: "remote_ai",
       });
     } catch (error) {
+      if (isTruncatedProviderError(error)) {
+        return jsonResponse({
+          isPartial: true,
+          message: error.partialContent,
+          relatedEntryIds: summaryEntries
+            .slice(-maxRelatedEntryCount)
+            .map((entry) => entry.id),
+          requestId,
+          source: "remote_ai",
+        });
+      }
+
       const providerError =
         error instanceof AIProviderError
           ? {
@@ -565,6 +579,16 @@ Deno.serve(async (request) => {
       source: "remote_ai",
     });
   } catch (error) {
+    if (isTruncatedProviderError(error)) {
+      return jsonResponse({
+        isPartial: true,
+        message: error.partialContent,
+        relatedEntryIds,
+        requestId,
+        source: "remote_ai",
+      });
+    }
+
     const providerError =
       error instanceof AIProviderError
         ? {
@@ -1510,6 +1534,20 @@ async function callAIProvider(
       );
     }
 
+    console.info("journal-ai-chat provider_response_received", {
+      characterCount: content.length,
+      finishReason: providerMessage?.finishReason,
+    });
+
+    if (providerMessage?.finishReason === "length") {
+      throw new AIProviderError(
+        "The AI provider response was cut off.",
+        "provider_response_truncated",
+        undefined,
+        content,
+      );
+    }
+
     return content;
   } finally {
     clearTimeout(timeout);
@@ -1567,8 +1605,23 @@ function getProviderMessage(body: unknown): ProviderMessage | null {
 
   return {
     content: message.content,
+    finishReason:
+      typeof firstChoice.finish_reason === "string"
+        ? firstChoice.finish_reason
+        : null,
     role: "assistant",
   };
+}
+
+function isTruncatedProviderError(
+  error: unknown,
+): error is AIProviderError & { partialContent: string } {
+  return (
+    error instanceof AIProviderError &&
+    error.code === "provider_response_truncated" &&
+    typeof error.partialContent === "string" &&
+    error.partialContent.length > 0
+  );
 }
 
 function detectChatIntent(
