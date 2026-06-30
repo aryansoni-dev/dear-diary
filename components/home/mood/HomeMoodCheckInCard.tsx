@@ -223,7 +223,7 @@ function HeartMoodAccent() {
       <Image
         source={images.moodCardHeart}
         contentFit="contain"
-        accessibilityLabel="Decorative heart and leaves"
+        accessible={false}
         style={{ height: 78, width: 92 }}
       />
     </View>

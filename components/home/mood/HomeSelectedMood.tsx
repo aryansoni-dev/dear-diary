@@ -102,7 +102,6 @@ export function HomeSelectedMood({
         <View className="min-w-0 flex-1 gap-2">
           <Text
             adjustsFontSizeToFit
-            allowFontScaling={false}
             className="font-semibold leading-6 text-[#303039]"
             minimumFontScale={0.86}
             numberOfLines={1}
@@ -110,23 +109,24 @@ export function HomeSelectedMood({
           >
             {isSaved ? `Feeling ${mood.label}` : `You selected ${mood.label}`}
           </Text>
-          {isSaved && savedAt ? (
+          {isSaved ? (
             <View className="flex-row items-center gap-2">
               <Feather name="clock" size={16} color="#71717B" />
               <Text
                 adjustsFontSizeToFit
-                allowFontScaling={false}
                 className="flex-1 text-[13px] font-medium leading-6 text-[#71717B]"
                 minimumFontScale={0.86}
                 numberOfLines={1}
               >
-                Logged today at {formatSavedTime(savedAt)}
+                Logged today{savedAt ? ` at ${formatSavedTime(savedAt)}` : ""}
               </Text>
             </View>
           ) : (
             <Text
-              allowFontScaling={false}
+              adjustsFontSizeToFit
               className="text-[13px] font-medium leading-6 text-[#71717B]"
+              minimumFontScale={0.86}
+              numberOfLines={2}
             >
               Save this as today&apos;s check-in.
             </Text>

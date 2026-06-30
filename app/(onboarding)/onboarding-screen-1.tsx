@@ -86,7 +86,7 @@ export default function OnboardingScreenOne() {
             isVeryCompact ? 24 : isCompact ? 32 : 46,
           ),
         }}
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior="never"
         showsVerticalScrollIndicator={false}
       >
         <Stack.Screen options={{ headerShown: false }} />

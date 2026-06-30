@@ -106,7 +106,7 @@ export default function OnboardingScreenTwo() {
           paddingHorizontal: isNarrow ? 24 : 32,
           paddingTop: topPadding,
         }}
-        scrollEnabled={false}
+        scrollEnabled
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
@@ -146,9 +146,9 @@ export default function OnboardingScreenTwo() {
         <View
           className="w-full items-center"
           style={{
-            height: mainHeight,
             justifyContent: "space-between",
             maxWidth: contentWidth,
+            minHeight: Math.max(mainHeight, 0),
           }}
         >
           <View

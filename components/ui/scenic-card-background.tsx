@@ -56,22 +56,16 @@ export function ScenicCardBackground({
   return (
     <>
       <Image
+        className="absolute inset-0"
         contentFit="cover"
         pointerEvents="none"
         source={source}
-        style={{
-          bottom: 0,
-          left: 0,
-          position: "absolute",
-          right: 0,
-          top: 0,
-        }}
       />
       {blurRadius > 0 ? (
         <View
           pointerEvents="none"
-          className="absolute left-0 top-0 overflow-hidden"
-          style={{ bottom: 0, width: resolvedEffectWidth }}
+          className="absolute bottom-0 left-0 top-0 overflow-hidden"
+          style={{ width: resolvedEffectWidth }}
         >
           <Image
             blurRadius={blurRadius}
@@ -82,18 +76,13 @@ export function ScenicCardBackground({
         </View>
       ) : null}
       <LinearGradient
+        className="absolute bottom-0 left-0 top-0"
         colors={cardFadeColors[variant]}
         end={{ x: 1, y: 0.5 }}
         locations={[0, 0.46, 0.76, 1]}
         pointerEvents="none"
         start={{ x: 0, y: 0.5 }}
-        style={{
-          bottom: 0,
-          left: 0,
-          position: "absolute",
-          top: 0,
-          width: resolvedEffectWidth,
-        }}
+        style={{ width: resolvedEffectWidth }}
       />
     </>
   );

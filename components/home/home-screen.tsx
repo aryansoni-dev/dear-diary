@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -139,10 +139,11 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const topBackgroundHeight = Math.max(188, insets.top + 148);
   const homeCardWidth = Math.max(width - 56, 0);
-  const displayName = firstName?.trim() || "Aryan";
-  const greeting = useMemo(() => getGreeting(), []);
+  const currentTime = useCurrentMinute();
+  const displayName = firstName?.trim() || "";
+  const greeting = useMemo(() => getGreeting(currentTime), [currentTime]);
   const greetingBackground = greetingBackgrounds[greeting.period];
-  const todayLabel = useMemo(() => formatTodayDate(), []);
+  const todayLabel = useMemo(() => formatTodayDate(currentTime), [currentTime]);
   const reflectionStreak = useMemo(() => getReflectionStreak(entries), [entries]);
   const morningIntention = useMemo(
     () => getTodayMorningIntention(entries),
@@ -233,8 +234,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
               {todayLabel}
             </Text>
             <Text className="text-[28px] font-semibold leading-[38px] tracking-normal text-[#27272A]">
-              {greeting.label},{"\n"}
-              {displayName}
+              {displayName ? `${greeting.label},\n${displayName}` : greeting.label}
             </Text>
           </View>
 
@@ -243,7 +243,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
             style={{ boxShadow: "0 8px 18px rgba(39, 39, 42, 0.16)" }}
           >
             <Image
-              accessibilityLabel={displayName}
+              accessibilityLabel={displayName || "Profile avatar"}
               contentFit="cover"
               source={avatarUrl ? { uri: avatarUrl } : images.appLogo}
               style={{ height: "100%", width: "100%" }}
@@ -569,8 +569,22 @@ function getEntryPreview(entry: StoredJournalEntry) {
   return entry.content.trim() || entry.title || "Open your morning intention...";
 }
 
-function getGreeting(): { label: string; period: GreetingPeriod } {
-  const hour = new Date().getHours();
+function useCurrentMinute() {
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  return currentTime;
+}
+
+function getGreeting(date: Date): { label: string; period: GreetingPeriod } {
+  const hour = date.getHours();
 
   if (hour < 12) {
     return { label: "Good Morning", period: "morning" };
@@ -583,12 +597,12 @@ function getGreeting(): { label: string; period: GreetingPeriod } {
   return { label: "Good Evening", period: "evening" };
 }
 
-function formatTodayDate() {
+function formatTodayDate(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "long",
     weekday: "long",
-  }).format(new Date());
+  }).format(date);
 }
 
 function formatRecentEntryDate(value: string) {

@@ -81,7 +81,7 @@ export function OnboardingRitualCard({
           </View>
           <Text
             allowFontScaling={false}
-            className="font-bold leading-6"
+            className="font-bold"
             numberOfLines={1}
             style={{
               color: ritualColors.deepPlum,
@@ -95,7 +95,7 @@ export function OnboardingRitualCard({
 
         <Text
           allowFontScaling={false}
-          className="font-medium leading-6"
+          className="font-medium"
           numberOfLines={3}
           style={{
             color: ritualColors.muted,
@@ -116,7 +116,7 @@ export function OnboardingRitualCard({
         >
           <Text
             allowFontScaling={false}
-            className="font-medium leading-6"
+            className="font-medium"
             numberOfLines={1}
             style={{
               color: "#9893A5",
@@ -217,7 +217,7 @@ export function OnboardingRitualFeatures({
             </View>
             <Text
               allowFontScaling={false}
-              className="w-full text-center font-bold leading-6"
+              className="w-full text-center font-bold"
               numberOfLines={1}
               style={{
                 color: "#292631",
@@ -230,7 +230,7 @@ export function OnboardingRitualFeatures({
             </Text>
             <Text
               allowFontScaling={false}
-              className="w-full text-center leading-6"
+              className="w-full text-center"
               numberOfLines={2}
               style={{
                 color: ritualColors.muted,

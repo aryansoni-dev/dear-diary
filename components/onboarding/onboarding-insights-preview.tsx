@@ -95,7 +95,7 @@ export function InsightFeature({
       <Text
         adjustsFontSizeToFit
         allowFontScaling={false}
-        className="text-center font-bold leading-6"
+        className="text-center font-bold"
         minimumFontScale={0.82}
         numberOfLines={1}
         style={{
@@ -109,7 +109,7 @@ export function InsightFeature({
       <Text
         adjustsFontSizeToFit
         allowFontScaling={false}
-        className="text-center leading-6"
+        className="text-center"
         minimumFontScale={0.82}
         numberOfLines={2}
         style={{
