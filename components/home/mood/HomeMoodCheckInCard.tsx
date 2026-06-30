@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
+import { Image } from "expo-image";
 import { Pressable, Text, View } from "react-native";
 
 import { HomeSelectedMood } from "@/components/home/mood/HomeSelectedMood";
 import { MoodCheckInAction } from "@/components/home/mood/MoodCheckInAction";
 import { MoodSpectrumSelector } from "@/components/home/mood/MoodSpectrumSelector";
+import { images } from "@/constants/images";
 import { moodList, moodMetadata } from "@/constants/moods";
 import { useAutoSync } from "@/hooks/useAutoSync";
 import { useConnectivity } from "@/hooks/useConnectivity";
@@ -140,13 +142,16 @@ export function HomeMoodCheckInCard() {
       className="mb-9 gap-5 rounded-[24px] bg-white px-5 py-6"
       style={{ boxShadow: "0 12px 34px rgba(0, 0, 0, 0.08)" }}
     >
-      <View className="gap-1">
-        <Text className="text-[23px] font-semibold leading-6 text-[#27272A]">
-          {homeMoodPrompt}
-        </Text>
-        <Text className="text-[15px] font-medium leading-6 text-[#71717B]">
-          Take a quiet moment to check in with yourself.
-        </Text>
+      <View className="flex-row items-start justify-between gap-4">
+        <View className="flex-1 gap-1">
+          <Text className="text-[23px] font-semibold leading-6 text-[#27272A]">
+            {homeMoodPrompt}
+          </Text>
+          <Text className="text-[15px] font-medium leading-6 text-[#71717B]">
+            Take a quiet moment to check in with yourself.
+          </Text>
+        </View>
+        <HeartMoodAccent />
       </View>
 
       <HomeSelectedMood
@@ -204,6 +209,22 @@ export function HomeMoodCheckInCard() {
         isSaving={isSaving}
         label={actionLabel}
         onPress={handleSaveMood}
+      />
+    </View>
+  );
+}
+
+function HeartMoodAccent() {
+  return (
+    <View
+      pointerEvents="none"
+      className="mt-1 h-[78px] w-[92px] items-center justify-center"
+    >
+      <Image
+        source={images.moodCardHeart}
+        contentFit="contain"
+        accessibilityLabel="Decorative heart and leaves"
+        style={{ height: 78, width: 92 }}
       />
     </View>
   );

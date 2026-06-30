@@ -4,7 +4,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HomeMoodCheckInCard } from "@/components/home/mood/HomeMoodCheckInCard";
@@ -13,6 +19,7 @@ import {
   bottomTabBarBaseHeight,
 } from "@/components/navigation/bottom-tab-bar";
 import { ScreenErrorState } from "@/components/states/ScreenErrorState";
+import { ScenicCardBackground } from "@/components/ui/scenic-card-background";
 import { images } from "@/constants/images";
 import { fallbackMoodMetadata, moodMetadata } from "@/constants/moods";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
@@ -21,7 +28,10 @@ import {
   useJournalHydrationStore,
   useJournalStore,
 } from "@/store/journal-store";
-import type { JournalEntry as StoredJournalEntry } from "@/types/journal";
+import type {
+  EntryType,
+  JournalEntry as StoredJournalEntry,
+} from "@/types/journal";
 
 type HomeScreenProps = {
   avatarUrl?: string;
@@ -30,6 +40,51 @@ type HomeScreenProps = {
 
 const colors = {
   primary: "#FF2056",
+};
+const homeScenicCardAspectRatio = 1.6;
+
+type GreetingPeriod = "evening" | "morning" | "noon";
+
+const greetingBackgrounds = {
+  evening: images.eveningCard,
+  morning: images.morningCard,
+  noon: images.noon,
+} as const;
+
+const entryTypeMetadata: Record<
+  EntryType,
+  { color: string; icon: string; label: string }
+> = {
+  ai_reflection: {
+    color: "#A3B31E",
+    icon: "✨",
+    label: "AI prompt",
+  },
+  daily_prompt: {
+    color: "#7C9FD9",
+    icon: "💭",
+    label: "Daily prompt",
+  },
+  evening_reflection: {
+    color: "#7C9FD9",
+    icon: "🌙",
+    label: "Evening reflection",
+  },
+  free_write: {
+    color: "#71717B",
+    icon: "✍️",
+    label: "Journal entry",
+  },
+  gratitude: {
+    color: "#FF8A3D",
+    icon: "🙏",
+    label: "Gratitude",
+  },
+  morning_intention: {
+    color: "#FFB02E",
+    icon: "☀️",
+    label: "Morning intention",
+  },
 };
 
 const aiReflectionPrompt = "What made you smile unexpectedly today?";
@@ -56,14 +111,21 @@ const morningIntentionHref = {
 
 type HomeRecentEntry = {
   backgroundColor: string;
+  borderColor: string;
   date: string;
   emoji: string;
   excerpt: string;
   id: string;
+  moodColor: string;
+  moodLabel: string;
   title: string;
+  typeColor: string;
+  typeIcon: string;
+  typeLabel: string;
 };
 
 export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
+  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const entries = useJournalStore((state) => state.entries);
@@ -75,8 +137,11 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
   );
   const showHydrationState = useDelayedVisibility(!hasHydrated);
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
+  const topBackgroundHeight = Math.max(188, insets.top + 148);
+  const homeCardWidth = Math.max(width - 56, 0);
   const displayName = firstName?.trim() || "Aryan";
   const greeting = useMemo(() => getGreeting(), []);
+  const greetingBackground = greetingBackgrounds[greeting.period];
   const todayLabel = useMemo(() => formatTodayDate(), []);
   const reflectionStreak = useMemo(() => getReflectionStreak(entries), [entries]);
   const morningIntention = useMemo(
@@ -120,13 +185,31 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
   return (
     <View className="flex-1 bg-white">
       <StatusBar hidden />
-      <LinearGradient
-        colors={["#EFDDFC", "#FFE0EC", "#FFFFFF"]}
-        end={{ x: 1, y: 1 }}
-        locations={[0, 0.58, 1]}
-        start={{ x: 0, y: 0 }}
+      <Image
+        contentFit="cover"
+        pointerEvents="none"
+        source={greetingBackground}
         style={{
-          height: 344,
+          height: topBackgroundHeight,
+          left: 0,
+          position: "absolute",
+          right: 0,
+          top: 0,
+        }}
+      />
+      <LinearGradient
+        colors={[
+          "rgba(255, 255, 255, 0.02)",
+          "rgba(255, 224, 236, 0.16)",
+          "rgba(255, 255, 255, 0.76)",
+          "#FFFFFF",
+        ]}
+        end={{ x: 0.5, y: 1 }}
+        locations={[0, 0.64, 0.9, 1]}
+        pointerEvents="none"
+        start={{ x: 0.5, y: 0 }}
+        style={{
+          height: topBackgroundHeight,
           left: 0,
           position: "absolute",
           right: 0,
@@ -146,11 +229,11 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
       >
         <View className="mb-6 flex-row items-center justify-between">
           <View className="gap-1">
-            <Text className="text-[15px] font-medium leading-5 text-[#71717B]">
+            <Text className="text-[15px] font-medium leading-6 text-[#71717B]">
               {todayLabel}
             </Text>
             <Text className="text-[28px] font-semibold leading-[38px] tracking-normal text-[#27272A]">
-              {greeting},{"\n"}
+              {greeting.label},{"\n"}
               {displayName}
             </Text>
           </View>
@@ -169,7 +252,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
         </View>
 
         <View
-          className="mb-7 flex-row items-center gap-4 rounded-[20px] bg-[#FFDDE8] px-6 py-5"
+          className="mb-7 flex-row items-center gap-4 rounded-[20px] bg-white px-6 py-5"
           style={{ boxShadow: "0 6px 20px rgba(0, 0, 0, 0.08)" }}
         >
           <Text className="text-[31px] leading-9">🔥</Text>
@@ -184,35 +267,42 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
         </View>
 
         <View
-          className="mb-9 rounded-[24px] bg-white px-7 py-8"
-          style={{ boxShadow: "0 12px 34px rgba(0, 0, 0, 0.08)" }}
+          className="mb-9 w-full overflow-hidden rounded-[30px] border-[6px] border-white/80 bg-[#F9E2EC]"
+          style={{
+            aspectRatio: homeScenicCardAspectRatio,
+            boxShadow: "0 20px 48px -22px rgba(190, 80, 125, 0.5)",
+          }}
         >
-          <View className="mb-5 flex-row items-center gap-3">
-            <View className="size-8 items-center justify-center rounded-full bg-white/70">
-              <Ionicons
-                color={colors.primary}
-                name="sparkles-outline"
-                size={21}
-              />
+          <ScenicCardBackground cardWidth={homeCardWidth} variant="ai" />
+
+          <View className="h-full px-5 py-5">
+            <View className="mb-3 flex-row items-center gap-3">
+              <View className="size-8 items-center justify-center rounded-full bg-white/70">
+                <Ionicons
+                  color={colors.primary}
+                  name="sparkles-outline"
+                  size={21}
+                />
+              </View>
+              <Text className="flex-1 text-[13px] font-semibold uppercase leading-6 tracking-normal text-zinc-950/45">
+                AI Reflection Prompt
+              </Text>
             </View>
-            <Text className="flex-1 text-[13px] font-semibold uppercase leading-5 tracking-normal text-zinc-950/45">
-              AI Reflection Prompt
+
+            <Text className="mb-3 text-[21px] font-semibold leading-6 text-[#27272A]">
+              {aiReflectionPrompt.replace(" unexpectedly", "\nunexpectedly")}
             </Text>
+
+            <Pressable
+              accessibilityRole="button"
+              className="mt-auto h-12 items-center justify-center rounded-[17px] bg-[#FF2056]"
+              onPress={() => router.push(journalEditorHref)}
+            >
+              <Text className="text-[19px] font-semibold leading-6 text-white">
+                Start Writing ✨
+              </Text>
+            </Pressable>
           </View>
-
-          <Text className="mb-6 text-[24px] font-semibold leading-5 text-[#27272A]">
-            {aiReflectionPrompt.replace(" unexpectedly", "\nunexpectedly")}
-          </Text>
-
-          <Pressable
-            accessibilityRole="button"
-            className="h-[58px] items-center justify-center rounded-[17px] bg-[#FF2056]"
-            onPress={() => router.push(journalEditorHref)}
-          >
-            <Text className="text-[19px] font-semibold leading-6 text-white">
-              Start Writing ✨
-            </Text>
-          </Pressable>
         </View>
 
         <HomeMoodCheckInCard />
@@ -222,47 +312,57 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
             Morning Intention
           </Text>
           <View
-            className="rounded-[24px] bg-[#D8EEDB] px-7 py-7"
-            style={{ boxShadow: "0 6px 20px rgba(0, 0, 0, 0.08)" }}
+            className="w-full overflow-hidden rounded-[30px] border-[6px] border-white/80 bg-[#E8F4E3]"
+            style={{
+              aspectRatio: homeScenicCardAspectRatio,
+              boxShadow: "0 20px 48px -22px rgba(61, 162, 104, 0.42)",
+            }}
           >
-            <View className="mb-4 flex-row items-center gap-4">
-              <View className="size-12 items-center justify-center rounded-full bg-white/70">
-                <Feather name="target" size={19} color="#0F9F7A" />
+            <ScenicCardBackground cardWidth={homeCardWidth} variant="morning" />
+
+            <View className="h-full px-5 py-5">
+              <View className="mb-2 flex-row items-center gap-3">
+                <View className="size-10 items-center justify-center rounded-full bg-white/75">
+                  <Feather name="target" size={19} color="#0F9F7A" />
+                </View>
+                <Text className="text-[18px] font-semibold leading-6 text-[#303039]">
+                  {intentionTitle}
+                </Text>
               </View>
-              <Text className="text-[19px] font-semibold leading-7 text-[#303039]">
-                {intentionTitle}
-              </Text>
-            </View>
-            <Text className="mb-5 max-w-[286px] text-[17px] leading-6 text-zinc-950/60">
-              {intentionSubtitle}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: !hasHydrated }}
-              className="min-h-[58px] justify-center rounded-[17px] bg-white/60 px-5"
-              onPress={() => {
-                if (!hasHydrated) {
-                  return;
-                }
-
-                if (morningIntention) {
-                  router.push({
-                    pathname: "/journal/[id]",
-                    params: { id: morningIntention.id, source: "home" },
-                  });
-                  return;
-                }
-
-                router.push(morningIntentionHref);
-              }}
-            >
               <Text
-                className="text-[16px] leading-6 text-[#71717B]"
-                numberOfLines={3}
+                className="mb-2 max-w-[286px] text-[16px] leading-6 text-zinc-950/60"
+                numberOfLines={2}
               >
-                {intentionBody}
+                {intentionSubtitle}
               </Text>
-            </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !hasHydrated }}
+                className="mt-auto h-[52px] justify-center rounded-[17px] bg-white/70 px-4"
+                onPress={() => {
+                  if (!hasHydrated) {
+                    return;
+                  }
+
+                  if (morningIntention) {
+                    router.push({
+                      pathname: "/journal/[id]",
+                      params: { id: morningIntention.id, source: "home" },
+                    });
+                    return;
+                  }
+
+                  router.push(morningIntentionHref);
+                }}
+              >
+                <Text
+                  className="text-[16px] leading-6 text-[#71717B]"
+                  numberOfLines={2}
+                >
+                  {intentionBody}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -307,7 +407,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
               <Pressable
                 accessibilityLabel={`Open ${entry.title}`}
                 accessibilityRole="button"
-                className="rounded-[24px] px-7 py-6"
+                className="rounded-[24px] border bg-white px-5 py-5"
                 key={entry.id}
                 onPress={() =>
                   router.push({
@@ -316,25 +416,63 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
                   })
                 }
                 style={{
-                  backgroundColor: entry.backgroundColor,
-                  boxShadow: "0 6px 20px rgba(0, 0, 0, 0.08)",
+                  borderColor: entry.borderColor,
+                  boxShadow: "0 14px 34px rgba(39, 39, 42, 0.06)",
                 }}
               >
-                <View className="mb-4 flex-row items-center justify-between">
-                  <Text className="text-[14px] font-medium leading-5 text-[#71717B]">
+                <View className="mb-5 flex-row items-center justify-between gap-4">
+                  <View
+                    className="min-h-11 flex-row items-center gap-2 rounded-[15px] px-3"
+                    style={{ backgroundColor: entry.backgroundColor }}
+                  >
+                    <Text className="text-[20px] leading-6">{entry.emoji}</Text>
+                    <Text
+                      className="text-[17px] font-semibold leading-6"
+                      style={{ color: entry.moodColor }}
+                    >
+                      {entry.moodLabel}
+                    </Text>
+                  </View>
+
+                  <Text className="text-[16px] font-medium leading-6 text-[#71717B]">
                     {entry.date}
                   </Text>
-                  <Text className="text-[31px] leading-5">{entry.emoji}</Text>
                 </View>
-                <Text className="mb-1 text-[19px] font-semibold leading-5 text-[#303039]">
+
+                <Text
+                  className="text-[21px] font-semibold leading-6 text-[#27272A]"
+                  numberOfLines={2}
+                >
                   {entry.title}
                 </Text>
                 <Text
-                  className="text-[17px] mt-3 leading-5 text-zinc-950/60"
+                  className="mt-4 text-[17px] leading-6 text-[#71717B]"
                   numberOfLines={3}
                 >
                   {entry.excerpt}
                 </Text>
+
+                <View className="my-5 h-px bg-[#E9E4E6]" />
+
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1 flex-row items-center gap-3">
+                    <Text
+                      className="text-[22px] leading-6"
+                      style={{ color: entry.typeColor }}
+                    >
+                      {entry.typeIcon}
+                    </Text>
+                    <Text className="flex-1 text-[17px] leading-6 text-[#71717B]">
+                      {entry.typeLabel}
+                    </Text>
+                  </View>
+
+                  <Ionicons
+                    color="#71717B"
+                    name="chevron-forward"
+                    size={24}
+                  />
+                </View>
               </Pressable>
             ))
           )}
@@ -393,14 +531,21 @@ function RecentEntriesEmptyState({
 function toHomeRecentEntry(entry: StoredJournalEntry): HomeRecentEntry {
   const visual = entry.mood ? moodMetadata[entry.mood] : fallbackMoodMetadata;
   const content = entry.content.trim();
+  const entryType = entryTypeMetadata[entry.type];
 
   return {
     backgroundColor: visual.backgroundColor,
+    borderColor: visual.backgroundColor,
     date: formatRecentEntryDate(entry.createdAt),
     emoji: visual.emoji,
     excerpt: content || entry.prompt || "No body text yet.",
     id: entry.id,
+    moodColor: visual.dotColor,
+    moodLabel: visual.label,
     title: entry.title,
+    typeColor: entryType.color,
+    typeIcon: entryType.icon,
+    typeLabel: entryType.label,
   };
 }
 
@@ -424,18 +569,18 @@ function getEntryPreview(entry: StoredJournalEntry) {
   return entry.content.trim() || entry.title || "Open your morning intention...";
 }
 
-function getGreeting() {
+function getGreeting(): { label: string; period: GreetingPeriod } {
   const hour = new Date().getHours();
 
   if (hour < 12) {
-    return "Good Morning";
+    return { label: "Good Morning", period: "morning" };
   }
 
   if (hour < 17) {
-    return "Good Afternoon";
+    return { label: "Good Afternoon", period: "noon" };
   }
 
-  return "Good Evening";
+  return { label: "Good Evening", period: "evening" };
 }
 
 function formatTodayDate() {

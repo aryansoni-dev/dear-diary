@@ -23,6 +23,7 @@ import {
 
 import { images } from "@/constants/images";
 import { useAppDialog } from "@/hooks/useAppDialog";
+import { useOnboardingStore } from "@/store/onboarding-store";
 
 import { AuthTextField } from "./auth-text-field";
 import {
@@ -45,11 +46,13 @@ type AuthScreenProps = {
   heading: string;
   mode?: "login" | "signup";
   subheading: string;
+  showTemporaryOnboardingBackButton?: boolean;
 };
 
 type VerificationFlow = "signup" | "login-email-code" | null;
 
 const ssoRedirectUrl = AuthSession.makeRedirectUri({ path: "sso" });
+const onboardingHref = "/onboarding-screen-1" as Href;
 
 export function AuthScreen({
   buttonText,
@@ -60,6 +63,7 @@ export function AuthScreen({
   footerText,
   heading,
   mode = "signup",
+  showTemporaryOnboardingBackButton = false,
   subheading,
 }: AuthScreenProps) {
   const { height, width } = useWindowDimensions();
@@ -88,6 +92,7 @@ export function AuthScreen({
   const { fetchStatus: signUpFetchStatus, signUp } = useSignUp();
   const { startSSOFlow } = useSSO();
   const { showDialog } = useAppDialog();
+  const resetOnboarding = useOnboardingStore((state) => state.resetOnboarding);
   const isFetching =
     signInFetchStatus === "fetching" || signUpFetchStatus === "fetching";
   const isClerkReady = isAuthLoaded && !isFetching;
@@ -346,6 +351,11 @@ export function AuthScreen({
     }
   }
 
+  function handleTemporaryOnboardingBackPress() {
+    resetOnboarding();
+    router.replace(onboardingHref);
+  }
+
   return (
     <LinearGradient
       colors={["#FFF4FA", "#FAF7F2"]}
@@ -527,6 +537,18 @@ export function AuthScreen({
             >
               Take a moment.  Breathe.  Begin again.
             </Text>
+
+            {isLogin && showTemporaryOnboardingBackButton ? (
+              <Pressable
+                accessibilityRole="button"
+                className="rounded-full px-4 py-2"
+                onPress={handleTemporaryOnboardingBackPress}
+              >
+                <Text className="text-center text-[14px] font-semibold leading-6 text-[#ff2056]">
+                  Back to onboarding
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
       </ScrollView>

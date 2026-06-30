@@ -9,7 +9,6 @@ import {
 import type { EntryType } from "@/types/journal";
 
 export type ReflectPrompt = {
-  backgroundColor: string;
   iconColor: string;
   Icon: LucideIcon;
   prompt: string;
@@ -19,7 +18,6 @@ export type ReflectPrompt = {
 
 export const reflectPrompts: ReflectPrompt[] = [
   {
-    backgroundColor: "#F0E9FA",
     iconColor: "#FF2056",
     Icon: Heart,
     prompt: "How did today feel?",
@@ -27,7 +25,6 @@ export const reflectPrompts: ReflectPrompt[] = [
     type: "evening_reflection",
   },
   {
-    backgroundColor: "#E8EEFC",
     iconColor: "#367DBB",
     Icon: Mountain,
     prompt: "What challenged you today?",
@@ -35,7 +32,6 @@ export const reflectPrompts: ReflectPrompt[] = [
     type: "evening_reflection",
   },
   {
-    backgroundColor: "#DFF4E4",
     iconColor: "#1F8C50",
     Icon: Sparkle,
     prompt: "What are you grateful for?",
@@ -43,7 +39,6 @@ export const reflectPrompts: ReflectPrompt[] = [
     type: "gratitude",
   },
   {
-    backgroundColor: "#DFF2FC",
     iconColor: "#2F83B3",
     Icon: Wind,
     prompt: "What would you like to let go of?",
