@@ -1,49 +1,58 @@
-import { Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import {
+  Platform,
   Pressable,
-  ScrollView,
   Text,
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { OnboardingProgressHeader } from "@/components/onboarding/onboarding-progress-header";
+import {
+  OnboardingOverviewFeatureStrip,
+  OnboardingOverviewPreview,
+} from "@/components/onboarding/onboarding-overview-content";
+import { colors } from "@/constants/theme";
 import { useOnboardingStore } from "@/store/onboarding-store";
 
-const featureCards = [
-  {
-    icon: "book-open",
-    label: "Daily\nPrompts",
-    background: "#FFDDE8",
-    color: "#ff2056",
-  },
-  {
-    icon: "sparkles-outline",
-    label: "AI Insights",
-    background: "#D8EEDB",
-    color: "#059669",
-  },
-  {
-    icon: "bar-chart-2",
-    label: "Mood Trends",
-    background: "#F4EFFA",
-    color: "#8b5cf6",
-  },
-] as const;
+const deepPlum = "#251238";
+const mutedPlum = "#777188";
+const headingFontFamily = Platform.select({
+  android: "serif",
+  default: "Georgia",
+  ios: "Georgia",
+});
 
 export default function OnboardingScreenFive() {
-  const { height } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const completeOnboarding = useOnboardingStore(
     (state) => state.completeOnboarding,
   );
-  const isCompact = height < 760;
 
-  const heroHeight = isCompact ? 260 : 332;
-  const outerSize = isCompact ? 156 : 176;
-  const innerSize = isCompact ? 112 : 128;
-  const featureIconSize = isCompact ? 50 : 56;
+  const usableHeight = height - insets.top - insets.bottom;
+  const isTiny = usableHeight < 600;
+  const isCompact = usableHeight < 720;
+  const isMedium = usableHeight < 850;
+  const isNarrow = width < 380;
+  const horizontalPadding = isNarrow ? 18 : 24;
+  const contentWidth = Math.min(width - horizontalPadding * 2, 390);
+  const headerHeight = isTiny ? 34 : isCompact ? 40 : isMedium ? 44 : 48;
+  const headingSize = isTiny ? 23 : isCompact ? 27 : isMedium ? 29 : 31;
+  const headingLineHeight = headingSize + 4;
+  const subtitleSize = isTiny ? 10 : isCompact ? 11.5 : isMedium ? 13 : 14;
+  const subtitleLineHeight = isTiny ? 14 : isCompact ? 17 : isMedium ? 19 : 21;
+  const previewHeight = isTiny ? 140 : isCompact ? 205 : isMedium ? 270 : 330;
+  const featureHeight = isTiny ? 88 : isCompact ? 98 : isMedium ? 112 : 126;
+  const featureIconSize = isTiny ? 38 : isCompact ? 42 : isMedium ? 46 : 52;
+  const buttonHeight =
+    height < 680 ? 46 : height < 740 ? 50 : height < 860 ? 54 : 60;
+  const ctaTopPadding =
+    height < 680 ? 6 : height < 740 ? 8 : height < 860 ? 12 : 18;
+  const ctaGap = height < 680 ? 0 : height < 740 ? 2 : height < 860 ? 6 : 10;
 
   function handleStartWritingPress() {
     completeOnboarding();
@@ -57,236 +66,191 @@ export default function OnboardingScreenFive() {
 
   return (
     <LinearGradient
-      colors={["#F4EFFA", "#FFDDE8", "#FAF7F2"]}
-      locations={[0, 0.45, 1]}
+      colors={["#FFF5F7", "#FFF9F3", "#FFFDFC"]}
+      locations={[0, 0.55, 1]}
       style={{ flex: 1 }}
     >
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{
-          flexGrow: 1,
-          paddingBottom: isCompact ? 24 : 32,
-          paddingHorizontal: 32,
-          paddingTop: isCompact ? 40 : 64,
-        }}
-        contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={false}
-      >
-        <Stack.Screen options={{ headerShown: false }} />
-        <StatusBar hidden />
-
-      <View className="flex-row items-center justify-center gap-3">
-        <View className="size-2 rounded-full bg-[#ff2056]" />
-        <View className="size-2 rounded-full bg-[#ff2056]" />
-        <View className="size-2 rounded-full bg-[#ff2056]" />
-        <View className="size-2 rounded-full bg-[#ff2056]" />
-        <View className="size-2 rounded-full bg-[#ff2056]" />
-      </View>
+      <Stack.Screen options={{ headerShown: false }} />
+      <StatusBar hidden />
 
       <View
-        className="relative items-center justify-center"
-        style={{ height: heroHeight, marginTop: isCompact ? 4 : 8 }}
+        className="flex-1 items-center overflow-hidden"
+        style={{
+          paddingBottom: Math.max(insets.bottom, isCompact ? 6 : 12),
+          paddingHorizontal: horizontalPadding,
+          paddingTop: Math.max(insets.top + 4, isCompact ? 12 : 20),
+        }}
       >
         <View
-          className="absolute size-56 rounded-full bg-[#ff2056] opacity-20"
-          style={{ filter: "blur(14px)" }}
-        />
-
-        <Feather
-          name="star"
-          size={isCompact ? 24 : 30}
-          color="#ff2056"
+          pointerEvents="none"
+          className="absolute rounded-full bg-[#FFDDE8] opacity-45"
           style={{
-            left: 32,
-            position: "absolute",
-            top: isCompact ? 26 : 34,
-          }}
-        />
-        <Ionicons
-          name="sparkles-outline"
-          size={isCompact ? 34 : 40}
-          color="#ff2056"
-          style={{
-            position: "absolute",
-            right: 38,
-            top: isCompact ? 54 : 70,
-          }}
-        />
-        <Feather
-          name="heart"
-          size={isCompact ? 18 : 22}
-          color="#FFAEC9"
-          style={{
-            left: 8,
-            position: "absolute",
-            top: isCompact ? 92 : 112,
-          }}
-        />
-        <Feather
-          name="star"
-          size={isCompact ? 18 : 22}
-          color="rgba(255, 32, 86, 0.65)"
-          style={{
-            bottom: isCompact ? 54 : 64,
-            position: "absolute",
-            right: 12,
-          }}
-        />
-
-        <View
-          className="absolute rounded-full bg-[#D8EEDB]"
-          style={{
-            height: 10,
-            left: "52%",
-            top: isCompact ? 50 : 64,
-            width: 10,
+            filter: "blur(38px)",
+            height: isCompact ? 180 : 250,
+            left: -115,
+            top: isCompact ? 185 : 245,
+            width: isCompact ? 180 : 250,
           }}
         />
         <View
-          className="absolute size-2 rounded-full bg-[#DDEFFF]"
-          style={{ bottom: isCompact ? 64 : 80, left: 42 }}
-        />
-        <View
-          className="absolute size-2 rounded-full border border-white/60 bg-[#F4EFFA]"
-          style={{ right: 78, top: isCompact ? 82 : 98 }}
-        />
-        <View
-          className="absolute rounded-full bg-[#FFDDE8]"
+          pointerEvents="none"
+          className="absolute rounded-full bg-[#F4EFFA] opacity-55"
           style={{
-            bottom: isCompact ? 32 : 42,
-            height: 10,
-            right: 62,
-            width: 10,
+            bottom: isCompact ? 135 : 180,
+            filter: "blur(38px)",
+            height: isCompact ? 170 : 230,
+            right: -110,
+            width: isCompact ? 170 : 230,
           }}
         />
-
-        <View
-          className="relative items-center justify-center rounded-full bg-white/70"
+        <Text
+          allowFontScaling={false}
+          pointerEvents="none"
+          className="absolute leading-6 text-[#F58AB0]"
           style={{
-            boxShadow: "0 20px 60px -10px rgba(255, 32, 86, 0.45)",
-            height: outerSize,
-            width: outerSize,
+            fontSize: isCompact ? 28 : 34,
+            left: isNarrow ? 18 : 28,
+            lineHeight: isCompact ? 30 : 36,
+            top: isCompact ? 102 : 132,
           }}
         >
-          <LinearGradient
-            colors={["#FFDDE8", "#F4EFFA"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+          ✧
+        </Text>
+        <Text
+          allowFontScaling={false}
+          pointerEvents="none"
+          className="absolute leading-6 text-[#F3B388]"
+          style={{
+            fontSize: isCompact ? 17 : 22,
+            lineHeight: isCompact ? 21 : 26,
+            right: isNarrow ? 28 : 42,
+            top: isCompact ? 150 : 192,
+          }}
+        >
+          ✦
+        </Text>
+
+        <OnboardingProgressHeader
+          activeIndex={4}
+          compact={isCompact}
+          height={headerHeight}
+          maxWidth={contentWidth}
+          onSkipPress={handleMaybeLaterPress}
+        />
+
+        <View
+          className="w-full flex-1 items-center justify-between"
+          style={{ maxWidth: contentWidth }}
+        >
+          <View
+            className="items-center"
             style={{
-              alignItems: "center",
-              borderRadius: 24,
-              justifyContent: "center",
-              height: innerSize,
-              width: innerSize,
+              paddingTop: isTiny ? 0 : isCompact ? 4 : isMedium ? 8 : 10,
             }}
           >
-            <View className="relative items-center justify-center">
-              <Feather name="book-open" size={64} color="#ff2056" />
-              <Feather
-                name="check"
-                size={34}
-                color="#ff2056"
+            <Text
+              adjustsFontSizeToFit
+              allowFontScaling={false}
+              className="text-center font-bold leading-6"
+              minimumFontScale={0.86}
+              numberOfLines={2}
+              style={{
+                color: deepPlum,
+                fontFamily: headingFontFamily,
+                fontSize: headingSize,
+                includeFontPadding: true,
+                lineHeight: headingLineHeight + 2,
+                maxWidth: isNarrow ? 300 : 340,
+              }}
+            >
+              Everything you need in one{" "}
+              <Text
+                allowFontScaling={false}
+                className="font-bold leading-6"
                 style={{
-                  position: "absolute",
-                  right: -20,
-                  top: 10,
-                }}
-              />
-            </View>
-          </LinearGradient>
-        </View>
-      </View>
-
-      <View className="items-center gap-2" style={{ marginTop: isCompact ? -8 : -8 }}>
-        <Text
-          className="text-center font-bold tracking-tight text-zinc-950"
-          style={{
-            fontSize: isCompact ? 30 : 32,
-            lineHeight: isCompact ? 36 : 40,
-          }}
-        >
-          {"You're all set! 🎉"}
-        </Text>
-        <Text
-          className="px-2 text-center text-zinc-500"
-          style={{
-            fontSize: isCompact ? 16 : 17,
-            lineHeight: isCompact ? 24 : 30,
-          }}
-        >
-          Your reflection journey begins now. Write freely, grow deeply.
-        </Text>
-      </View>
-
-      <View
-        className="rounded-3xl bg-white/70"
-        style={{
-          borderCurve: "continuous",
-          boxShadow: "0 12px 40px -12px rgba(255, 32, 86, 0.35)",
-          marginTop: isCompact ? 20 : 24,
-          padding: isCompact ? 18 : 24,
-        }}
-      >
-        <View className="flex-row items-stretch justify-between gap-4">
-          {featureCards.map((feature) => (
-            <View key={feature.label} className="flex-1 items-center gap-2">
-              <View
-                className="items-center justify-center rounded-2xl"
-                style={{
-                  backgroundColor: feature.background,
-                  height: featureIconSize,
-                  width: featureIconSize,
+                  color: colors.brandPrimary,
+                  fontFamily: headingFontFamily,
                 }}
               >
-                {feature.icon === "sparkles-outline" ? (
-                  <Ionicons
-                    name="sparkles-outline"
-                    size={26}
-                    color={feature.color}
-                  />
-                ) : (
-                  <Feather
-                    name={
-                      feature.icon === "book-open"
-                        ? "book-open"
-                        : "bar-chart-2"
-                    }
-                    size={26}
-                    color={feature.color}
-                  />
-                )}
-              </View>
-              <Text className="text-center text-[13px] font-bold leading-tight text-zinc-700">
-                {feature.label}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </View>
+                peaceful
+              </Text>{" "}
+              space.
+            </Text>
+            <Text
+              adjustsFontSizeToFit
+              allowFontScaling={false}
+              className="mt-2 text-center font-medium leading-6"
+              minimumFontScale={0.86}
+              numberOfLines={2}
+              style={{
+                color: mutedPlum,
+                fontSize: subtitleSize,
+                lineHeight: subtitleLineHeight,
+                maxWidth: isTiny ? 260 : isCompact ? 285 : 320,
+              }}
+            >
+              A beautiful journaling experience designed to support your mind,
+              every day.
+            </Text>
+          </View>
 
-      <View
-        className="mt-auto items-center gap-4"
-        style={{ paddingTop: isCompact ? 28 : 32 }}
-      >
-        <Pressable
-          className="h-14 w-full items-center justify-center rounded-full bg-[#ff2056]"
-          onPress={handleStartWritingPress}
+          <OnboardingOverviewPreview
+            height={previewHeight}
+            narrow={isNarrow}
+            width={contentWidth}
+          />
+
+          <OnboardingOverviewFeatureStrip
+            compact={isMedium}
+            height={featureHeight}
+            iconSize={featureIconSize}
+            tiny={isTiny}
+          />
+        </View>
+
+        <View
+          className="w-full items-center gap-4"
           style={{
-            boxShadow: "0 16px 40px -8px rgba(255, 32, 86, 0.55)",
+            gap: ctaGap,
+            maxWidth: contentWidth,
+            paddingTop: ctaTopPadding,
           }}
         >
-          <Text className="text-[17px] font-bold text-white">
-            Start Writing ✨
-          </Text>
-        </Pressable>
+          <Pressable
+            accessibilityLabel="Start writing"
+            accessibilityRole="button"
+            className="w-full items-center justify-center rounded-full"
+            onPress={handleStartWritingPress}
+            style={{
+              backgroundColor: colors.brandPrimary,
+              boxShadow: "0 18px 36px -14px rgba(255, 32, 86, 0.72)",
+              height: buttonHeight,
+            }}
+          >
+            <Text
+              allowFontScaling={false}
+              className="text-[17px] font-bold leading-6 text-white"
+            >
+              Start Writing ✨
+            </Text>
+          </Pressable>
 
-        <Pressable className="px-4 py-1" onPress={handleMaybeLaterPress}>
-          <Text className="text-[15px] font-medium text-zinc-400">
-            Maybe later
-          </Text>
-        </Pressable>
+          <Pressable
+            accessibilityLabel="Maybe later"
+            accessibilityRole="button"
+            className="px-4 py-1"
+            onPress={handleMaybeLaterPress}
+          >
+            <Text
+              allowFontScaling={false}
+              className="text-[15px] font-medium leading-6"
+              style={{ color: "#A5A0B1" }}
+            >
+              Maybe later
+            </Text>
+          </Pressable>
+        </View>
       </View>
-      </ScrollView>
     </LinearGradient>
   );
 }

@@ -157,9 +157,17 @@ export function useAIInsightReport(
         return;
       }
 
+      if (result.report && result.report.userId !== userId) {
+        if (!reportRef.current) {
+          setReport(null);
+          removeCachedReport(userId, cacheKey);
+        }
+        return;
+      }
+
       setLegacyReportAvailable(result.legacyReportAvailable);
 
-      if (result.report?.userId === userId) {
+      if (result.report) {
         setReport(result.report);
         setCachedReport(userId, cacheKey, result.report);
       } else if (!reportRef.current) {

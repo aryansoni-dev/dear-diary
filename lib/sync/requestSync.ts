@@ -346,6 +346,15 @@ async function syncAchievements(userId: string) {
   const notifiedAchievementIds =
     achievementStore.achievementNotificationsByUserId[userId]
       ?.notifiedAchievementIds ?? [];
+
+  if (!isActiveUser(userId, useJournalStore.getState().activeUserId)) {
+    return {
+      failedCount: 0,
+      pulledNotifiedIds: [],
+      syncedCount: 0,
+    };
+  }
+
   const achievementResult = await syncAchievementStatesTwoWay({
     notifiedAchievementIds,
     unlockedAchievementIds,
