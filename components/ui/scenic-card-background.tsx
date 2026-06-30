@@ -56,10 +56,16 @@ export function ScenicCardBackground({
   return (
     <>
       <Image
-        className="absolute inset-0"
         contentFit="cover"
         pointerEvents="none"
         source={source}
+        style={{
+          bottom: 0,
+          left: 0,
+          position: "absolute",
+          right: 0,
+          top: 0,
+        }}
       />
       {blurRadius > 0 ? (
         <View

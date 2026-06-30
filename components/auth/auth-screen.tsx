@@ -478,6 +478,7 @@ export function AuthScreen({
             <View className="mt-16">
               <SocialButtons
                 disabled={!isClerkReady || socialStrategy !== null}
+                loadingStrategy={socialStrategy}
                 onApplePress={() => void handleSocialPress("oauth_apple")}
                 onGooglePress={() => void handleSocialPress("oauth_google")}
               />
@@ -579,29 +580,41 @@ function getSocialProviderLabel(strategy: "oauth_google" | "oauth_apple") {
 
 type SocialButtonsProps = {
   disabled: boolean;
+  loadingStrategy: "oauth_google" | "oauth_apple" | null;
   onApplePress: () => void;
   onGooglePress: () => void;
 };
 
 function SocialButtons({
   disabled,
+  loadingStrategy,
   onApplePress,
   onGooglePress,
 }: SocialButtonsProps) {
+  const isGoogleLoading = loadingStrategy === "oauth_google";
+  const isAppleLoading = loadingStrategy === "oauth_apple";
+
   return (
     <View className="gap-3">
       <Pressable
         accessibilityRole="button"
+        accessibilityState={{ busy: isGoogleLoading, disabled }}
         className="h-10 flex-row items-center justify-center gap-2 rounded-full border border-zinc-200 bg-zinc-50"
         disabled={disabled}
         onPress={onGooglePress}
       >
-        <Image
-          source={images.googleLogo}
-          contentFit="contain"
-          accessibilityLabel="Google logo"
-          style={{ height: 16, width: 16 }}
-        />
+        <View className="size-5 items-center justify-center">
+          {isGoogleLoading ? (
+            <ActivityIndicator color="#ff2056" size="small" />
+          ) : (
+            <Image
+              source={images.googleLogo}
+              contentFit="contain"
+              accessibilityLabel="Google logo"
+              style={{ height: 16, width: 16 }}
+            />
+          )}
+        </View>
         <Text className="text-[15px] font-semibold leading-5 text-zinc-950">
           Continue with Google
         </Text>
@@ -609,11 +622,18 @@ function SocialButtons({
 
       <Pressable
         accessibilityRole="button"
+        accessibilityState={{ busy: isAppleLoading, disabled }}
         className="h-10 flex-row items-center justify-center gap-2 rounded-full border border-zinc-200 bg-zinc-50"
         disabled={disabled}
         onPress={onApplePress}
       >
-        <Ionicons name="logo-apple" size={14} color="#18181b" />
+        <View className="size-5 items-center justify-center">
+          {isAppleLoading ? (
+            <ActivityIndicator color="#ff2056" size="small" />
+          ) : (
+            <Ionicons name="logo-apple" size={14} color="#18181b" />
+          )}
+        </View>
         <Text className="text-[15px] font-semibold leading-5 text-zinc-950">
           Continue with Apple
         </Text>

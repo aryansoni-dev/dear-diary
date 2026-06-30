@@ -1,5 +1,8 @@
+import { Image } from "expo-image";
 import { BarChart3, Star, TrendingUp } from "lucide-react-native";
 import { Text, View } from "react-native";
+
+import { images } from "@/constants/images";
 
 const previewColors = {
   green: "#0BA574",
@@ -37,7 +40,7 @@ export function OnboardingInsightsPreview({
         }}
       />
       <View
-        className="border-[6px] border-white/85 bg-white/70"
+        className="overflow-hidden border-[6px] border-white/85 bg-white/70"
         style={{
           borderCurve: "continuous",
           borderRadius: 34,
@@ -45,7 +48,15 @@ export function OnboardingInsightsPreview({
           height: previewHeight,
           width: previewWidth,
         }}
-      />
+      >
+        <Image
+          accessibilityLabel="DearDiary insights screen preview"
+          contentFit="cover"
+          contentPosition="top center"
+          source={images.insightsTabMockup}
+          style={{ height: "100%", width: "100%" }}
+        />
+      </View>
     </View>
   );
 }

@@ -1,6 +1,8 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { Text, View } from "react-native";
+import { Image } from "expo-image";
+import { Text, type ImageSourcePropType, View } from "react-native";
 
+import { images } from "@/constants/images";
 import { colors } from "@/constants/theme";
 
 const deepPlum = "#251238";
@@ -77,6 +79,7 @@ export function OnboardingOverviewPreview({
       />
       <EmptyPreviewCard
         height={sideHeight}
+        image={images.reflectTabMockup}
         opacity={0.68}
         style={{
           left: Math.max(0, width / 2 - sideOffset - sideWidth),
@@ -86,6 +89,7 @@ export function OnboardingOverviewPreview({
       />
       <EmptyPreviewCard
         height={sideHeight}
+        image={images.insightsTabMockup}
         opacity={0.68}
         style={{
           right: Math.max(0, width / 2 - sideOffset - sideWidth),
@@ -95,6 +99,7 @@ export function OnboardingOverviewPreview({
       />
       <EmptyPreviewCard
         height={centerHeight}
+        image={images.homeTabMockup}
         opacity={0.92}
         style={{ left: (width - centerWidth) / 2, top: 0 }}
         width={centerWidth}
@@ -142,6 +147,7 @@ export function OnboardingOverviewFeatureStrip({
 
 type EmptyPreviewCardProps = {
   height: number;
+  image: ImageSourcePropType;
   opacity: number;
   style: {
     left?: number;
@@ -153,13 +159,14 @@ type EmptyPreviewCardProps = {
 
 function EmptyPreviewCard({
   height,
+  image,
   opacity,
   style,
   width,
 }: EmptyPreviewCardProps) {
   return (
     <View
-      className="absolute border-[6px] border-white/85 bg-white/70"
+      className="absolute overflow-hidden border-[6px] border-white/85 bg-white/70"
       style={{
         borderCurve: "continuous",
         borderRadius: Math.min(34, height * 0.16),
@@ -169,7 +176,15 @@ function EmptyPreviewCard({
         width,
         ...style,
       }}
-    />
+    >
+      <Image
+        accessible={false}
+        contentFit="cover"
+        contentPosition="top center"
+        source={image}
+        style={{ height: "100%", width: "100%" }}
+      />
+    </View>
   );
 }
 

@@ -238,10 +238,10 @@ export default function OnboardingScreenTwo() {
               }}
             >
               <Image
-                source={images.onboardingAiChatCard}
+                source={images.insightsTabMockup}
                 contentFit="cover"
                 contentPosition="top center"
-                accessibilityLabel="DearDiary AI chat screen preview"
+                accessibilityLabel="DearDiary insights screen preview"
                 style={{ height: "100%", width: "100%" }}
               />
             </View>
