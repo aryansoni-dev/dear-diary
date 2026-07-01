@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   buildReportAnalytics,
   type JournalEntryRow,
+  type MoodLogRow,
   type ReportAnalytics,
 } from "../_shared/buildReportAnalytics.ts";
 import {
@@ -64,7 +65,8 @@ Keep the tone warm, grounded, concise and practical.
 Every list item must be a complete sentence or a concise complete phrase.
 
 Never end a sentence or list item with connector words such as "and", "or",
-"which", "that", "with", "for", "to", "of", "a", "an", or "the".
+"which", "that", "with", "for", "to", "of", "into", "as", "a", "an", or
+"the".
 
 Return only valid JSON with the exact requested keys.`;
 
@@ -72,6 +74,7 @@ const journalEntrySelectWithTags =
   "id,title,content,mood,type,prompt,tags,created_at,updated_at";
 const journalEntrySelectWithoutTags =
   "id,title,content,mood,type,prompt,created_at,updated_at";
+const moodLogSelect = "id,mood,created_at,updated_at";
 const maxFetchedEntries = 251;
 const maxAnalyticsEntries = 250;
 const maxDetailedEntries = 150;
@@ -80,7 +83,15 @@ const maxTitleLength = 200;
 const maxPromptLength = 300;
 const maxTagsPerEntry = 10;
 const maxNarrativeAttempts = 2;
-const reportFormatVersion = 2;
+const reportFormatVersion = 4;
+const validMoodIds = new Set([
+  "anxious",
+  "calm",
+  "grateful",
+  "happy",
+  "motivated",
+  "sad",
+]);
 
 type AIInsightPeriodType = "weekly" | "monthly";
 
@@ -201,11 +212,19 @@ Deno.serve(async (request) => {
   const reportRequest = parsedRequest.data;
   const periodStart = new Date(reportRequest.periodStart);
   const periodEnd = new Date(reportRequest.periodEnd);
-  const entriesResult = await fetchJournalEntries({
-    periodEnd: reportRequest.periodEnd,
-    periodStart: reportRequest.periodStart,
-    supabase,
-  });
+  const [entriesResult, moodLogsResult] = await Promise.all([
+    fetchJournalEntries({
+      periodEnd: reportRequest.periodEnd,
+      periodStart: reportRequest.periodStart,
+      supabase,
+    }),
+    fetchMoodLogs({
+      periodEnd: reportRequest.periodEnd,
+      periodStart: reportRequest.periodStart,
+      supabase,
+      userId: claims.sub,
+    }),
+  ]);
 
   if (entriesResult.error) {
     console.error("generate-insight-report entries_query_failed", {
@@ -223,16 +242,34 @@ Deno.serve(async (request) => {
     );
   }
 
+  if (moodLogsResult.error) {
+    console.error("generate-insight-report mood_logs_query_failed", {
+      code: moodLogsResult.error.code,
+      requestId,
+    });
+
+    return jsonResponse(
+      {
+        code: "mood_logs_query_failed",
+        error: "Mood check-ins could not be loaded.",
+        requestId,
+      },
+      500,
+    );
+  }
+
   const dataWasCapped = entriesResult.entries.length > maxAnalyticsEntries;
   const entries = entriesResult.entries.slice(0, maxAnalyticsEntries);
+  const moodLogs = moodLogsResult.moodLogs;
   const analytics = buildReportAnalytics({
     dataWasCapped,
     entries,
+    moodLogs,
     periodEnd,
     periodStart,
     timezone: reportRequest.timezone,
   });
-  const source = await buildSourceSnapshot(entries);
+  const source = await buildSourceSnapshot(entries, moodLogs);
   const existingReportResult = await fetchExistingReport({
     periodEnd: reportRequest.periodEnd,
     periodStart: reportRequest.periodStart,
@@ -559,6 +596,38 @@ async function fetchJournalEntries({
   };
 }
 
+async function fetchMoodLogs({
+  periodEnd,
+  periodStart,
+  supabase,
+  userId,
+}: {
+  periodEnd: string;
+  periodStart: string;
+  supabase: SupabaseClient;
+  userId: string;
+}) {
+  const result = await supabase
+    .from("mood_logs")
+    .select(moodLogSelect)
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .gte("created_at", periodStart)
+    .lte("created_at", periodEnd)
+    .order("created_at", { ascending: true });
+
+  if (result.error) {
+    return { error: result.error, moodLogs: [] };
+  }
+
+  const rows: unknown[] = Array.isArray(result.data) ? result.data : [];
+
+  return {
+    error: null,
+    moodLogs: rows.filter(isMoodLogRow),
+  };
+}
+
 async function fetchExistingReport({
   periodEnd,
   periodStart,
@@ -588,13 +657,17 @@ async function fetchExistingReport({
   };
 }
 
-async function buildSourceSnapshot(entries: JournalEntryRow[]) {
-  const sortedParts = entries
-    .map((entry) => `${entry.id}:${entry.updated_at}`)
-    .sort();
+async function buildSourceSnapshot(
+  entries: JournalEntryRow[],
+  moodLogs: MoodLogRow[],
+) {
+  const sortedParts = [
+    ...entries.map((entry) => `entry:${entry.id}:${entry.updated_at}`),
+    ...moodLogs.map((moodLog) => `mood:${moodLog.id}:${moodLog.updated_at}`),
+  ].sort();
   const latestUpdatedAt =
-    entries
-      .map((entry) => entry.updated_at)
+    [...entries, ...moodLogs]
+      .map((source) => source.updated_at)
       .filter(Boolean)
       .sort()
       .at(-1) ?? null;
@@ -877,6 +950,19 @@ function isJournalEntryRow(value: unknown): value is JournalEntryRow {
         value.tags.every((tag) => typeof tag === "string"))) &&
     typeof value.created_at === "string" &&
     typeof value.updated_at === "string"
+  );
+}
+
+function isMoodLogRow(value: unknown): value is MoodLogRow {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.mood === "string" &&
+    validMoodIds.has(value.mood) &&
+    typeof value.created_at === "string" &&
+    Number.isFinite(Date.parse(value.created_at)) &&
+    typeof value.updated_at === "string" &&
+    Number.isFinite(Date.parse(value.updated_at))
   );
 }
 

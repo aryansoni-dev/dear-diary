@@ -10,6 +10,7 @@ import {
   getReportCacheKey,
   type ReportPeriod,
 } from "@/lib/insights/reportPeriods";
+import { isAIInsightReport } from "@/lib/insights/aiInsightReportMapper";
 import { useAutoSync } from "@/hooks/useAutoSync";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useAIInsightReportStore } from "@/store/useAIInsightReportStore";
@@ -17,8 +18,10 @@ import {
   useJournalHydrationStore,
   useJournalStore,
 } from "@/store/journal-store";
+import { useMoodLogStore } from "@/store/useMoodLogStore";
 import type { AIInsightReport } from "@/types/aiInsightReport";
 import type { JournalEntry } from "@/types/journal";
+import type { MoodLog } from "@/types/moodLog";
 
 export type UseAIInsightReportResult = {
   report: AIInsightReport | null;
@@ -49,10 +52,16 @@ export function useAIInsightReport(
   const hasHydrated = useJournalHydrationStore(
     (state) => state.hasHydrated,
   );
+  const moodLogs = useMoodLogStore((state) => state.allMoodLogs);
+  const moodLogsHaveHydrated = useMoodLogStore((state) => state.hasHydrated);
   const cacheKey = useMemo(() => getReportCacheKey(period), [period]);
-  const cachedReport = useAIInsightReportStore((state) =>
-    userId ? state.reportsByUser[userId]?.[cacheKey] ?? null : null,
-  );
+  const cachedReport = useAIInsightReportStore((state) => {
+    const candidate = userId
+      ? state.reportsByUser[userId]?.[cacheKey] ?? null
+      : null;
+
+    return candidate && isAIInsightReport(candidate) ? candidate : null;
+  });
   const cacheHasHydrated = useAIInsightReportStore(
     (state) => state.hasHydrated,
   );
@@ -78,9 +87,13 @@ export function useAIInsightReport(
     () => getEntriesInPeriod(entries, period),
     [entries, period],
   );
+  const periodMoodLogs = useMemo(
+    () => getMoodLogsInPeriod(moodLogs, period, userId ?? null),
+    [moodLogs, period, userId],
+  );
   const localSource = useMemo(
-    () => getLocalSource(periodEntries),
-    [periodEntries],
+    () => getLocalSource(periodEntries, periodMoodLogs),
+    [periodEntries, periodMoodLogs],
   );
   const isStale = Boolean(
     report && isReportStale(report, localSource),
@@ -199,10 +212,21 @@ export function useAIInsightReport(
   ]);
 
   useEffect(() => {
-    if (enabled && hasHydrated && cacheHasHydrated) {
+    if (
+      enabled &&
+      hasHydrated &&
+      moodLogsHaveHydrated &&
+      cacheHasHydrated
+    ) {
       void refresh();
     }
-  }, [cacheHasHydrated, enabled, hasHydrated, refresh]);
+  }, [
+    cacheHasHydrated,
+    enabled,
+    hasHydrated,
+    moodLogsHaveHydrated,
+    refresh,
+  ]);
 
   const requestGeneration = useCallback(
     async (regenerate: boolean) => {
@@ -215,7 +239,12 @@ export function useAIInsightReport(
         return;
       }
 
-      if (!cacheHasHydrated || requestInFlightRef.current) {
+      if (
+        !cacheHasHydrated ||
+        !hasHydrated ||
+        !moodLogsHaveHydrated ||
+        requestInFlightRef.current
+      ) {
         return;
       }
 
@@ -235,7 +264,7 @@ export function useAIInsightReport(
       setError(null);
 
       try {
-        const entriesAreSynced = await syncPeriodEntriesBeforeGeneration({
+        const sourcesAreSynced = await syncPeriodSourcesBeforeGeneration({
           period,
           runAutoSync,
           userId,
@@ -245,9 +274,9 @@ export function useAIInsightReport(
           return;
         }
 
-        if (!entriesAreSynced) {
+        if (!sourcesAreSynced) {
           setError(
-            "Please try again after your latest journal entries finish syncing.",
+            "Please try again after your latest entries and mood check-ins finish syncing.",
           );
           return;
         }
@@ -288,7 +317,9 @@ export function useAIInsightReport(
       cacheHydrationError,
       connectivity.status,
       enabled,
+      hasHydrated,
       isCurrentRequestContext,
+      moodLogsHaveHydrated,
       period,
       runAutoSync,
       setCachedReport,
@@ -301,7 +332,9 @@ export function useAIInsightReport(
     error,
     generate: () => requestGeneration(false),
     isGenerating,
-    isLoading: isLoading || (enabled && !cacheHasHydrated),
+    isLoading:
+      isLoading ||
+      (enabled && (!cacheHasHydrated || !hasHydrated || !moodLogsHaveHydrated)),
     isStale,
     legacyReportAvailable,
     refresh,
@@ -310,7 +343,7 @@ export function useAIInsightReport(
   };
 }
 
-async function syncPeriodEntriesBeforeGeneration({
+async function syncPeriodSourcesBeforeGeneration({
   period,
   runAutoSync,
   userId,
@@ -319,28 +352,36 @@ async function syncPeriodEntriesBeforeGeneration({
   runAutoSync: (reason?: "journal_change") => Promise<void>;
   userId: string;
 }) {
-  if (!hasUnsyncedPeriodEntries({ period, userId })) {
+  if (!hasUnsyncedPeriodSources({ period, userId })) {
     return true;
   }
 
   await runAutoSync("journal_change");
 
-  return !hasUnsyncedPeriodEntries({ period, userId });
+  return !hasUnsyncedPeriodSources({ period, userId });
 }
 
-function hasUnsyncedPeriodEntries({
+function hasUnsyncedPeriodSources({
   period,
   userId,
 }: {
   period: ReportPeriod;
   userId: string;
 }) {
-  return getEntriesInPeriod(
+  const hasUnsyncedEntries = getEntriesInPeriod(
     useJournalStore
       .getState()
       .allEntries.filter((entry) => entry.userId === userId),
     period,
   ).some((entry) => entry.syncStatus !== "synced");
+  const hasUnsyncedMoodLogs = getMoodLogsInPeriod(
+    useMoodLogStore.getState().allMoodLogs,
+    period,
+    userId,
+    true,
+  ).some((moodLog) => moodLog.syncStatus !== "synced");
+
+  return hasUnsyncedEntries || hasUnsyncedMoodLogs;
 }
 
 function getEntriesInPeriod(entries: JournalEntry[], period: ReportPeriod) {
@@ -359,11 +400,37 @@ function getEntriesInPeriod(entries: JournalEntry[], period: ReportPeriod) {
   });
 }
 
-function getLocalSource(entries: JournalEntry[]) {
+function getMoodLogsInPeriod(
+  moodLogs: MoodLog[],
+  period: ReportPeriod,
+  userId: string | null,
+  includeDeleted = false,
+) {
+  if (!userId) {
+    return [];
+  }
+
+  const periodStart = period.start.getTime();
+  const periodEnd = period.end.getTime();
+
+  return moodLogs.filter((moodLog) => {
+    const createdAt = Date.parse(moodLog.createdAt);
+
+    return (
+      moodLog.userId === userId &&
+      (includeDeleted || !moodLog.deletedAt) &&
+      Number.isFinite(createdAt) &&
+      createdAt >= periodStart &&
+      createdAt <= periodEnd
+    );
+  });
+}
+
+function getLocalSource(entries: JournalEntry[], moodLogs: MoodLog[]) {
   const entryIds = entries.map((entry) => entry.id).sort();
   const latestUpdatedAt =
-    entries
-      .map((entry) => entry.updatedAt)
+    [...entries, ...moodLogs]
+      .map((source) => source.updatedAt)
       .filter(Boolean)
       .sort()
       .at(-1) ?? null;

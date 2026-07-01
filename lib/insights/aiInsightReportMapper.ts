@@ -46,7 +46,7 @@ export function mapAIInsightReportRow(
 
   const formatVersion = reportData.formatVersion;
 
-  if (formatVersion !== 2) {
+  if (formatVersion !== 4) {
     return { status: "legacy" };
   }
 
@@ -95,7 +95,7 @@ export function isAIInsightReport(value: unknown): value is AIInsightReport {
     (value.sourceLatestUpdatedAt === null ||
       typeof value.sourceLatestUpdatedAt === "string") &&
     typeof value.sourceSnapshotHash === "string" &&
-    value.formatVersion === 2 &&
+    value.formatVersion === 4 &&
     (value.model === null || typeof value.model === "string") &&
     typeof value.createdAt === "string" &&
     typeof value.updatedAt === "string"

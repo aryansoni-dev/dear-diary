@@ -134,21 +134,22 @@ export function PatternCards({ items }: { items: string[] }) {
   }
 
   return (
-    <View className="gap-3">
+    <View className="gap-4">
       {items.map((item) => (
-        <View
-          className="rounded-[22px] px-4 py-4"
-          key={item}
-          style={{
-            backgroundColor: reportColors.lavender,
-            boxShadow: reportCardShadow,
-          }}
-        >
-          <AIResponseRenderer
-            content={item}
-            diagnosticLabel="insight_report_pattern"
-            variant="report"
-          />
+        <View className="flex-row items-start gap-3" key={item}>
+          <View
+            className="mt-0.5 size-7 items-center justify-center rounded-full"
+            style={{ backgroundColor: getIconBackground("plain") }}
+          >
+            <CircleDot color={reportColors.primary} size={15} />
+          </View>
+          <View className="min-w-0 flex-1">
+            <AIResponseRenderer
+              content={item}
+              diagnosticLabel="insight_report_pattern"
+              variant="report"
+            />
+          </View>
         </View>
       ))}
     </View>

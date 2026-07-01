@@ -6,7 +6,7 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-const longOverview = `${"A complete reflection keeps every detail visible. ".repeat(24)}to`;
+const longOverview = `${"A complete reflection keeps every detail visible. ".repeat(24)}Nothing is lost.`;
 const patterns = Array.from(
   { length: 10 },
   (_, index) => `Complete pattern ${index + 1}.`,
@@ -76,3 +76,27 @@ if ("reason" in invalid) {
     "Invalid field types should return a safe diagnostic reason.",
   );
 }
+
+const incompleteChallenge = parseReportNarrative(
+  JSON.stringify({
+    ...validNarrative,
+    challenges: ["Missing someone and struggling with"],
+  }),
+  false,
+);
+assert(
+  !incompleteChallenge.ok,
+  "Narrative items ending in connector words must be rejected as incomplete.",
+);
+
+const ellipsizedPattern = parseReportNarrative(
+  JSON.stringify({
+    ...validNarrative,
+    patterns: ["The user often focuses on…"],
+  }),
+  false,
+);
+assert(
+  !ellipsizedPattern.ok,
+  "Ellipsized narrative items must be rejected as incomplete.",
+);

@@ -17,6 +17,33 @@ export type ReportNarrativeParseResult =
   | { narrative: ReportNarrative; ok: true }
   | { ok: false; reason: string };
 
+const danglingEndingWords = new Set([
+  "a",
+  "about",
+  "an",
+  "and",
+  "as",
+  "at",
+  "because",
+  "being",
+  "but",
+  "by",
+  "for",
+  "from",
+  "if",
+  "in",
+  "into",
+  "of",
+  "on",
+  "or",
+  "that",
+  "the",
+  "to",
+  "which",
+  "while",
+  "with",
+]);
+
 export function parseReportNarrative(
   value: string,
   dataWasCapped: boolean,
@@ -152,7 +179,7 @@ function getRequiredString(value: unknown) {
 
   const trimmedValue = value.trim();
 
-  return trimmedValue || null;
+  return isCompleteNarrativeText(trimmedValue) ? trimmedValue : null;
 }
 
 function getNullableString(value: unknown) {
@@ -164,7 +191,15 @@ function getNullableString(value: unknown) {
     return { ok: false as const };
   }
 
-  return { ok: true as const, value: value.trim() || null };
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return { ok: true as const, value: null };
+  }
+
+  return isCompleteNarrativeText(trimmedValue)
+    ? { ok: true as const, value: trimmedValue }
+    : { ok: false as const };
 }
 
 function getStringArray(value: unknown) {
@@ -176,10 +211,24 @@ function getStringArray(value: unknown) {
     return null;
   }
 
-  return value.map((item) => item.trim()).filter(Boolean);
+  const items = value.map((item) => item.trim()).filter(Boolean);
+
+  return items.every(isCompleteNarrativeText) ? items : null;
+}
+
+function isCompleteNarrativeText(value: string) {
+  if (!value || /[,;:]$/.test(value) || /(?:\.{3}|…)$/.test(value)) {
+    return false;
+  }
+
+  const lastWord = value
+    .match(/[A-Za-z]+[.!?\"']?$/)?.[0]
+    .replace(/[.!?\"']+$/g, "")
+    .toLowerCase();
+
+  return !lastWord || !danglingEndingWords.has(lastWord);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
-

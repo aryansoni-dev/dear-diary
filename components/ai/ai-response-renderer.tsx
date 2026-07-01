@@ -60,8 +60,8 @@ const variantClasses: Record<
 };
 
 const safeTextStyle = {
-  flexShrink: 1,
   includeFontPadding: true,
+  minWidth: 0,
   overflow: "visible",
 } as const;
 
