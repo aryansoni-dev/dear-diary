@@ -10,7 +10,6 @@ import { Pressable, Text, View } from "react-native";
 
 import { AIResponseRenderer } from "@/components/ai/ai-response-renderer";
 import { reportCardShadow, reportColors } from "@/constants/report-theme";
-import { addSafeBreakOpportunities } from "@/lib/text/add-safe-break-opportunities";
 
 const reportBodyTextStyle = {
   fontSize: 15,
@@ -102,13 +101,12 @@ export function EmotionalFlowCard({ stages }: { stages: string[] }) {
             className="rounded-full px-5 py-3"
             style={{ backgroundColor: reportColors.lavender }}
           >
-            <Text
-              className="text-center text-[#3F3F46]"
-              selectable
-              style={reportHeadingTextStyle}
-            >
-              {addSafeBreakOpportunities(stage)}
-            </Text>
+            <AIResponseRenderer
+              content={stage}
+              diagnosticLabel="insight_report_emotional_flow"
+              textClassName="text-center font-bold text-[#3F3F46]"
+              variant="report"
+            />
           </View>
           {index < stages.length - 1 ? (
             <ArrowDown color={reportColors.primary} size={18} />
@@ -183,13 +181,14 @@ export function NextFocusCard({ focus }: { focus: string }) {
           Focus for Next Period
         </Text>
       </View>
-      <Text
-        className="mt-4 text-[16px] font-medium leading-6 text-white"
-        selectable
-        style={{ includeFontPadding: true }}
-      >
-        {addSafeBreakOpportunities(focus)}
-      </Text>
+      <View className="mt-4 min-w-0">
+        <AIResponseRenderer
+          content={focus}
+          diagnosticLabel="insight_report_next_focus"
+          textClassName="font-medium text-white"
+          variant="report"
+        />
+      </View>
     </View>
   );
 }

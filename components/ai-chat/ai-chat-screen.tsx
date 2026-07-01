@@ -245,10 +245,7 @@ export function AiChatScreen({
       contentSize.height - nearBottomThreshold;
 
     isNearBottomRef.current = isNearBottom;
-
-    if (isNearBottom) {
-      setShowJumpToLatest(false);
-    }
+    setShowJumpToLatest(!isNearBottom);
   }
 
   function handleChatContentSizeChange() {
@@ -677,10 +674,9 @@ function ChatBubble({
   userBubbleMaxWidth: number;
 }) {
   const isUser = message.role === "user";
-  const messageText =
-    isFirstAssistant && message.role === "assistant"
-      ? `Hi ${displayName} 🌸 ${message.content}`
-      : message.content;
+  const firstAssistantGreeting = isFirstAssistant
+    ? `Hi ${displayName} 🌸`
+    : null;
   const messageTime = new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
@@ -719,7 +715,7 @@ function ChatBubble({
         >
           <BubbleMessageText
             className="text-[16px] font-semibold text-rose-50"
-            text={messageText}
+            text={message.content}
           />
         </LinearGradient>
         <Text className="mt-2 pr-1 text-[11px] font-medium leading-4 text-[#A1A1AA]">
@@ -755,8 +751,16 @@ function ChatBubble({
           overflow: "visible",
         }}
       >
+        {firstAssistantGreeting ? (
+          <Text
+            className="text-[16px] leading-6 text-[#51515B]"
+            selectable
+          >
+            {firstAssistantGreeting}
+          </Text>
+        ) : null}
         <AIResponseRenderer
-          content={messageText}
+          content={message.content}
           diagnosticLabel="ai_chat_message"
           testID={`assistant-message-${message.id}`}
           variant="chat"

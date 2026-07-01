@@ -1,4 +1,5 @@
 import { useAuth } from "@clerk/expo";
+import * as Crypto from "expo-crypto";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -54,6 +55,9 @@ export function useAIInsightReport(
   );
   const moodLogs = useMoodLogStore((state) => state.allMoodLogs);
   const moodLogsHaveHydrated = useMoodLogStore((state) => state.hasHydrated);
+  const moodLogsHydrationError = useMoodLogStore(
+    (state) => state.hydrationError,
+  );
   const cacheKey = useMemo(() => getReportCacheKey(period), [period]);
   const cachedReport = useAIInsightReportStore((state) => {
     const candidate = userId
@@ -79,6 +83,10 @@ export function useAIInsightReport(
   const [isGenerating, setIsGenerating] = useState(false);
   const [legacyReportAvailable, setLegacyReportAvailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [localSnapshot, setLocalSnapshot] = useState<{
+    hash: string;
+    input: string;
+  } | null>(null);
   const requestContextVersionRef = useRef(0);
   const requestInFlightRef = useRef(false);
   const reportRef = useRef<AIInsightReport | null>(report);
@@ -95,9 +103,38 @@ export function useAIInsightReport(
     () => getLocalSource(periodEntries, periodMoodLogs),
     [periodEntries, periodMoodLogs],
   );
+  const localSnapshotHash =
+    localSnapshot?.input === localSource.snapshotInput
+      ? localSnapshot.hash
+      : null;
   const isStale = Boolean(
-    report && isReportStale(report, localSource),
+    report &&
+      isReportStale(report, {
+        ...localSource,
+        snapshotHash: localSnapshotHash,
+      }),
   );
+
+  useEffect(() => {
+    let isActive = true;
+    const snapshotInput = localSource.snapshotInput;
+
+    void Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      snapshotInput,
+      { encoding: Crypto.CryptoEncoding.HEX },
+    )
+      .then((hash) => {
+        if (isActive) {
+          setLocalSnapshot({ hash, input: snapshotInput });
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isActive = false;
+    };
+  }, [localSource.snapshotInput]);
 
   useEffect(() => {
     reportRef.current = report;
@@ -145,7 +182,12 @@ export function useAIInsightReport(
       return;
     }
 
-    if (!cacheHasHydrated) {
+    if (moodLogsHydrationError) {
+      setError(moodLogsHydrationError.userMessage);
+      return;
+    }
+
+    if (!cacheHasHydrated || !hasHydrated || !moodLogsHaveHydrated) {
       return;
     }
 
@@ -204,6 +246,9 @@ export function useAIInsightReport(
     cacheHydrationError,
     enabled,
     isCurrentRequestContext,
+    hasHydrated,
+    moodLogsHaveHydrated,
+    moodLogsHydrationError,
     period,
     removeCachedReport,
     setCachedReport,
@@ -225,6 +270,7 @@ export function useAIInsightReport(
     enabled,
     hasHydrated,
     moodLogsHaveHydrated,
+    moodLogsHydrationError,
     refresh,
   ]);
 
@@ -236,6 +282,11 @@ export function useAIInsightReport(
 
       if (cacheHydrationError) {
         setError(cacheHydrationError.userMessage);
+        return;
+      }
+
+      if (moodLogsHydrationError) {
+        setError(moodLogsHydrationError.userMessage);
         return;
       }
 
@@ -320,6 +371,7 @@ export function useAIInsightReport(
       hasHydrated,
       isCurrentRequestContext,
       moodLogsHaveHydrated,
+      moodLogsHydrationError,
       period,
       runAutoSync,
       setCachedReport,
@@ -428,6 +480,15 @@ function getMoodLogsInPeriod(
 
 function getLocalSource(entries: JournalEntry[], moodLogs: MoodLog[]) {
   const entryIds = entries.map((entry) => entry.id).sort();
+  const moodLogIds = moodLogs.map((moodLog) => moodLog.id).sort();
+  const snapshotInput = [
+    ...entries.map((entry) => `entry:${entry.id}:${entry.updatedAt}`),
+    ...moodLogs.map(
+      (moodLog) => `mood:${moodLog.id}:${moodLog.updatedAt}`,
+    ),
+  ]
+    .sort()
+    .join("|");
   const latestUpdatedAt =
     [...entries, ...moodLogs]
       .map((source) => source.updatedAt)
@@ -439,6 +500,9 @@ function getLocalSource(entries: JournalEntry[], moodLogs: MoodLog[]) {
     count: entries.length,
     entryIds,
     latestUpdatedAt,
+    moodLogCount: moodLogIds.length,
+    moodLogIds,
+    snapshotInput,
   };
 }
 
@@ -458,6 +522,10 @@ function isReportStale(
     count: number;
     entryIds: string[];
     latestUpdatedAt: string | null;
+    moodLogCount: number;
+    moodLogIds: string[];
+    snapshotHash: string | null;
+    snapshotInput: string;
   },
 ) {
   if (!areSameStringSet(report.relatedEntryIds, localSource.entryIds)) {
@@ -465,6 +533,14 @@ function isReportStale(
   }
 
   if (getReportSourceEntryCount(report) !== localSource.count) {
+    return true;
+  }
+
+  if (
+    report.sourceSnapshotHash.trim() &&
+    localSource.snapshotHash &&
+    report.sourceSnapshotHash !== localSource.snapshotHash
+  ) {
     return true;
   }
 

@@ -69,10 +69,15 @@ export function parseAITextBlocks(content: string): AITextBlock[] {
     }
 
     if (isTableStart(lines, index)) {
+      const tableShape = getTableShape(line, lines[index + 1]);
       const tableLines = [line, lines[index + 1]];
       index += 2;
 
-      while (index < lines.length && lines[index].includes("|")) {
+      while (
+        index < lines.length &&
+        tableShape &&
+        matchesTableShape(lines[index], tableShape)
+      ) {
         tableLines.push(lines[index]);
         index += 1;
       }
@@ -161,17 +166,85 @@ function isBlockStart(lines: string[], index: number) {
 function isTableStart(lines: string[], index: number) {
   const header = lines[index];
   const separator = lines[index + 1];
+  const separatorRow = getTableRow(separator);
+  const tableShape = getTableShape(header, separator);
 
-  if (!header?.includes("|") || !separator?.includes("|")) {
+  if (!separatorRow || !tableShape) {
     return false;
   }
 
-  const cells = separator
-    .trim()
-    .replace(/^\||\|$/g, "")
-    .split("|")
-    .map((cell) => cell.trim());
-
-  return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+  return separatorRow.cells.every((cell) => /^:?-{3,}:?$/.test(cell));
 }
 
+type TableRow = {
+  cells: string[];
+  hasLeadingPipe: boolean;
+  hasTrailingPipe: boolean;
+};
+
+type TableShape = {
+  columnCount: number;
+  hasLeadingPipe: boolean | null;
+  hasTrailingPipe: boolean | null;
+};
+
+function getTableRow(line: string | undefined): TableRow | null {
+  const trimmedLine = line?.trim();
+
+  if (!trimmedLine?.includes("|")) {
+    return null;
+  }
+
+  const hasLeadingPipe = trimmedLine.startsWith("|");
+  const hasTrailingPipe = trimmedLine.endsWith("|");
+  const rowContent = trimmedLine
+    .slice(hasLeadingPipe ? 1 : 0, hasTrailingPipe ? -1 : undefined);
+  const cells = rowContent.split("|").map((cell) => cell.trim());
+
+  if (cells.length < 2) {
+    return null;
+  }
+
+  return { cells, hasLeadingPipe, hasTrailingPipe };
+}
+
+function getTableShape(
+  headerLine: string | undefined,
+  separatorLine: string | undefined,
+): TableShape | null {
+  const headerRow = getTableRow(headerLine);
+  const separatorRow = getTableRow(separatorLine);
+
+  if (
+    !headerRow ||
+    !separatorRow ||
+    headerRow.cells.length !== separatorRow.cells.length
+  ) {
+    return null;
+  }
+
+  return {
+    columnCount: headerRow.cells.length,
+    hasLeadingPipe:
+      headerRow.hasLeadingPipe === separatorRow.hasLeadingPipe
+        ? headerRow.hasLeadingPipe
+        : null,
+    hasTrailingPipe:
+      headerRow.hasTrailingPipe === separatorRow.hasTrailingPipe
+        ? headerRow.hasTrailingPipe
+        : null,
+  };
+}
+
+function matchesTableShape(line: string, expectedShape: TableShape) {
+  const candidateRow = getTableRow(line);
+
+  return Boolean(
+    candidateRow &&
+      candidateRow.cells.length === expectedShape.columnCount &&
+      (expectedShape.hasLeadingPipe === null ||
+        candidateRow.hasLeadingPipe === expectedShape.hasLeadingPipe) &&
+      (expectedShape.hasTrailingPipe === null ||
+        candidateRow.hasTrailingPipe === expectedShape.hasTrailingPipe),
+  );
+}

@@ -124,14 +124,21 @@ export function InsightsScreen() {
   const entries = useJournalStore((state) => state.entries);
   const moodLogs = useMoodLogStore((state) => state.allMoodLogs);
   const moodLogHasHydrated = useMoodLogStore((state) => state.hasHydrated);
+  const moodLogHydrationError = useMoodLogStore(
+    (state) => state.hydrationError,
+  );
   const hasHydrated = useJournalHydrationStore(
     (state) => state.hasHydrated,
   );
   const hydrationError = useJournalHydrationStore(
     (state) => state.hydrationError,
   );
-  const localDataHasHydrated = hasHydrated && moodLogHasHydrated;
-  const showHydrationState = useDelayedVisibility(!localDataHasHydrated);
+  const localHydrationError = hydrationError ?? moodLogHydrationError;
+  const localDataHasHydrated =
+    hasHydrated && moodLogHasHydrated && !localHydrationError;
+  const showHydrationState = useDelayedVisibility(
+    !localDataHasHydrated && !localHydrationError,
+  );
   const [selectedPeriod, setSelectedPeriod] = useState<InsightsPeriod>("week");
   const [selectedReferenceDate, setSelectedReferenceDate] = useState(
     () => new Date(),
@@ -148,10 +155,10 @@ export function InsightsScreen() {
     [reportDate],
   );
   const weeklyReportState = useAIInsightReport(weeklyPeriod, {
-    enabled: hasHydrated,
+    enabled: localDataHasHydrated,
   });
   const monthlyReportState = useAIInsightReport(monthlyPeriod, {
-    enabled: hasHydrated,
+    enabled: localDataHasHydrated,
   });
   const insights = useMemo(
     () =>
@@ -240,8 +247,14 @@ export function InsightsScreen() {
     params: { source: "insights" },
   } as Href;
 
-  function retryJournalHydration() {
-    retryJournalStoreHydration();
+  function retryLocalHydration() {
+    if (hydrationError) {
+      retryJournalStoreHydration();
+    }
+
+    if (moodLogHydrationError) {
+      void useMoodLogStore.persist.rehydrate();
+    }
   }
 
   return (
@@ -276,11 +289,11 @@ export function InsightsScreen() {
           title="Your Insights ✨"
         />
 
-        {hydrationError ? (
+        {localHydrationError ? (
           <View className="mt-7">
             <ScreenErrorState
-              error={hydrationError}
-              onRetry={retryJournalHydration}
+              error={localHydrationError}
+              onRetry={retryLocalHydration}
             />
           </View>
         ) : !localDataHasHydrated ? (

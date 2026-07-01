@@ -68,6 +68,25 @@ assert(
   "Markdown tables must use the wide-content path.",
 );
 
+const tableWithTrailingProse = parseAITextBlocks(
+  "| Mood | Count |\n| --- | --- |\n| Calm | 2 |\nThis prose contains | a pipe but is not a table row.",
+);
+const parsedTable = tableWithTrailingProse.find(
+  (block) => block.type === "table",
+);
+assert(
+  parsedTable?.content ===
+    "| Mood | Count |\n| --- | --- |\n| Calm | 2 |",
+  "Table parsing must stop when a pipe-containing line does not match the table structure.",
+);
+assert(
+  tableWithTrailingProse.some(
+    (block) =>
+      block.type === "paragraph" && block.content.includes("not a table row"),
+  ),
+  "Pipe-containing prose after a table must remain a paragraph.",
+);
+
 const breakableText = addSafeBreakOpportunities(longTokenAIResponse);
 assert(
   breakableText.includes("\u200B"),
@@ -90,4 +109,3 @@ assert(
   getBlockContent(reportAIResponse).includes("Next focus"),
   "The final report section must remain in parsed output.",
 );
-

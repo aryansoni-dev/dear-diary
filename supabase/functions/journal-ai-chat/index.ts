@@ -483,6 +483,7 @@ Deno.serve(async (request) => {
     try {
       const assistantMessage = await callAIProvider(summaryPrompt, {
         maxTokens: 950,
+        requestId,
         systemPromptText: summarySystemPrompt,
         temperature: 0.55,
       });
@@ -568,7 +569,7 @@ Deno.serve(async (request) => {
   });
 
   try {
-    const assistantMessage = await callAIProvider(finalPrompt);
+    const assistantMessage = await callAIProvider(finalPrompt, { requestId });
 
     console.info("journal-ai-chat provider_succeeded", { requestId });
 
@@ -1470,8 +1471,9 @@ Instructions:
 
 async function callAIProvider(
   finalPrompt: string,
-  options?: {
+  options: {
     maxTokens?: number;
+    requestId: string;
     systemPromptText?: string;
     temperature?: number;
   },
@@ -1537,6 +1539,7 @@ async function callAIProvider(
     console.info("journal-ai-chat provider_response_received", {
       characterCount: content.length,
       finishReason: providerMessage?.finishReason,
+      requestId: options.requestId,
     });
 
     if (providerMessage?.finishReason === "length") {

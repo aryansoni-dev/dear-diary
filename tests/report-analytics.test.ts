@@ -113,6 +113,12 @@ const moodAnalytics = buildReportAnalytics({
   ],
   moodLogs: [
     createMoodLog("mood_log_1", "happy", "2026-06-10T08:00:00.000Z"),
+    createMoodLog(
+      "mood_log_1_newer",
+      "grateful",
+      "2026-06-10T09:00:00.000Z",
+      "2026-06-10T13:00:00.000Z",
+    ),
     createMoodLog("mood_log_2", "calm", "2026-06-11T08:00:00.000Z"),
   ],
   periodEnd: new Date("2026-06-30T23:59:59.999Z"),
@@ -127,8 +133,8 @@ const moodOnlyDay = moodAnalytics.moodTimeline.find(
 );
 
 assert(
-  entryDay?.dominantMood === "happy",
-  "A Home mood check-in must override the day's dominant entry mood.",
+  entryDay?.dominantMood === "grateful",
+  "The latest-updated Home mood check-in must override the day's dominant entry mood.",
 );
 assert(
   moodOnlyDay?.dominantMood === "calm" && moodOnlyDay.entryCount === 0,

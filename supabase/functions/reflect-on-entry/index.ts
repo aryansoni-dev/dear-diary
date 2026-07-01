@@ -45,6 +45,7 @@ const journalEntrySelectWithoutTags =
 const maxEntryContentLength = 8000;
 const maxTagCount = 10;
 const maxReflectionAttempts = 3;
+const maxReflectionListItems = 6;
 
 type ReflectOnEntryRequest = {
   entryId: string;
@@ -922,7 +923,8 @@ function getTrimmedStringArray(value: unknown) {
   return sourceValues
     .filter((item): item is string => typeof item === "string")
     .map((item) => cleanSingleLine(item))
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, maxReflectionListItems);
 }
 
 function getReflectionText(
@@ -936,6 +938,10 @@ function getReflectionText(
   const trimmedValue = value.trim();
 
   if (!trimmedValue) {
+    return null;
+  }
+
+  if (isIncompleteReflectionText(trimmedValue)) {
     return null;
   }
 

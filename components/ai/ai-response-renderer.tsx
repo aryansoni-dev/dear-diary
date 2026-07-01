@@ -30,6 +30,7 @@ type AIResponseRendererProps = {
   isStreaming?: boolean;
   selectable?: boolean;
   testID?: string;
+  textClassName?: string;
   variant?: AIResponseVariant;
 };
 
@@ -72,6 +73,7 @@ export const AIResponseRenderer = memo(function AIResponseRenderer({
   isStreaming = false,
   selectable = true,
   testID,
+  textClassName,
   variant = "chat",
 }: AIResponseRendererProps) {
   useEffect(() => {
@@ -94,6 +96,7 @@ export const AIResponseRenderer = memo(function AIResponseRenderer({
         isStreaming={isStreaming}
         selectable={selectable}
         testID={testID}
+        textClassName={textClassName}
         variant={variant}
       />
     </AIResponseErrorBoundary>
@@ -106,6 +109,7 @@ function AIResponseContent({
   isStreaming,
   selectable,
   testID,
+  textClassName,
   variant,
 }: Required<
   Pick<
@@ -113,7 +117,10 @@ function AIResponseContent({
     "content" | "isStreaming" | "selectable" | "variant"
   >
 > &
-  Pick<AIResponseRendererProps, "accessibilityLabel" | "testID">) {
+  Pick<
+    AIResponseRendererProps,
+    "accessibilityLabel" | "testID" | "textClassName"
+  >) {
   const blocks = useMemo(
     () =>
       isStreaming
@@ -134,6 +141,7 @@ function AIResponseContent({
           index={index}
           key={`${block.type}-${index}`}
           selectable={selectable}
+          textClassName={textClassName}
           variant={variant}
         />
       ))}
@@ -145,11 +153,13 @@ function AIResponseBlock({
   block,
   index,
   selectable,
+  textClassName,
   variant,
 }: {
   block: AITextBlock;
   index: number;
   selectable: boolean;
+  textClassName?: string;
   variant: AIResponseVariant;
 }) {
   const classes = variantClasses[variant];
@@ -197,7 +207,7 @@ function AIResponseBlock({
     return (
       <InlineMarkdownText
         accessibilityRole="header"
-        className={headingClassName}
+        className={`${headingClassName} ${textClassName ?? ""}`}
         selectable={selectable}
         style={safeTextStyle}
         text={block.content}
@@ -209,7 +219,7 @@ function AIResponseBlock({
     return (
       <View className="min-w-0 border-l-4 border-[#D8C5EF] bg-[#F7F2FC] px-4 py-3">
         <InlineMarkdownText
-          className={classes.muted}
+          className={`${classes.muted} ${textClassName ?? ""}`}
           selectable={selectable}
           style={safeTextStyle}
           text={block.content}
@@ -234,7 +244,7 @@ function AIResponseBlock({
               {item.marker}
             </Text>
             <InlineMarkdownText
-              className={`min-w-0 flex-1 ${classes.body}`}
+              className={`min-w-0 flex-1 ${classes.body} ${textClassName ?? ""}`}
               selectable={selectable}
               style={safeTextStyle}
               text={item.content}
@@ -251,7 +261,7 @@ function AIResponseBlock({
 
   return (
     <InlineMarkdownText
-      className={classes.body}
+      className={`${classes.body} ${textClassName ?? ""}`}
       selectable={selectable}
       style={safeTextStyle}
       text={block.content}
@@ -273,6 +283,8 @@ function InlineMarkdownText({
   text: string;
 }) {
   const parts = useMemo(() => parseInlineMarkdown(text), [text]);
+  const getRenderedContent = (content: string) =>
+    selectable ? content : addSafeBreakOpportunities(content);
 
   return (
     <Text
@@ -287,7 +299,7 @@ function InlineMarkdownText({
         if (part.type === "bold") {
           return (
             <Text className="font-bold" key={index}>
-              {addSafeBreakOpportunities(part.content)}
+              {getRenderedContent(part.content)}
             </Text>
           );
         }
@@ -295,7 +307,7 @@ function InlineMarkdownText({
         if (part.type === "italic") {
           return (
             <Text className="italic" key={index}>
-              {addSafeBreakOpportunities(part.content)}
+              {getRenderedContent(part.content)}
             </Text>
           );
         }
@@ -307,7 +319,7 @@ function InlineMarkdownText({
               key={index}
               style={{ fontFamily: "monospace" }}
             >
-              {addSafeBreakOpportunities(part.content)}
+              {getRenderedContent(part.content)}
             </Text>
           );
         }
@@ -320,12 +332,12 @@ function InlineMarkdownText({
               key={index}
               onPress={() => openSafeLink(part.url)}
             >
-              {addSafeBreakOpportunities(part.content)}
+              {getRenderedContent(part.content)}
             </Text>
           );
         }
 
-        return addSafeBreakOpportunities(part.content);
+        return getRenderedContent(part.content);
       })}
     </Text>
   );
@@ -412,7 +424,9 @@ class AIResponseErrorBoundary extends Component<
           style={safeTextStyle}
           textBreakStrategy="highQuality"
         >
-          {addSafeBreakOpportunities(this.props.content)}
+          {this.props.selectable
+            ? this.props.content
+            : addSafeBreakOpportunities(this.props.content)}
         </Text>
       );
     }

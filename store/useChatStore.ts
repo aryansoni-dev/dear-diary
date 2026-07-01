@@ -56,7 +56,10 @@ export const useChatStore = create<ChatState>()(
         logAITextIntegrity({
           length: message.content.length,
           stage: "stored",
-          surface: `ai_chat_${message.role}`,
+          surface:
+            message.role === "assistant"
+              ? "ai_chat_message"
+              : `ai_chat_${message.role}`,
         });
 
         set((state) => ({
