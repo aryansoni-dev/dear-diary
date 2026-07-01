@@ -8,6 +8,7 @@ import {
 } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
 
+import { AIResponseRenderer } from "@/components/ai/ai-response-renderer";
 import { reportCardShadow, reportColors } from "@/constants/report-theme";
 
 const reportBodyTextStyle = {
@@ -74,14 +75,13 @@ export function SimpleListBlock({
               <CircleDot color={reportColors.primary} size={15} />
             )}
           </View>
-          <Text
-            allowFontScaling={false}
-            className="flex-1 text-[#52525B]"
-            maxFontSizeMultiplier={1}
-            style={reportBodyTextStyle}
-          >
-            {item}
-          </Text>
+          <View className="min-w-0 flex-1">
+            <AIResponseRenderer
+              content={item}
+              diagnosticLabel="insight_report_list_item"
+              variant="report"
+            />
+          </View>
         </View>
       ))}
     </View>
@@ -101,14 +101,12 @@ export function EmotionalFlowCard({ stages }: { stages: string[] }) {
             className="rounded-full px-5 py-3"
             style={{ backgroundColor: reportColors.lavender }}
           >
-            <Text
-              allowFontScaling={false}
-              className="text-center text-[#3F3F46]"
-              maxFontSizeMultiplier={1}
-              style={reportHeadingTextStyle}
-            >
-              {stage}
-            </Text>
+            <AIResponseRenderer
+              content={stage}
+              diagnosticLabel="insight_report_emotional_flow"
+              textClassName="text-center font-bold text-[#3F3F46]"
+              variant="report"
+            />
           </View>
           {index < stages.length - 1 ? (
             <ArrowDown color={reportColors.primary} size={18} />
@@ -134,24 +132,22 @@ export function PatternCards({ items }: { items: string[] }) {
   }
 
   return (
-    <View className="gap-3">
+    <View className="gap-4">
       {items.map((item) => (
-        <View
-          className="rounded-[22px] px-4 py-4"
-          key={item}
-          style={{
-            backgroundColor: reportColors.lavender,
-            boxShadow: reportCardShadow,
-          }}
-        >
-          <Text
-            allowFontScaling={false}
-            className="text-[#52525B]"
-            maxFontSizeMultiplier={1}
-            style={reportBodyTextStyle}
+        <View className="flex-row items-start gap-3" key={item}>
+          <View
+            className="mt-0.5 size-7 items-center justify-center rounded-full"
+            style={{ backgroundColor: getIconBackground("plain") }}
           >
-            {item}
-          </Text>
+            <CircleDot color={reportColors.primary} size={15} />
+          </View>
+          <View className="min-w-0 flex-1">
+            <AIResponseRenderer
+              content={item}
+              diagnosticLabel="insight_report_pattern"
+              variant="report"
+            />
+          </View>
         </View>
       ))}
     </View>
@@ -185,19 +181,14 @@ export function NextFocusCard({ focus }: { focus: string }) {
           Focus for Next Period
         </Text>
       </View>
-      <Text
-        allowFontScaling={false}
-        className="mt-4 text-white"
-        maxFontSizeMultiplier={1}
-        style={{
-          fontSize: 16,
-          fontWeight: "500",
-          includeFontPadding: true,
-          lineHeight: 28,
-        }}
-      >
-        {focus}
-      </Text>
+      <View className="mt-4 min-w-0">
+        <AIResponseRenderer
+          content={focus}
+          diagnosticLabel="insight_report_next_focus"
+          textClassName="font-medium text-white"
+          variant="report"
+        />
+      </View>
     </View>
   );
 }
@@ -225,19 +216,13 @@ export function ReflectionPromptCard({ prompt }: { prompt: string | null }) {
       >
         Continue Reflecting
       </Text>
-      <Text
-        allowFontScaling={false}
-        className="mt-4 text-[#52525B]"
-        maxFontSizeMultiplier={1}
-        style={{
-          fontSize: 16,
-          fontWeight: "500",
-          includeFontPadding: true,
-          lineHeight: 28,
-        }}
-      >
-        “{prompt}”
-      </Text>
+      <View className="mt-4 min-w-0">
+        <AIResponseRenderer
+          content={`“${prompt}”`}
+          diagnosticLabel="insight_report_reflection_prompt"
+          variant="report"
+        />
+      </View>
       <Link
         asChild
         href={{

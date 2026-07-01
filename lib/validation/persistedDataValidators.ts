@@ -192,6 +192,10 @@ function normalizePersistedChatMessage(value: unknown): ChatMessage | null {
     return null;
   }
 
+  if (value.isPartial !== undefined && typeof value.isPartial !== "boolean") {
+    return null;
+  }
+
   if (
     value.source !== undefined &&
     (typeof value.source !== "string" ||
@@ -204,6 +208,7 @@ function normalizePersistedChatMessage(value: unknown): ChatMessage | null {
     content: value.content,
     createdAt: value.createdAt,
     id: value.id,
+    isPartial: value.isPartial as boolean | undefined,
     relatedEntryIds: value.relatedEntryIds as string[] | undefined,
     role: value.role as ChatMessageRole,
     source: value.source as ChatMessageSource | undefined,

@@ -281,6 +281,6 @@ Before every feature:
 
 - Keep 'leading-6' in all components, and fix if you find any un-matching ones.
 
-- If you see any svgs in the attached design look for it in the '/assets' folder. If we don't have it, try to create them yourself like you created the google icon in the login screens.
+- If you see any svgs in the attached design look for them in the '/assets' folder. If we don't have it, try to create them yourself like you created the Google icon in the login screens.
 
 - Keep the text sizes like : headings, subheadings, body text, etc consistent on each screen.

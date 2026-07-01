@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { normalizeAppError } from "@/lib/errors/normalizeAppError";
+import { logAITextIntegrity } from "@/lib/ai/log-ai-text-integrity";
 import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import { normalizePersistedChatMessages } from "@/lib/validation/persistedDataValidators";
 import type { AppError } from "@/types/appError";
@@ -51,10 +52,20 @@ function sortMessagesByDate(messages: ChatMessage[]) {
 export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
-      addMessage: (message) =>
+      addMessage: (message) => {
+        logAITextIntegrity({
+          length: message.content.length,
+          stage: "stored",
+          surface:
+            message.role === "assistant"
+              ? "ai_chat_message"
+              : `ai_chat_${message.role}`,
+        });
+
         set((state) => ({
           messages: [...state.messages, message],
-        })),
+        }));
+      },
       clearMessagesForUser: (userId) =>
         set((state) => ({
           hydrationError: null,

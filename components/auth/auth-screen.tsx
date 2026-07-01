@@ -611,11 +611,11 @@ function SocialButtons({
               source={images.googleLogo}
               contentFit="contain"
               accessibilityLabel="Google logo"
-              style={{ height: 16, width: 16 }}
+              className="size-4"
             />
           )}
         </View>
-        <Text className="text-[15px] font-semibold leading-5 text-zinc-950">
+        <Text className="text-[15px] font-semibold leading-6 text-zinc-950">
           Continue with Google
         </Text>
       </Pressable>
@@ -634,7 +634,7 @@ function SocialButtons({
             <Ionicons name="logo-apple" size={14} color="#18181b" />
           )}
         </View>
-        <Text className="text-[15px] font-semibold leading-5 text-zinc-950">
+        <Text className="text-[15px] font-semibold leading-6 text-zinc-950">
           Continue with Apple
         </Text>
       </Pressable>

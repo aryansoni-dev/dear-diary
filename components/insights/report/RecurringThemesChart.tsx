@@ -1,6 +1,7 @@
 import { Text, View } from "react-native";
 
 import { reportColors } from "@/constants/report-theme";
+import { addSafeBreakOpportunities } from "@/lib/text/add-safe-break-opportunities";
 import type { ThemeFrequencyItem } from "@/types/aiInsightReport";
 
 type RecurringThemesChartProps = {
@@ -28,10 +29,10 @@ export function RecurringThemesChart({ data }: RecurringThemesChartProps) {
         <View className="gap-2" key={`${item.source}-${item.name}`}>
           <View className="flex-row items-center justify-between gap-3">
             <Text
-              allowFontScaling={false}
-              className="flex-1 text-[15px] font-semibold leading-5 text-[#3F3F46]"
+              className="min-w-0 flex-1 text-[15px] font-semibold leading-6 text-[#3F3F46]"
+              selectable
             >
-              {item.name}
+              {addSafeBreakOpportunities(item.name)}
             </Text>
             <View className="rounded-full bg-[#F4EFFA] px-3 py-1">
               <Text

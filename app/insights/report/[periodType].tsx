@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
+import { AIResponseRenderer } from "@/components/ai/ai-response-renderer";
 import { BottomTabBar, bottomTabBarBaseHeight } from "@/components/navigation/bottom-tab-bar";
 import { EntryTypeDistributionChart } from "@/components/insights/report/EntryTypeDistributionChart";
 import {
@@ -196,21 +197,19 @@ export default function AIInsightReportScreen() {
               onPress={handleRegenerate}
             />
             <ReportSection title="AI Overview">
-              <Text
-                allowFontScaling={false}
-                className="text-[16px] leading-7 text-[#52525B]"
-                maxFontSizeMultiplier={1}
-              >
-                {reportState.report.narrative.overview}
-              </Text>
+              <AIResponseRenderer
+                content={reportState.report.narrative.overview}
+                diagnosticLabel="insight_report_overview"
+                variant="report"
+              />
               {reportState.report.narrative.dataQualityNote ? (
-                <Text
-                  allowFontScaling={false}
-                  className="mt-4 text-[14px] leading-6 text-[#71717B]"
-                  maxFontSizeMultiplier={1}
-                >
-                  {reportState.report.narrative.dataQualityNote}
-                </Text>
+                <View className="mt-4 min-w-0">
+                  <AIResponseRenderer
+                    content={reportState.report.narrative.dataQualityNote}
+                    diagnosticLabel="insight_report_data_quality"
+                    variant="report"
+                  />
+                </View>
               ) : null}
             </ReportSection>
             <ReportStatGrid analytics={reportState.report.analytics} />

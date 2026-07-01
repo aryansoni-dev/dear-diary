@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { normalizeAppError } from "@/lib/errors/normalizeAppError";
+import { getEntryReflectionTextLength } from "@/lib/ai/get-ai-text-length";
+import { logAITextIntegrity } from "@/lib/ai/log-ai-text-integrity";
 import { createPersistStorage } from "@/lib/storage/createPersistStorage";
 import {
   isNonEmptyString,
@@ -72,6 +74,12 @@ export const useEntryReflectionStore = create<EntryReflectionState>()(
         })),
       upsertReflection: (reflection) =>
         set((state) => {
+          logAITextIntegrity({
+            length: getEntryReflectionTextLength(reflection),
+            stage: "stored",
+            surface: "entry_reflection",
+          });
+
           const nextReflections = state.reflections.filter(
             (currentReflection) =>
               currentReflection.userId !== reflection.userId ||

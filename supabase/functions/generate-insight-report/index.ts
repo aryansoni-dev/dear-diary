@@ -3,8 +3,13 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   buildReportAnalytics,
   type JournalEntryRow,
+  type MoodLogRow,
   type ReportAnalytics,
 } from "../_shared/buildReportAnalytics.ts";
+import {
+  parseReportNarrative,
+  type ReportNarrative,
+} from "../_shared/parseReportNarrative.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Headers":
@@ -60,7 +65,8 @@ Keep the tone warm, grounded, concise and practical.
 Every list item must be a complete sentence or a concise complete phrase.
 
 Never end a sentence or list item with connector words such as "and", "or",
-"which", "that", "with", "for", "to", "of", "a", "an", or "the".
+"which", "that", "with", "for", "to", "of", "into", "as", "a", "an", or
+"the".
 
 Return only valid JSON with the exact requested keys.`;
 
@@ -68,6 +74,7 @@ const journalEntrySelectWithTags =
   "id,title,content,mood,type,prompt,tags,created_at,updated_at";
 const journalEntrySelectWithoutTags =
   "id,title,content,mood,type,prompt,created_at,updated_at";
+const moodLogSelect = "id,mood,created_at,updated_at";
 const maxFetchedEntries = 251;
 const maxAnalyticsEntries = 250;
 const maxDetailedEntries = 150;
@@ -75,32 +82,15 @@ const maxEntryContentLength = 1200;
 const maxTitleLength = 200;
 const maxPromptLength = 300;
 const maxTagsPerEntry = 10;
-const reportFormatVersion = 2;
-const danglingEndingWords = new Set([
-  "a",
-  "about",
-  "an",
-  "and",
-  "as",
-  "at",
-  "because",
-  "being",
-  "but",
-  "by",
-  "for",
-  "from",
-  "if",
-  "in",
-  "into",
-  "of",
-  "on",
-  "or",
-  "that",
-  "the",
-  "to",
-  "which",
-  "while",
-  "with",
+const maxNarrativeAttempts = 2;
+const reportFormatVersion = 4;
+const validMoodIds = new Set([
+  "anxious",
+  "calm",
+  "grateful",
+  "happy",
+  "motivated",
+  "sad",
 ]);
 
 type AIInsightPeriodType = "weekly" | "monthly";
@@ -111,21 +101,6 @@ type GenerateInsightReportRequest = {
   periodType: AIInsightPeriodType;
   regenerate: boolean;
   timezone?: string;
-};
-
-type ReportNarrative = {
-  overview: string;
-  activities: string[];
-  emotionalJourney: string;
-  emotionalFlow: string[];
-  enjoyed: string[];
-  challenges: string[];
-  wins: string[];
-  patterns: string[];
-  improvements: string[];
-  nextFocus: string;
-  reflectionPrompt: string | null;
-  dataQualityNote: string | null;
 };
 
 type AIInsightReportRow = {
@@ -185,6 +160,15 @@ Deno.serve(async (request) => {
     );
   }
 
+  const claims = parseJwtClaims(bearerToken);
+
+  if (!claims?.sub) {
+    return jsonResponse(
+      { code: "invalid_jwt", error: "Authentication is invalid.", requestId },
+      401,
+    );
+  }
+
   const parsedRequest = await parseRequest(request);
 
   if (!parsedRequest.ok) {
@@ -225,24 +209,22 @@ Deno.serve(async (request) => {
       },
     },
   });
-  const authResult = await supabase.auth.getUser(bearerToken);
-  const userId = authResult.data.user?.id;
-
-  if (authResult.error || !userId) {
-    return jsonResponse(
-      { code: "invalid_jwt", error: "Authentication is invalid.", requestId },
-      401,
-    );
-  }
-
   const reportRequest = parsedRequest.data;
   const periodStart = new Date(reportRequest.periodStart);
   const periodEnd = new Date(reportRequest.periodEnd);
-  const entriesResult = await fetchJournalEntries({
-    periodEnd: reportRequest.periodEnd,
-    periodStart: reportRequest.periodStart,
-    supabase,
-  });
+  const [entriesResult, moodLogsResult] = await Promise.all([
+    fetchJournalEntries({
+      periodEnd: reportRequest.periodEnd,
+      periodStart: reportRequest.periodStart,
+      supabase,
+    }),
+    fetchMoodLogs({
+      periodEnd: reportRequest.periodEnd,
+      periodStart: reportRequest.periodStart,
+      supabase,
+      userId: claims.sub,
+    }),
+  ]);
 
   if (entriesResult.error) {
     console.error("generate-insight-report entries_query_failed", {
@@ -260,16 +242,34 @@ Deno.serve(async (request) => {
     );
   }
 
+  if (moodLogsResult.error) {
+    console.error("generate-insight-report mood_logs_query_failed", {
+      code: moodLogsResult.error.code,
+      requestId,
+    });
+
+    return jsonResponse(
+      {
+        code: "mood_logs_query_failed",
+        error: "Mood check-ins could not be loaded.",
+        requestId,
+      },
+      500,
+    );
+  }
+
   const dataWasCapped = entriesResult.entries.length > maxAnalyticsEntries;
   const entries = entriesResult.entries.slice(0, maxAnalyticsEntries);
+  const moodLogs = moodLogsResult.moodLogs;
   const analytics = buildReportAnalytics({
     dataWasCapped,
     entries,
+    moodLogs,
     periodEnd,
     periodStart,
     timezone: reportRequest.timezone,
   });
-  const source = await buildSourceSnapshot(entries);
+  const source = await buildSourceSnapshot(entries, moodLogs);
   const existingReportResult = await fetchExistingReport({
     periodEnd: reportRequest.periodEnd,
     periodStart: reportRequest.periodStart,
@@ -423,7 +423,7 @@ Deno.serve(async (request) => {
             ? "Weekly Reflection"
             : "Monthly Reflection",
         updated_at: now,
-        user_id: userId,
+        user_id: claims.sub,
       },
       { onConflict: "user_id,insight_type,period_start,period_end" },
     )
@@ -596,6 +596,38 @@ async function fetchJournalEntries({
   };
 }
 
+async function fetchMoodLogs({
+  periodEnd,
+  periodStart,
+  supabase,
+  userId,
+}: {
+  periodEnd: string;
+  periodStart: string;
+  supabase: SupabaseClient;
+  userId: string;
+}) {
+  const result = await supabase
+    .from("mood_logs")
+    .select(moodLogSelect)
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .gte("created_at", periodStart)
+    .lte("created_at", periodEnd)
+    .order("created_at", { ascending: true });
+
+  if (result.error) {
+    return { error: result.error, moodLogs: [] };
+  }
+
+  const rows: unknown[] = Array.isArray(result.data) ? result.data : [];
+
+  return {
+    error: null,
+    moodLogs: rows.filter(isMoodLogRow),
+  };
+}
+
 async function fetchExistingReport({
   periodEnd,
   periodStart,
@@ -625,13 +657,17 @@ async function fetchExistingReport({
   };
 }
 
-async function buildSourceSnapshot(entries: JournalEntryRow[]) {
-  const sortedParts = entries
-    .map((entry) => `${entry.id}:${entry.updated_at}`)
-    .sort();
+async function buildSourceSnapshot(
+  entries: JournalEntryRow[],
+  moodLogs: MoodLogRow[],
+) {
+  const sortedParts = [
+    ...entries.map((entry) => `entry:${entry.id}:${entry.updated_at}`),
+    ...moodLogs.map((moodLog) => `mood:${moodLog.id}:${moodLog.updated_at}`),
+  ].sort();
   const latestUpdatedAt =
-    entries
-      .map((entry) => entry.updated_at)
+    [...entries, ...moodLogs]
+      .map((source) => source.updated_at)
       .filter(Boolean)
       .sort()
       .at(-1) ?? null;
@@ -705,17 +741,39 @@ async function generateValidNarrative(
   prompt: string,
   analytics: ReportAnalytics,
 ) {
-  const rawNarrative = await callAIProvider(prompt);
-  const parsed = parseNarrativeResult(rawNarrative, analytics);
-
-  if (!parsed.ok) {
-    throw new AIProviderError(
-      "The AI provider returned invalid narrative JSON.",
-      "invalid_narrative_response",
+  for (let attempt = 1; attempt <= maxNarrativeAttempts; attempt += 1) {
+    const rawNarrative = await callAIProvider(
+      attempt === 1 ? prompt : buildNarrativeRetryPrompt(prompt),
     );
+    const parsed = parseReportNarrative(
+      rawNarrative,
+      analytics.dataWasCapped,
+    );
+
+    if (parsed.ok) {
+      return parsed.narrative;
+    }
+
+    console.warn("generate-insight-report invalid_ai_response", {
+      attempt,
+      characterCount: rawNarrative.length,
+      reason: parsed.reason,
+    });
   }
 
-  return parsed.narrative;
+  throw new AIProviderError(
+    "The AI provider returned invalid narrative JSON.",
+    "invalid_narrative_response",
+  );
+}
+
+function buildNarrativeRetryPrompt(prompt: string) {
+  return `${prompt}
+
+Your previous response could not be parsed.
+Return only one valid JSON object with every requested key and the correct value types.
+Keep every narrative field complete and preserve its full detail.
+Use null instead of an empty string for optional fields.`;
 }
 
 async function callAIProvider(finalPrompt: string) {
@@ -784,58 +842,14 @@ async function callAIProvider(finalPrompt: string) {
       );
     }
 
+    console.info("generate-insight-report provider_response_received", {
+      characterCount: content.length,
+    });
+
     return content;
   } finally {
     clearTimeout(timeout);
   }
-}
-
-function parseNarrativeResult(
-  value: string,
-  analytics: ReportAnalytics,
-): { narrative: ReportNarrative; ok: true } | { ok: false } {
-  let parsedValue: unknown;
-
-  try {
-    parsedValue = JSON.parse(stripJsonCodeFence(value));
-  } catch {
-    return { ok: false };
-  }
-
-  if (!isRecord(parsedValue)) {
-    return { ok: false };
-  }
-
-  const overview = getRequiredString(parsedValue.overview, 700);
-  const emotionalJourney = getRequiredString(parsedValue.emotionalJourney, 700);
-  const nextFocus = getRequiredString(parsedValue.nextFocus, 320);
-
-  if (!overview || !emotionalJourney || !nextFocus) {
-    return { ok: false };
-  }
-
-  const dataQualityNote =
-    analytics.dataWasCapped
-      ? "This report was generated from the first 250 entries in the selected period."
-      : getNullableString(parsedValue.dataQualityNote, 280);
-
-  return {
-    narrative: {
-      activities: getStringArray(parsedValue.activities, 8, 180),
-      challenges: getStringArray(parsedValue.challenges, 6, 220),
-      dataQualityNote,
-      emotionalFlow: getStringArray(parsedValue.emotionalFlow, 6, 80),
-      emotionalJourney,
-      enjoyed: getStringArray(parsedValue.enjoyed, 6, 180),
-      improvements: getStringArray(parsedValue.improvements, 5, 220),
-      nextFocus,
-      overview,
-      patterns: getStringArray(parsedValue.patterns, 6, 240),
-      reflectionPrompt: getNullableString(parsedValue.reflectionPrompt, 260),
-      wins: getStringArray(parsedValue.wins, 6, 180),
-    },
-    ok: true,
-  };
 }
 
 function mapReportRow(row: AIInsightReportRow) {
@@ -939,6 +953,19 @@ function isJournalEntryRow(value: unknown): value is JournalEntryRow {
   );
 }
 
+function isMoodLogRow(value: unknown): value is MoodLogRow {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.mood === "string" &&
+    validMoodIds.has(value.mood) &&
+    typeof value.created_at === "string" &&
+    Number.isFinite(Date.parse(value.created_at)) &&
+    typeof value.updated_at === "string" &&
+    Number.isFinite(Date.parse(value.updated_at))
+  );
+}
+
 function isReportRow(value: unknown): value is AIInsightReportRow {
   return (
     isRecord(value) &&
@@ -970,6 +997,31 @@ function getBearerToken(authorization: string) {
   return token || null;
 }
 
+function parseJwtClaims(token: string) {
+  const [, payload] = token.split(".");
+
+  if (!payload) {
+    return null;
+  }
+
+  try {
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const paddedPayload = normalizedPayload.padEnd(
+      normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
+      "=",
+    );
+    const claims: unknown = JSON.parse(atob(paddedPayload));
+
+    if (!isRecord(claims) || typeof claims.sub !== "string") {
+      return null;
+    }
+
+    return { sub: claims.sub };
+  } catch {
+    return null;
+  }
+}
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     headers: {
@@ -997,73 +1049,6 @@ function truncate(value: string, maxLength: number) {
   }
 
   return `${truncated}…`;
-}
-
-function stripJsonCodeFence(value: string) {
-  return value
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-}
-
-function getRequiredString(value: unknown, maxLength: number) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmedValue = sanitizeNarrativeText(value, maxLength);
-
-  return isCompleteNarrativeText(trimmedValue) ? trimmedValue : null;
-}
-
-function getNullableString(value: unknown, maxLength: number) {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmedValue = sanitizeNarrativeText(value, maxLength);
-
-  return isCompleteNarrativeText(trimmedValue) ? trimmedValue : null;
-}
-
-function getStringArray(value: unknown, maxItems: number, maxLength: number) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => sanitizeNarrativeText(item, maxLength))
-    .filter(isCompleteNarrativeText)
-    .filter(Boolean)
-    .slice(0, maxItems);
-}
-
-function sanitizeNarrativeText(value: string, maxLength: number) {
-  return truncate(value.replace(/\s+/g, " ").trim(), maxLength);
-}
-
-function isCompleteNarrativeText(value: string) {
-  const trimmedValue = value.trim();
-
-  if (!trimmedValue) {
-    return false;
-  }
-
-  if (/[,;:]$/.test(trimmedValue) || /\.{3}$/.test(trimmedValue)) {
-    return false;
-  }
-
-  const lastWord = trimmedValue.match(/[A-Za-z]+[.!?"]?$/)?.[0]
-    .replace(/[.!?"]+$/g, "")
-    .toLowerCase();
-
-  return !lastWord || !danglingEndingWords.has(lastWord);
 }
 
 function createReportId() {

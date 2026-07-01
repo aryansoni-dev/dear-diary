@@ -8,6 +8,7 @@ import {
   isFaultEnabled,
   throwIfFaultEnabled,
 } from "@/lib/dev/faultInjection";
+import { logAITextIntegrity } from "@/lib/ai/log-ai-text-integrity";
 import { getAuthenticatedSupabaseClient } from "@/lib/supabase";
 import type { ClientContext } from "@/lib/ai/chatIntent";
 
@@ -18,6 +19,7 @@ export type RemoteJournalMessage = {
 };
 
 export type RemoteJournalResponse = {
+  isPartial?: boolean;
   message: string;
   relatedEntryIds: string[];
   source: "remote_ai";
@@ -84,6 +86,12 @@ export const generateRemoteJournalResponse = async (params: {
     );
   }
 
+  logAITextIntegrity({
+    length: data.message.length,
+    stage: "validated",
+    surface: "ai_chat_message",
+  });
+
   return data;
 };
 
@@ -97,6 +105,7 @@ function isRemoteJournalResponse(
   return (
     typeof value.message === "string" &&
     value.message.trim().length > 0 &&
+    (value.isPartial === undefined || typeof value.isPartial === "boolean") &&
     Array.isArray(value.relatedEntryIds) &&
     value.relatedEntryIds.every((entryId) => typeof entryId === "string") &&
     value.source === "remote_ai"

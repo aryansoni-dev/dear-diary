@@ -57,56 +57,176 @@ export type JournalEntryRow = {
   updated_at: string;
 };
 
-const stopWords = new Set([
+export type MoodLogRow = {
+  created_at: string;
+  id: string;
+  mood: string;
+  updated_at: string;
+};
+
+const contentStopWords = new Set([
+  "above",
   "about",
   "after",
   "again",
+  "against",
+  "all",
+  "almost",
+  "already",
   "also",
+  "although",
+  "always",
+  "among",
   "and",
+  "another",
+  "any",
+  "anyone",
+  "anything",
+  "around",
   "because",
   "been",
   "before",
   "being",
+  "between",
+  "both",
+  "but",
+  "cannot",
+  "challenge",
+  "challenged",
+  "challenges",
   "could",
   "daily",
+  "day",
+  "days",
   "dear",
   "diary",
+  "does",
+  "doing",
+  "done",
+  "down",
+  "during",
+  "each",
+  "either",
+  "else",
+  "enough",
+  "even",
+  "ever",
+  "every",
+  "everyone",
+  "everything",
+  "evening",
+  "entries",
+  "entry",
   "feel",
+  "feeling",
+  "feelings",
   "felt",
   "from",
+  "getting",
+  "going",
+  "had",
+  "has",
   "have",
+  "having",
+  "here",
+  "herself",
+  "himself",
   "into",
+  "itself",
+  "i'd",
+  "i'll",
+  "i'm",
+  "i've",
   "journal",
   "just",
+  "know",
+  "later",
+  "least",
+  "less",
   "like",
+  "many",
+  "maybe",
+  "might",
   "more",
+  "morning",
+  "most",
   "much",
+  "must",
+  "myself",
+  "never",
+  "night",
+  "nobody",
+  "none",
+  "nothing",
+  "often",
+  "once",
+  "only",
+  "other",
+  "ourselves",
+  "quite",
+  "really",
+  "reflection",
+  "reflections",
+  "same",
+  "should",
+  "since",
+  "someone",
+  "something",
+  "still",
+  "such",
+  "than",
   "that",
   "the",
   "their",
+  "theirs",
   "them",
+  "themselves",
   "then",
   "there",
+  "these",
+  "thing",
+  "things",
+  "think",
   "this",
+  "those",
+  "through",
+  "together",
+  "toward",
   "today",
+  "under",
+  "until",
+  "usually",
+  "very",
   "want",
+  "whatever",
   "were",
   "what",
   "when",
+  "where",
+  "whether",
+  "which",
+  "while",
+  "without",
   "with",
   "would",
+  "write",
+  "writing",
+  "wrote",
+  "yourself",
   "your",
 ]);
 
 export function buildReportAnalytics({
   dataWasCapped,
   entries,
+  moodLogs = [],
   periodEnd,
   periodStart,
   timezone,
 }: {
   dataWasCapped: boolean;
   entries: JournalEntryRow[];
+  moodLogs?: MoodLogRow[];
   periodEnd: Date;
   periodStart: Date;
   timezone?: string;
@@ -138,7 +258,12 @@ export function buildReportAnalytics({
     entryTypeDistribution: getEntryTypeDistribution(entries),
     longestStreak: getLongestStreak(activeDates),
     moodDistribution,
-    moodTimeline: getMoodTimeline(entries, entryCountByDate, timezone),
+    moodTimeline: getMoodTimeline(
+      entries,
+      entryCountByDate,
+      moodLogs,
+      timezone,
+    ),
     mostActiveDate: mostActive.date,
     mostActiveDateEntryCount: mostActive.count,
     recurringThemes: getRecurringThemes(entries),
@@ -214,6 +339,7 @@ function getMoodDistribution(entries: JournalEntryRow[]) {
 function getMoodTimeline(
   entries: JournalEntryRow[],
   entryCountByDate: Record<string, number>,
+  moodLogs: MoodLogRow[],
   timezone?: string,
 ) {
   const moodsByDate = entries.reduce<Record<string, string[]>>((groups, entry) => {
@@ -229,15 +355,40 @@ function getMoodTimeline(
 
     return groups;
   }, {});
+  const latestMoodLogByDate = moodLogs.reduce<Record<string, MoodLogRow>>(
+    (groups, moodLog) => {
+      const date = getDateKey(new Date(moodLog.created_at), timezone);
+      const currentMoodLog = groups[date];
 
-  return Object.keys(entryCountByDate)
+      if (
+        !currentMoodLog ||
+        Date.parse(moodLog.updated_at) > Date.parse(currentMoodLog.updated_at)
+      ) {
+        groups[date] = moodLog;
+      }
+
+      return groups;
+    },
+    {},
+  );
+  const timelineDates = new Set([
+    ...Object.keys(entryCountByDate),
+    ...Object.keys(latestMoodLogByDate),
+  ]);
+
+  return [...timelineDates]
     .sort()
-    .map((date) => ({
-      date,
-      dominantMood: getDominantMood(moodsByDate[date] ?? []),
-      entryCount: entryCountByDate[date],
-      moods: [...new Set(moodsByDate[date] ?? [])],
-    }));
+    .map((date) => {
+      const homeMood = latestMoodLogByDate[date]?.mood;
+      const entryMoods = moodsByDate[date] ?? [];
+
+      return {
+        date,
+        dominantMood: homeMood ?? getDominantMood(entryMoods),
+        entryCount: entryCountByDate[date] ?? 0,
+        moods: [...new Set(homeMood ? [homeMood, ...entryMoods] : entryMoods)],
+      };
+    });
 }
 
 function getDominantMood(moods: string[]) {
@@ -250,7 +401,15 @@ function getDominantMood(moods: string[]) {
     return moodCounts;
   }, {});
 
-  return Object.entries(counts).sort(sortByCountThenName)[0]?.[0] ?? null;
+  return (
+    Object.entries(counts).sort((first, second) => {
+      const countDifference = second[1] - first[1];
+
+      return countDifference !== 0
+        ? countDifference
+        : first[0].localeCompare(second[0]);
+    })[0]?.[0] ?? null
+  );
 }
 
 function getEntryTypeDistribution(entries: JournalEntryRow[]) {
@@ -274,26 +433,26 @@ function getRecurringThemes(entries: JournalEntryRow[]) {
   const contentCounts = new Map<string, number>();
 
   entries.forEach((entry) => {
-    (entry.tags ?? []).forEach((tag) => {
-      const normalizedTag = normalizeTheme(tag);
+    const entryTags = new Set(
+      (entry.tags ?? [])
+        .map(normalizeTag)
+        .filter((tag): tag is string => tag !== null),
+    );
 
-      if (normalizedTag) {
-        tagCounts.set(normalizedTag, (tagCounts.get(normalizedTag) ?? 0) + 1);
-      }
+    entryTags.forEach((tag) => {
+      tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
     });
 
     const searchableText = `${entry.title} ${entry.content}`;
     const words = searchableText.toLowerCase().match(/[a-z][a-z']+/g) ?? [];
+    const entryContentThemes = new Set(
+      words
+        .map(normalizeContentWord)
+        .filter((word): word is string => word !== null),
+    );
 
-    words.forEach((word) => {
-      const normalizedWord = normalizeTheme(word);
-
-      if (normalizedWord) {
-        contentCounts.set(
-          normalizedWord,
-          (contentCounts.get(normalizedWord) ?? 0) + 1,
-        );
-      }
+    entryContentThemes.forEach((theme) => {
+      contentCounts.set(theme, (contentCounts.get(theme) ?? 0) + 1);
     });
   });
 
@@ -388,14 +547,24 @@ function isValidTimezone(timezone: string) {
   }
 }
 
-function normalizeTheme(value: string) {
+function normalizeTag(value: string) {
   const normalized = value.trim().toLowerCase().replace(/[_-]+/g, " ");
 
-  if (normalized.length < 4 || stopWords.has(normalized)) {
+  if (normalized.length < 2) {
     return null;
   }
 
   return normalized.replace(/\s+/g, " ");
+}
+
+function normalizeContentWord(value: string) {
+  const normalized = value.trim().toLowerCase();
+
+  if (normalized.length < 4 || contentStopWords.has(normalized)) {
+    return null;
+  }
+
+  return normalized;
 }
 
 function roundToTwo(value: number) {

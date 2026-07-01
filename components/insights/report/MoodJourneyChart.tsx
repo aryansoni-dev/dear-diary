@@ -1,5 +1,6 @@
 import { ScrollView, Text, View } from "react-native";
 
+import { AIResponseRenderer } from "@/components/ai/ai-response-renderer";
 import {
   formatMoodLabel,
   formatReportDate,
@@ -18,7 +19,9 @@ type MoodJourneyChartProps = {
 };
 
 export function MoodJourneyChart({ data, explanation }: MoodJourneyChartProps) {
-  const activeDays = data.filter((item) => item.entryCount > 0);
+  const activeDays = data.filter(
+    (item) => item.entryCount > 0 || item.dominantMood !== null,
+  );
 
   if (activeDays.length === 0) {
     return (
@@ -27,7 +30,7 @@ export function MoodJourneyChart({ data, explanation }: MoodJourneyChartProps) {
         className="text-[15px] leading-6"
         style={{ color: moodJourneyColors.emptyText }}
       >
-        Mood journey will appear after entries are added in this period.
+        Mood journey will appear after a mood check-in or an entry with a mood.
       </Text>
     );
   }
@@ -35,7 +38,7 @@ export function MoodJourneyChart({ data, explanation }: MoodJourneyChartProps) {
   const accessibilityLabel = `Mood journey. ${activeDays
     .map(
       (item) =>
-        `${formatReportDate(item.date)}: ${formatMoodLabel(item.dominantMood)}, ${item.entryCount} entries`,
+        `${formatReportDate(item.date)}: ${formatMoodLabel(item.dominantMood)}, ${getActivityLabel(item.entryCount)}`,
     )
     .join(". ")}.`;
 
@@ -90,18 +93,26 @@ export function MoodJourneyChart({ data, explanation }: MoodJourneyChartProps) {
               className="mt-1 text-[12px] leading-5"
               style={{ color: moodJourneyColors.entryCountText }}
             >
-              {item.entryCount} {item.entryCount === 1 ? "entry" : "entries"}
+              {getActivityLabel(item.entryCount)}
             </Text>
           </View>
         ))}
       </ScrollView>
-      <Text
-        allowFontScaling={false}
-        className="mt-4 text-[15px] leading-6"
-        style={{ color: moodJourneyColors.explanationText }}
-      >
-        {explanation}
-      </Text>
+      <View className="mt-4 min-w-0">
+        <AIResponseRenderer
+          content={explanation}
+          diagnosticLabel="insight_report_emotional_journey"
+          variant="report"
+        />
+      </View>
     </View>
   );
+}
+
+function getActivityLabel(entryCount: number) {
+  if (entryCount === 0) {
+    return "Mood check-in";
+  }
+
+  return `${entryCount} ${entryCount === 1 ? "entry" : "entries"}`;
 }

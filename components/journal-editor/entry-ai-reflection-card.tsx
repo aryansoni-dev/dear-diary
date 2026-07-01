@@ -2,6 +2,8 @@ import { RefreshCw, Sparkles } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
+import { AIResponseRenderer } from "@/components/ai/ai-response-renderer";
+import { addSafeBreakOpportunities } from "@/lib/text/add-safe-break-opportunities";
 import type { EntryAIReflection } from "@/types/entryReflection";
 
 const colors = {
@@ -9,14 +11,6 @@ const colors = {
   chipBackground: "#FFE8F0",
   mutedText: "#71717B",
 };
-const bodyTextStyle = {
-  flexShrink: 1,
-  flexWrap: "wrap",
-  includeFontPadding: true,
-  overflow: "visible",
-  paddingBottom: 8,
-  paddingTop: 3,
-} as const;
 const smallTextStyle = {
   flexShrink: 1,
   flexWrap: "wrap",
@@ -102,6 +96,7 @@ export function EntryAIReflectionCard({
         {error ? (
           <Text
             className="mt-4 text-[14px] text-[#DC2626]"
+            selectable
             style={smallTextStyle}
           >
             Could not generate this reflection. {error}
@@ -180,6 +175,7 @@ export function EntryAIReflectionCard({
       {error ? (
         <Text
           className="mt-5 text-[14px] text-[#DC2626]"
+          selectable
           style={smallTextStyle}
         >
           Could not update this reflection. Your previous reflection is still
@@ -220,13 +216,13 @@ function ReflectionTextSection({
       <Text className="text-[11px] font-semibold uppercase leading-5 tracking-[2.2px] text-[#A1A1AA]">
         {title}
       </Text>
-      <Text
-        className="mt-2 text-[16px] text-[#3F3F46]"
-        selectable
-        style={bodyTextStyle}
-      >
-        {value}
-      </Text>
+      <View className="mt-2 min-w-0">
+        <AIResponseRenderer
+          content={value}
+          diagnosticLabel={`entry_reflection_${title.toLowerCase().replace(/\s+/g, "_")}`}
+          variant="reflection"
+        />
+      </View>
     </View>
   );
 }
@@ -256,9 +252,10 @@ function ReflectionChipSection({
           >
             <Text
               className="text-[14px] font-semibold text-[#FF2056]"
+              selectable
               style={smallTextStyle}
             >
-              {item}
+              {addSafeBreakOpportunities(item)}
             </Text>
           </View>
         ))}

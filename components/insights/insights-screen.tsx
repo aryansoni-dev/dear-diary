@@ -29,6 +29,7 @@ import Svg, {
   LinearGradient as SvgLinearGradient,
 } from "react-native-svg";
 
+import { AIResponseRenderer } from "@/components/ai/ai-response-renderer";
 import {
   BottomTabBar,
   bottomTabBarBaseHeight,
@@ -61,14 +62,17 @@ import {
   getCurrentReportPeriod,
   type ReportPeriod,
 } from "@/lib/insights/reportPeriods";
+import { getPreferredMoodForRange } from "@/lib/insights/getPreferredMoodForRange";
 import {
   retryJournalStoreHydration,
   useJournalHydrationStore,
   useJournalStore,
 } from "@/store/journal-store";
+import { useMoodLogStore } from "@/store/useMoodLogStore";
 import type { AIInsightReport } from "@/types/aiInsightReport";
 import type { InsightsPeriod, ThemeFrequency } from "@/types/insights";
 import type { JournalEntry, MoodId } from "@/types/journal";
+import type { MoodLog } from "@/types/moodLog";
 
 const primaryColor = "#FF2056";
 
@@ -118,13 +122,23 @@ export function InsightsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const entries = useJournalStore((state) => state.entries);
+  const moodLogs = useMoodLogStore((state) => state.allMoodLogs);
+  const moodLogHasHydrated = useMoodLogStore((state) => state.hasHydrated);
+  const moodLogHydrationError = useMoodLogStore(
+    (state) => state.hydrationError,
+  );
   const hasHydrated = useJournalHydrationStore(
     (state) => state.hasHydrated,
   );
   const hydrationError = useJournalHydrationStore(
     (state) => state.hydrationError,
   );
-  const showHydrationState = useDelayedVisibility(!hasHydrated);
+  const localHydrationError = hydrationError ?? moodLogHydrationError;
+  const localDataHasHydrated =
+    hasHydrated && moodLogHasHydrated && !localHydrationError;
+  const showHydrationState = useDelayedVisibility(
+    !localDataHasHydrated && !localHydrationError,
+  );
   const [selectedPeriod, setSelectedPeriod] = useState<InsightsPeriod>("week");
   const [selectedReferenceDate, setSelectedReferenceDate] = useState(
     () => new Date(),
@@ -141,21 +155,29 @@ export function InsightsScreen() {
     [reportDate],
   );
   const weeklyReportState = useAIInsightReport(weeklyPeriod, {
-    enabled: hasHydrated,
+    enabled: localDataHasHydrated,
   });
   const monthlyReportState = useAIInsightReport(monthlyPeriod, {
-    enabled: hasHydrated,
+    enabled: localDataHasHydrated,
   });
   const insights = useMemo(
     () =>
       getLocalInsights({
         entries,
-        hasHydrated,
+        hasHydrated: localDataHasHydrated,
+        moodLogs,
         period: selectedPeriod,
         referenceDate: selectedReferenceDate,
         userId: userId ?? null,
       }),
-    [entries, hasHydrated, selectedPeriod, selectedReferenceDate, userId],
+    [
+      entries,
+      localDataHasHydrated,
+      moodLogs,
+      selectedPeriod,
+      selectedReferenceDate,
+      userId,
+    ],
   );
   const derivedInsights = useMemo(
     () =>
@@ -217,14 +239,22 @@ export function InsightsScreen() {
     () => getRecurringThemes(derivedInsights.themes, matchingPeriodReport),
     [derivedInsights.themes, matchingPeriodReport],
   );
-  const hasNoEntries = hasHydrated && entries.length === 0;
+  const hasNoInsightData =
+    localDataHasHydrated &&
+    !hasActiveUserInsightData(entries, moodLogs, userId ?? null);
   const newJournalEntryHref = {
     pathname: "/journal/new",
     params: { source: "insights" },
   } as Href;
 
-  function retryJournalHydration() {
-    retryJournalStoreHydration();
+  function retryLocalHydration() {
+    if (hydrationError) {
+      retryJournalStoreHydration();
+    }
+
+    if (moodLogHydrationError) {
+      void useMoodLogStore.persist.rehydrate();
+    }
   }
 
   return (
@@ -255,18 +285,18 @@ export function InsightsScreen() {
         }}
       >
         <TabScreenHeader
-          subtitle="Powered by your journal entries"
+          subtitle="Powered by your journal and mood check-ins"
           title="Your Insights ✨"
         />
 
-        {hydrationError ? (
+        {localHydrationError ? (
           <View className="mt-7">
             <ScreenErrorState
-              error={hydrationError}
-              onRetry={retryJournalHydration}
+              error={localHydrationError}
+              onRetry={retryLocalHydration}
             />
           </View>
-        ) : !hasHydrated ? (
+        ) : !localDataHasHydrated ? (
           showHydrationState ? (
             <View className="mt-7">
               <ScreenLoadingState
@@ -275,7 +305,7 @@ export function InsightsScreen() {
               />
             </View>
           ) : null
-        ) : hasNoEntries ? (
+        ) : hasNoInsightData ? (
           <View className="mt-7">
             <ScreenEmptyState
               actionLabel="Write an entry"
@@ -566,12 +596,14 @@ type LocalInsights = {
 function getLocalInsights({
   entries,
   hasHydrated,
+  moodLogs,
   period,
   referenceDate,
   userId,
 }: {
   entries: JournalEntry[];
   hasHydrated: boolean;
+  moodLogs: MoodLog[];
   period: InsightsPeriod;
   referenceDate: Date;
   userId: string | null;
@@ -583,6 +615,7 @@ function getLocalInsights({
     })),
     moodJourney: getPeriodMoodJourney({
       entries,
+      moodLogs,
       period,
       referenceDate,
       userId,
@@ -714,11 +747,7 @@ function getCompactInsightText(value: string) {
   }
 
   const sentenceMatch = normalizedText.match(/^.*?[.!?](?:\s|$)/);
-  const firstSentence = sentenceMatch?.[0].trim() ?? normalizedText;
-
-  return firstSentence.length > 180
-    ? `${firstSentence.slice(0, 177).trim()}...`
-    : firstSentence;
+  return sentenceMatch?.[0].trim() ?? normalizedText;
 }
 
 function getRecurringThemes(
@@ -785,31 +814,29 @@ function isReportForDateRange(
 
 function getPeriodMoodJourney({
   entries,
+  moodLogs,
   period,
   referenceDate,
   userId,
 }: {
   entries: JournalEntry[];
+  moodLogs: MoodLog[];
   period: InsightsPeriod;
   referenceDate: Date;
   userId: string | null;
 }) {
   const dateRange = getInsightDateRange(period, referenceDate);
-  const periodEntries = entries.filter(
-    (entry) =>
-      !entry.deletedAt &&
-      (!userId || entry.userId === userId) &&
-      isEntryInRange(entry, dateRange.start, dateRange.end),
-  );
 
   if (period === "week") {
     return Array.from({ length: 7 }, (_, index) => {
       const date = addDays(dateRange.start, index);
-      const mood = getTopMoodForRange(
-        periodEntries,
-        startOfLocalDay(date),
-        endOfLocalDay(date),
-      );
+      const mood = getPreferredMoodForRange({
+        entries,
+        moodLogs,
+        rangeEnd: endOfLocalDay(date),
+        rangeStart: startOfLocalDay(date),
+        userId,
+      });
 
       return toMoodJourneyPoint(
         mood,
@@ -827,13 +854,16 @@ function getPeriodMoodJourney({
     while (cursor.getTime() <= dateRange.end.getTime()) {
       const bucketStart = new Date(cursor);
       const bucketEnd = endOfLocalDay(addDays(bucketStart, 6));
-      const mood = getTopMoodForRange(
-        periodEntries,
-        bucketStart,
-        bucketEnd.getTime() > dateRange.end.getTime()
-          ? dateRange.end
-          : bucketEnd,
-      );
+      const mood = getPreferredMoodForRange({
+        entries,
+        moodLogs,
+        rangeEnd:
+          bucketEnd.getTime() > dateRange.end.getTime()
+            ? dateRange.end
+            : bucketEnd,
+        rangeStart: bucketStart,
+        userId,
+      });
 
       points.push(
         toMoodJourneyPoint(
@@ -854,7 +884,13 @@ function getPeriodMoodJourney({
     const bucketEnd = endOfLocalDay(
       new Date(referenceDate.getFullYear(), monthIndex + 1, 0),
     );
-    const mood = getTopMoodForRange(periodEntries, bucketStart, bucketEnd);
+    const mood = getPreferredMoodForRange({
+      entries,
+      moodLogs,
+      rangeEnd: bucketEnd,
+      rangeStart: bucketStart,
+      userId,
+    });
 
     return toMoodJourneyPoint(
       mood,
@@ -877,14 +913,6 @@ function getMoodJourneyPillLabel(period: InsightsPeriod) {
   return "This Year";
 }
 
-function getTopMoodForRange(entries: JournalEntry[], start: Date, end: Date) {
-  return getTopMood(
-    entries.filter(
-      (entry) => entry.mood && isEntryInRange(entry, start, end),
-    ),
-  );
-}
-
 function toMoodJourneyPoint(
   mood: MoodId | null,
   day: string,
@@ -896,40 +924,18 @@ function toMoodJourneyPoint(
   };
 }
 
-function isEntryInRange(entry: JournalEntry, start: Date, end: Date) {
-  const createdAt = Date.parse(entry.createdAt);
+function hasActiveUserInsightData(
+  entries: JournalEntry[],
+  moodLogs: MoodLog[],
+  userId: string | null,
+) {
+  if (!userId) {
+    return false;
+  }
 
   return (
-    Number.isFinite(createdAt) &&
-    createdAt >= start.getTime() &&
-    createdAt <= end.getTime()
-  );
-}
-
-function getTopMood(entries: JournalEntry[]) {
-  const moodCounts = entries.reduce<Partial<Record<MoodId, number>>>(
-    (counts, entry) => {
-      if (!entry.mood) {
-        return counts;
-      }
-
-      counts[entry.mood] = (counts[entry.mood] ?? 0) + 1;
-      return counts;
-    },
-    {},
-  );
-
-  return Object.entries(moodCounts).reduce<MoodId | null>(
-    (currentMood, [mood, count]) => {
-      if (!currentMood) {
-        return mood as MoodId;
-      }
-
-      return count > (moodCounts[currentMood] ?? 0)
-        ? (mood as MoodId)
-        : currentMood;
-    },
-    null,
+    entries.some((entry) => entry.userId === userId && !entry.deletedAt) ||
+    moodLogs.some((moodLog) => moodLog.userId === userId && !moodLog.deletedAt)
   );
 }
 
@@ -1104,6 +1110,12 @@ function getSmoothLinePath(points: ChartPoint[]) {
     const previous = points[Math.max(0, index - 1)];
     const current = points[index];
     const next = points[index + 1];
+
+    if (current.y === next.y) {
+      commands.push(`L ${next.x} ${next.y}`);
+      continue;
+    }
+
     const afterNext = points[Math.min(points.length - 1, index + 2)];
     const controlPointOne = {
       x: current.x + (next.x - previous.x) / 6,
@@ -1164,9 +1176,13 @@ function InsightMessageCard({ card }: { card: InsightCard }) {
           {card.title}
         </Text>
       </View>
-      <Text className="mt-7 text-[17px] leading-6 text-[#52525B]">
-        {card.body}
-      </Text>
+      <View className="mt-7 min-w-0">
+        <AIResponseRenderer
+          content={card.body}
+          diagnosticLabel={`insight_card_${card.title.toLowerCase().replace(/\s+/g, "_")}`}
+          variant="insight"
+        />
+      </View>
     </View>
   );
 }
