@@ -24,6 +24,7 @@ export async function enableJournalReminders({
 }) {
   const Notifications = await getNotificationsModule();
   configureNotificationHandler(Notifications);
+  await configureAndroidNotificationChannel(Notifications);
 
   const hasPermission = await requestNotificationPermission(Notifications);
 
@@ -31,7 +32,6 @@ export async function enableJournalReminders({
     throw new Error("Notifications permission was not granted.");
   }
 
-  await configureAndroidNotificationChannel(Notifications);
   await scheduleJournalReminders({ eveningTime, morningTime, Notifications });
 }
 

@@ -7,21 +7,30 @@ import { useEffect } from "react";
 
 import { AchievementWatcher } from "@/components/achievements/AchievementWatcher";
 import { AppLockGate } from "@/components/app-lock/AppLockGate";
+import { ConfigurationErrorScreen } from "@/components/errors/configuration-error-screen";
 import { RootErrorFallback } from "@/components/errors/RootErrorFallback";
+import { publicEnvironmentResult } from "@/lib/environment";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
 import { AppLockProvider } from "@/providers/AppLockProvider";
 import { AppDialogProvider } from "@/providers/AppDialogProvider";
 import { ConnectivityProvider } from "@/providers/ConnectivityProvider";
 
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
-
-if (!publishableKey) {
-  throw new Error("Add your Clerk Publishable Key to the .env file");
-}
-
 export default function RootLayout() {
+  if (!publicEnvironmentResult.isValid) {
+    return (
+      <ConfigurationErrorScreen
+        developerMessage={
+          __DEV__ ? publicEnvironmentResult.developerMessage : undefined
+        }
+      />
+    );
+  }
+
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+    <ClerkProvider
+      publishableKey={publicEnvironmentResult.environment.clerkPublishableKey}
+      tokenCache={tokenCache}
+    >
       <ConnectivityProvider>
         <AppDialogProvider>
           <AppStack />

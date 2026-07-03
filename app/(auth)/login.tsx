@@ -18,7 +18,7 @@ export default function LoginScreen() {
         footerText="Don't have an account?"
         heading="Welcome back"
         mode="login"
-        showTemporaryOnboardingBackButton
+        // showTemporaryOnboardingBackButton
         subheading="Your thoughts are waiting for you."
       />
     </>
