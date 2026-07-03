@@ -18,15 +18,13 @@ import {
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { appLockColors } from "@/constants/app-lock-theme";
 import { useAppLockSettings } from "@/hooks/useAppLockSettings";
-import { publicEnvironmentResult } from "@/lib/environment";
+import { getPublicEnvironment } from "@/lib/environment";
 import type { AppLockDelay } from "@/types/appLock";
 
 const changePinHref = "/settings/app-lock/change-pin" as Href;
 const privacyPolicyHref = "/legal/privacy-policy" as Href;
 const termsHref = "/legal/terms" as Href;
-const accountDeletionUrl = publicEnvironmentResult.isValid
-  ? publicEnvironmentResult.environment.accountDeletionUrl
-  : null;
+const accountDeletionUrl = getPublicEnvironment()?.accountDeletionUrl ?? null;
 
 const delayOptions: { label: string; value: AppLockDelay }[] = [
   { label: "Immediately", value: "immediately" },

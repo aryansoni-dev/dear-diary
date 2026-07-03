@@ -29,7 +29,10 @@ import { CONNECTION_STATE_COLORS } from "@/constants/theme";
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
-import { generateRemoteJournalResponse } from "@/lib/ai/remoteJournalAssistant";
+import {
+  generateRemoteJournalResponse,
+  RemoteJournalAssistantError,
+} from "@/lib/ai/remoteJournalAssistant";
 import { addSafeBreakOpportunities } from "@/lib/text/add-safe-break-opportunities";
 import { useChatStore } from "@/store/useChatStore";
 import type { ChatMessage } from "@/types/chat";
@@ -322,10 +325,29 @@ export function AiChatScreen({
         source: remoteResponse.source,
         userId,
       });
-    } catch {
+    } catch (error) {
       if (requestIdRef.current !== requestId) {
         return;
       }
+
+      if (__DEV__) {
+        console.warn(
+          "AI Chat request failed",
+          error instanceof RemoteJournalAssistantError
+            ? { code: error.code, message: error.message }
+            : error instanceof Error
+              ? { message: error.message, name: error.name }
+              : { type: typeof error },
+        );
+      }
+
+      addMessage({
+        content: "I couldn't respond just now. Please try again in a moment.",
+        createdAt: new Date().toISOString(),
+        id: createChatMessageId(),
+        role: "assistant",
+        userId,
+      });
 
       showDialog({
         confirmText: "OK",

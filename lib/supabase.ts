@@ -1,12 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 
-import { publicEnvironmentResult } from "@/lib/environment";
+import { getPublicEnvironment } from "@/lib/environment";
 
 export type SupabaseAccessTokenProvider = () => Promise<string | null>;
 
-const publicEnvironment = publicEnvironmentResult.isValid
-  ? publicEnvironmentResult.environment
-  : null;
+const publicEnvironment = getPublicEnvironment();
 const supabaseUrl = publicEnvironment?.supabaseUrl;
 const supabaseAnonKey = publicEnvironment?.supabasePublicKey;
 

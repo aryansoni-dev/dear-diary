@@ -1,5 +1,5 @@
 import { clearLocalUserData } from "@/lib/account/clearLocalUserData";
-import { publicEnvironmentResult } from "@/lib/environment";
+import { getPublicEnvironment } from "@/lib/environment";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
 import { isRecord } from "@/lib/utils/typeGuards";
 import { useAccountDeletionStore } from "@/store/useAccountDeletionStore";
@@ -24,9 +24,7 @@ type DeleteCurrentAccountParams = {
 
 const expectedConfirmationPhrase = "DELETE";
 const deleteAccountRequestTimeoutMs = 30000;
-const publicEnvironment = publicEnvironmentResult.isValid
-  ? publicEnvironmentResult.environment
-  : null;
+const publicEnvironment = getPublicEnvironment();
 
 export async function deleteCurrentAccount({
   confirmationPhrase,

@@ -1,16 +1,28 @@
 # Preview Smoke Test
 
-Do not change a status to Passed without running the exact scenario on the recorded device and Preview APK. Use disposable accounts only after the backend is confirmed non-production.
+Do not change a device-test status to Passed without running the exact scenario on the recorded device and Preview APK. Use disposable accounts only after the backend is confirmed non-production.
+
+## Workstation preflight
+
+These checks validate source and build preparation only. `Verified (non-device)` does not mean the Preview APK passed installation or device testing.
 
 | ID | Area | Scenario | Expected | Actual | Device | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| CFG-01 | Config | Inspect effective Expo config | Correct identity, package, scheme, plugins, and project ID | Verified locally | Workstation | Passed |
-| CFG-02 | Secrets | Search mobile bundle sources for server secret references | No server secret referenced by React Native code | Verified locally | Workstation | Passed |
-| CFG-03 | TypeScript | Run `npx tsc --noEmit` | Exit 0 | Exit 0 | Workstation | Passed |
-| CFG-04 | Lint | Run `npm run lint` | Exit 0 | Exit 0 | Workstation | Passed |
-| CFG-05 | Expo Doctor | Run `npx expo-doctor` | All checks pass | 18/18 checks passed | Workstation | Passed |
-| CFG-06 | Bundle | Export release-mode Android JavaScript with Preview app environment | Export succeeds | Export succeeded; 3,987 modules bundled | Workstation | Passed |
+| CFG-01 | Config | Inspect effective Expo config | Correct identity, package, scheme, plugins, and project ID | Verified locally | Workstation | Verified (non-device) |
+| CFG-02 | Secrets | Search mobile bundle sources for server secret references | No server secret referenced by React Native code | Verified locally | Workstation | Verified (non-device) |
+| CFG-03 | TypeScript | Run `npx tsc --noEmit` | Exit 0 | Exit 0 | Workstation | Verified (non-device) |
+| CFG-04 | Lint | Run `npm run lint` | Exit 0 | Exit 0 | Workstation | Verified (non-device) |
+| CFG-05 | Expo Doctor | Run `npx expo-doctor` | All checks pass | 18/18 checks passed | Workstation | Verified (non-device) |
+| CFG-06 | Bundle | Export release-mode Android JavaScript with Preview app environment | Export succeeds | Export succeeded; 3,987 modules bundled | Workstation | Verified (non-device) |
+| TEST-ENV | Environment | Run `npm run test:environment` | All environment validation branches pass | Exit 0 | Workstation | Verified (non-device) |
 | TEST-01 | Automated tests | Run repository TypeScript tests | Tests execute with configured runner | No runner configured; plain Node cannot resolve extensionless TS imports | Workstation | Blocked |
+
+## Preview APK and device tests
+
+Only this section may use `Passed`, and only after testing the recorded Preview APK on the recorded device.
+
+| ID | Area | Scenario | Expected | Actual | Device | Status |
+| --- | --- | --- | --- | --- | --- | --- |
 | BUILD-01 | EAS | Build Android with Preview profile | Release-mode APK succeeds | EAS Preview variables are missing | EAS | Blocked |
 | BUILD-02 | Install | Fresh install Preview APK | Install succeeds | No APK available | Physical Android | Blocked |
 | BUILD-03 | Install | Upgrade over prior Preview APK | Upgrade succeeds and data remains scoped | No APK available | Physical Android | Blocked |

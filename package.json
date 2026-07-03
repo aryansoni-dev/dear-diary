@@ -7,6 +7,7 @@
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "test:environment": "node --no-warnings tests/environment.test.ts",
     "web": "expo start --web",
     "lint": "expo lint"
   },

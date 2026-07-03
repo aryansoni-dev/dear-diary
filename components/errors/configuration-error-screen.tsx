@@ -16,7 +16,7 @@ export function ConfigurationErrorScreen({
         paddingTop: Math.max(32, insets.top + 24),
       }}
     >
-      <Text className="text-center text-[24px] font-bold leading-8 text-zinc-950">
+      <Text className="text-center text-[24px] font-bold leading-6 text-zinc-950">
         DearDiary could not start
       </Text>
       <Text className="mt-4 text-center text-[16px] leading-6 text-zinc-600">

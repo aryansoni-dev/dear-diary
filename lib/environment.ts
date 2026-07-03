@@ -8,7 +8,15 @@ export type PublicEnvironment = {
   supabaseUrl: string;
 };
 
-type PublicEnvironmentResult =
+export type PublicEnvironmentInput = {
+  accountDeletionUrl?: string;
+  appEnvironment?: string;
+  clerkPublishableKey?: string;
+  supabasePublicKey?: string;
+  supabaseUrl?: string;
+};
+
+export type PublicEnvironmentResult =
   | {
       environment: PublicEnvironment;
       isValid: true;
@@ -18,19 +26,29 @@ type PublicEnvironmentResult =
       isValid: false;
     };
 
-const rawAppEnvironment = process.env.EXPO_PUBLIC_APP_ENV?.trim();
-const rawClerkPublishableKey =
-  process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
-const rawSupabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
-const rawSupabasePublicKey =
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim();
-const rawAccountDeletionUrl =
-  process.env.EXPO_PUBLIC_ACCOUNT_DELETION_URL?.trim();
+export const publicEnvironmentResult = validatePublicEnvironment({
+  accountDeletionUrl: process.env.EXPO_PUBLIC_ACCOUNT_DELETION_URL,
+  appEnvironment: process.env.EXPO_PUBLIC_APP_ENV,
+  clerkPublishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
+  supabasePublicKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+});
 
-export const publicEnvironmentResult = validatePublicEnvironment();
+export function getPublicEnvironment(): PublicEnvironment | null {
+  return publicEnvironmentResult.isValid
+    ? publicEnvironmentResult.environment
+    : null;
+}
 
-function validatePublicEnvironment(): PublicEnvironmentResult {
+export function validatePublicEnvironment(
+  input: PublicEnvironmentInput,
+): PublicEnvironmentResult {
   const issues: string[] = [];
+  const rawAccountDeletionUrl = input.accountDeletionUrl?.trim();
+  const rawAppEnvironment = input.appEnvironment?.trim();
+  const rawClerkPublishableKey = input.clerkPublishableKey?.trim();
+  const rawSupabasePublicKey = input.supabasePublicKey?.trim();
+  const rawSupabaseUrl = input.supabaseUrl?.trim();
   const appEnvironment = getAppEnvironment(rawAppEnvironment);
 
   if (!appEnvironment) {
@@ -48,6 +66,11 @@ function validatePublicEnvironment(): PublicEnvironmentResult {
     rawClerkPublishableKey.startsWith("pk_live_")
   ) {
     issues.push("Preview must use a non-production Clerk publishable key.");
+  } else if (
+    appEnvironment === "production" &&
+    rawClerkPublishableKey.startsWith("pk_test_")
+  ) {
+    issues.push("Production must use a production Clerk publishable key.");
   }
 
   if (!rawSupabaseUrl) {

@@ -11,7 +11,7 @@ Please do not publicly share the APK link or send private journal text in a bug 
 1. Open the private APK link on your Android device.
 2. Allow installation from the browser or file manager if Android asks.
 3. Install and open DearDiary.
-4. Confirm the app is named DearDiary and Profile shows the Preview version label.
+4. Confirm the app is named DearDiary and Profile shows `Preview • v1.0.0`.
 
 ## What to test
 

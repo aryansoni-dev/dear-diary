@@ -42,7 +42,7 @@ import {
   JournalExportError,
 } from "@/lib/exportJournal";
 import { reportAppError } from "@/lib/errors/reportAppError";
-import { publicEnvironmentResult } from "@/lib/environment";
+import { getPublicEnvironment } from "@/lib/environment";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
 import { requestSync } from "@/lib/sync/requestSync";
 import {
@@ -66,6 +66,7 @@ const achievementsHref = "/achievements" as Href;
 const privacySettingsHref = "/settings/privacy" as Href;
 const cloudSyncItemLabel = "Backup & Sync Data";
 const deleteAccountItemLabel = "Delete My Data and Account";
+const appEnvironment = getPublicEnvironment()?.appEnvironment;
 
 const moodLabels: Record<MoodId, string> = {
   anxious: "Anxious",
@@ -127,8 +128,7 @@ export function ProfileScreen() {
   const journalDataReady = hasHydrated && !hydrationError;
   const appVersion = Constants.expoConfig?.version;
   const previewVersionLabel =
-    publicEnvironmentResult.isValid &&
-    publicEnvironmentResult.environment.appEnvironment === "preview"
+    appEnvironment === "preview"
       ? appVersion
         ? `Preview • v${appVersion}`
         : "Preview"
