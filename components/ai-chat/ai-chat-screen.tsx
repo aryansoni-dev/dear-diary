@@ -29,10 +29,11 @@ import { CONNECTION_STATE_COLORS } from "@/constants/theme";
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
-import { generateLocalJournalResponse } from "@/lib/ai/localJournalAssistant";
-import { generateRemoteJournalResponse } from "@/lib/ai/remoteJournalAssistant";
+import {
+  generateRemoteJournalResponse,
+  RemoteJournalAssistantError,
+} from "@/lib/ai/remoteJournalAssistant";
 import { addSafeBreakOpportunities } from "@/lib/text/add-safe-break-opportunities";
-import { useJournalStore } from "@/store/journal-store";
 import { useChatStore } from "@/store/useChatStore";
 import type { ChatMessage } from "@/types/chat";
 
@@ -78,7 +79,6 @@ export function AiChatScreen({
   const [isEmojiPickerVisible, setIsEmojiPickerVisible] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
-  const journalEntries = useJournalStore((state) => state.entries);
   const chatMessages = useChatStore((state) => state.messages);
   const chatHasHydrated = useChatStore((state) => state.hasHydrated);
   const chatHydrationError = useChatStore((state) => state.hydrationError);
@@ -90,13 +90,6 @@ export function AiChatScreen({
   const assistantBubbleMaxWidth = Math.floor(chatContentWidth);
   const userBubbleMaxWidth = Math.floor(chatContentWidth * 0.75);
   const displayName = firstName?.trim() || "there";
-  const currentUserEntries = useMemo(() => {
-    if (!userId) {
-      return [];
-    }
-
-    return journalEntries.filter((entry) => entry.userId === userId);
-  }, [journalEntries, userId]);
   const currentUserMessages = useMemo(() => {
     if (!userId) {
       return [];
@@ -332,30 +325,36 @@ export function AiChatScreen({
         source: remoteResponse.source,
         userId,
       });
-    } catch {
-      const localResponse = generateLocalJournalResponse({
-        clientContext,
-        entries: currentUserEntries,
-        message: trimmedMessage,
-        recentMessages,
-      });
-
+    } catch (error) {
       if (requestIdRef.current !== requestId) {
         return;
       }
 
       if (__DEV__) {
-        console.info("AI response source: local_fallback");
+        console.warn(
+          "AI Chat request failed",
+          error instanceof RemoteJournalAssistantError
+            ? { code: error.code, message: error.message }
+            : error instanceof Error
+              ? { message: error.message, name: error.name }
+              : { type: typeof error },
+        );
       }
 
       addMessage({
-        content: localResponse.response,
+        content: "I couldn't respond just now. Please try again in a moment.",
         createdAt: new Date().toISOString(),
         id: createChatMessageId(),
-        relatedEntryIds: localResponse.relatedEntryIds,
         role: "assistant",
-        source: "local_fallback",
         userId,
+      });
+
+      showDialog({
+        confirmText: "OK",
+        message:
+          "DearDiary AI could not respond right now. Your journal entries are still safe.",
+        title: "AI Chat unavailable",
+        variant: "destructive",
       });
     } finally {
       if (requestIdRef.current === requestId) {

@@ -1,9 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 
+import { getPublicEnvironment } from "@/lib/environment";
+
 export type SupabaseAccessTokenProvider = () => Promise<string | null>;
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim();
+const publicEnvironment = getPublicEnvironment();
+const supabaseUrl = publicEnvironment?.supabaseUrl;
+const supabaseAnonKey = publicEnvironment?.supabasePublicKey;
 
 let accessTokenProvider: SupabaseAccessTokenProvider | null = null;
 
@@ -38,7 +41,7 @@ export function getSupabaseAccessTokenProvider() {
 export function getAuthenticatedSupabaseClient() {
   if (!supabase) {
     throw new SupabaseConfigurationError(
-      "Supabase is not configured. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.",
+      "Supabase client configuration is unavailable.",
     );
   }
 

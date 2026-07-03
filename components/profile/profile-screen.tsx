@@ -1,5 +1,6 @@
 import { useAuth, useUser } from "@clerk/expo";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, router, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -41,6 +42,7 @@ import {
   JournalExportError,
 } from "@/lib/exportJournal";
 import { reportAppError } from "@/lib/errors/reportAppError";
+import { getPublicEnvironment } from "@/lib/environment";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
 import { requestSync } from "@/lib/sync/requestSync";
 import {
@@ -64,6 +66,7 @@ const achievementsHref = "/achievements" as Href;
 const privacySettingsHref = "/settings/privacy" as Href;
 const cloudSyncItemLabel = "Backup & Sync Data";
 const deleteAccountItemLabel = "Delete My Data and Account";
+const appEnvironment = getPublicEnvironment()?.appEnvironment;
 
 const moodLabels: Record<MoodId, string> = {
   anxious: "Anxious",
@@ -123,6 +126,13 @@ export function ProfileScreen() {
   });
   const profileInitial = displayName.charAt(0).toUpperCase();
   const journalDataReady = hasHydrated && !hydrationError;
+  const appVersion = Constants.expoConfig?.version;
+  const previewVersionLabel =
+    appEnvironment === "preview"
+      ? appVersion
+        ? `Preview • v${appVersion}`
+        : "Preview"
+      : null;
 
   const journalingSince = useMemo(
     () =>
@@ -780,6 +790,14 @@ export function ProfileScreen() {
               Sign Out
             </Text>
           </Pressable>
+          {previewVersionLabel ? (
+            <Text
+              accessibilityLabel={`DearDiary ${previewVersionLabel}`}
+              className="pt-2 text-center text-[12px] leading-6 text-[#A1A1AA]"
+            >
+              {previewVersionLabel}
+            </Text>
+          ) : null}
         </View>
       </ScrollView>
 

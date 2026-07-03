@@ -1,8 +1,8 @@
 import { LegalDocumentScreen } from "@/components/legal/legal-document-screen";
 import { privacyPolicy } from "@/content/legal/privacyPolicy";
+import { getPublicEnvironment } from "@/lib/environment";
 
-const accountDeletionUrl =
-  process.env.EXPO_PUBLIC_ACCOUNT_DELETION_URL?.trim() || null;
+const accountDeletionUrl = getPublicEnvironment()?.accountDeletionUrl ?? null;
 
 export default function PrivacyPolicyScreen() {
   return (
