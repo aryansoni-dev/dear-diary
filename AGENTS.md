@@ -279,7 +279,7 @@ Before every feature:
 
 - Don't change the design of the Nav, only add the routing functionality.
 
-- Keep 'leading-6' in all components, and fix if you find any un-matching ones.
+- Keep minimum 'leading-6' in all components to make sure no text is clipped, increase if needed.
 
 - If you see any svgs in the attached design look for them in the '/assets' folder. If we don't have it, try to create them yourself like you created the Google icon in the login screens.
 

@@ -1,6 +1,5 @@
 import { useAuth } from "@clerk/expo";
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -163,7 +162,6 @@ export function AppLockScreen() {
       await signOut();
       setActiveUserId(null);
       setSupabaseAccessTokenProvider(null);
-      router.replace("/login");
     } catch (error) {
       setActiveUserId(previousActiveUserId);
       setSupabaseAccessTokenProvider(previousAccessTokenProvider);

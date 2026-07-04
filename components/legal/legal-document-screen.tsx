@@ -27,6 +27,7 @@ const legalDocumentGradientColors = [
 const legalDocumentIconSize = 24;
 const legalDocumentTopInsetOffset = 28;
 const legalDocumentTopMinimum = 52;
+const isAndroid = process.env.EXPO_OS === "android";
 
 export function LegalDocumentScreen({
   accountDeletionUrl,
@@ -130,13 +131,10 @@ export function LegalDocumentScreen({
                   {section.title}
                 </Text>
                 {section.body.map((paragraph, paragraphIndex) => (
-                  <Text
-                    className="text-[15px] leading-6 text-text-secondary"
+                  <LegalParagraphText
                     key={`legal-section-${sectionIndex}-paragraph-${paragraphIndex}`}
-                    selectable
-                  >
-                    {paragraph}
-                  </Text>
+                    paragraph={paragraph}
+                  />
                 ))}
               </View>
             ))}
@@ -158,5 +156,19 @@ export function LegalDocumentScreen({
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+function LegalParagraphText({ paragraph }: { paragraph: string }) {
+  // Explicit weight keeps Android's layout metrics aligned with system Bold text.
+  return (
+    <Text
+      className={`text-[15px] leading-6 text-text-secondary ${
+        isAndroid ? "font-semibold" : ""
+      }`}
+      selectable
+    >
+      {paragraph}
+    </Text>
   );
 }

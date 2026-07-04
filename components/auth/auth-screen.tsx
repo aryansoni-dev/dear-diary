@@ -611,7 +611,7 @@ function SocialButtons({
               source={images.googleLogo}
               contentFit="contain"
               accessibilityLabel="Google logo"
-              className="size-4"
+              style={{ height: 16, width: 16 }}
             />
           )}
         </View>

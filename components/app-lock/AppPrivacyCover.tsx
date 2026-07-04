@@ -1,3 +1,4 @@
+import { Feather } from "@expo/vector-icons";
 import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -38,16 +39,11 @@ export function AppPrivacyCover({
             width: appLockPrivacyCover.iconSize,
           }}
         >
-          <Text
-            className="font-bold"
-            style={{
-              color: appLockPrivacyCover.iconTextColor,
-              fontSize: appLockPrivacyCover.iconFontSize,
-              lineHeight: appLockPrivacyCover.iconLineHeight,
-            }}
-          >
-            D
-          </Text>
+          <Feather
+            name="lock"
+            size={appLockPrivacyCover.iconGlyphSize}
+            color={appLockPrivacyCover.iconColor}
+          />
         </View>
         <Text
           className="text-center font-bold"

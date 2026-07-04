@@ -174,7 +174,6 @@ export function ProfileScreen() {
     try {
       await signOut();
       setSupabaseAccessTokenProvider(null);
-      router.replace("/login");
     } catch {
       setActiveUserId(user?.id ?? null);
       showDialog({
@@ -352,7 +351,6 @@ export function ProfileScreen() {
     if (result.success) {
       setIsDeleteConfirmationVisible(false);
       setDeleteConfirmationText("");
-      router.replace("/login");
       showDialog({
         confirmText: "Done",
         message: "Your DearDiary account and data have been deleted.",

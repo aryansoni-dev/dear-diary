@@ -102,7 +102,7 @@ export function HomeSelectedMood({
         <View className="min-w-0 flex-1 gap-2">
           <Text
             adjustsFontSizeToFit
-            className="font-semibold leading-6 text-[#303039]"
+            className="font-semibold leading-[26px] text-[#303039]"
             minimumFontScale={0.86}
             numberOfLines={1}
             style={{ fontSize: 22 }}
