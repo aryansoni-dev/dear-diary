@@ -1,4 +1,4 @@
-import { useAuth, useUser } from "@clerk/expo";
+import { useAuth, useClerk, useUser } from "@clerk/expo";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
@@ -88,7 +88,8 @@ const moodEmoji: Record<MoodId, string> = {
 
 export function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { getToken, signOut } = useAuth();
+  const { getToken } = useAuth();
+  const { signOut } = useClerk();
   const { user } = useUser();
   const { showDialog } = useAppDialog();
   const connectivity = useConnectivity();

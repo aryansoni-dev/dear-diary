@@ -6,6 +6,7 @@ import {
   type MoodLogRow,
   type ReportAnalytics,
 } from "../_shared/buildReportAnalytics.ts";
+import { buildReportSourceSnapshot } from "../_shared/buildReportSourceSnapshot.ts";
 import {
   parseReportNarrative,
   type ReportNarrative,
@@ -83,6 +84,7 @@ const maxTitleLength = 200;
 const maxPromptLength = 300;
 const maxTagsPerEntry = 10;
 const maxNarrativeAttempts = 2;
+const maxNarrativeTokens = 2200;
 const reportFormatVersion = 4;
 const validMoodIds = new Set([
   "anxious",
@@ -269,7 +271,7 @@ Deno.serve(async (request) => {
     periodStart,
     timezone: reportRequest.timezone,
   });
-  const source = await buildSourceSnapshot(entries, moodLogs);
+  const source = await buildReportSourceSnapshot(entries, moodLogs);
   const existingReportResult = await fetchExistingReport({
     periodEnd: reportRequest.periodEnd,
     periodStart: reportRequest.periodStart,
@@ -657,29 +659,6 @@ async function fetchExistingReport({
   };
 }
 
-async function buildSourceSnapshot(
-  entries: JournalEntryRow[],
-  moodLogs: MoodLogRow[],
-) {
-  const sortedParts = [
-    ...entries.map((entry) => `entry:${entry.id}:${entry.updated_at}`),
-    ...moodLogs.map((moodLog) => `mood:${moodLog.id}:${moodLog.updated_at}`),
-  ].sort();
-  const latestUpdatedAt =
-    [...entries, ...moodLogs]
-      .map((source) => source.updated_at)
-      .filter(Boolean)
-      .sort()
-      .at(-1) ?? null;
-  const bytes = new TextEncoder().encode(sortedParts.join("|"));
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  const hash = Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-
-  return { hash, latestUpdatedAt };
-}
-
 function buildNarrativePrompt({
   analytics,
   entries,
@@ -720,7 +699,10 @@ Return valid JSON with exactly this shape:
   "nextFocus": "string",
   "reflectionPrompt": "string or null",
   "dataQualityNote": "string or null"
-}`;
+}
+
+Keep the overview and emotionalJourney to at most two concise sentences each.
+Keep every array to at most four concise items.`;
 }
 
 function formatEntryForPrompt(entry: JournalEntryRow) {
@@ -742,9 +724,26 @@ async function generateValidNarrative(
   analytics: ReportAnalytics,
 ) {
   for (let attempt = 1; attempt <= maxNarrativeAttempts; attempt += 1) {
-    const rawNarrative = await callAIProvider(
-      attempt === 1 ? prompt : buildNarrativeRetryPrompt(prompt),
-    );
+    let rawNarrative: string;
+
+    try {
+      rawNarrative = await callAIProvider(
+        attempt === 1 ? prompt : buildNarrativeRetryPrompt(prompt),
+      );
+    } catch (error) {
+      if (
+        error instanceof AIProviderError &&
+        error.code === "provider_response_truncated" &&
+        attempt < maxNarrativeAttempts
+      ) {
+        console.warn("generate-insight-report truncated_ai_response", {
+          attempt,
+        });
+        continue;
+      }
+
+      throw error;
+    }
     const parsed = parseReportNarrative(
       rawNarrative,
       analytics.dataWasCapped,
@@ -802,7 +801,7 @@ async function callAIProvider(finalPrompt: string) {
           { content: systemPrompt, role: "system" },
           { content: finalPrompt, role: "user" },
         ],
-        max_tokens: 1400,
+        max_tokens: maxNarrativeTokens,
         model,
         temperature: 0.45,
       }),

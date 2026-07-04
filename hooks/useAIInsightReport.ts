@@ -3,6 +3,7 @@ import * as Crypto from "expo-crypto";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  AIInsightReportServiceError,
   fetchAIInsightReport,
   generateAIInsightReport,
 } from "@/lib/insights/aiInsightReportService";
@@ -12,6 +13,7 @@ import {
   type ReportPeriod,
 } from "@/lib/insights/reportPeriods";
 import { isAIInsightReport } from "@/lib/insights/aiInsightReportMapper";
+import { buildReportSourceSnapshotInput } from "@/lib/insights/reportSourceSnapshot";
 import { useAutoSync } from "@/hooks/useAutoSync";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useAIInsightReportStore } from "@/store/useAIInsightReportStore";
@@ -35,6 +37,7 @@ export type UseAIInsightReportResult = {
   generate: () => Promise<void>;
   regenerate: () => Promise<void>;
   refresh: () => Promise<void>;
+  retry: () => Promise<void>;
 };
 
 type UseAIInsightReportOptions = {
@@ -89,6 +92,9 @@ export function useAIInsightReport(
   } | null>(null);
   const requestContextVersionRef = useRef(0);
   const requestInFlightRef = useRef(false);
+  const lastFailedOperationRef = useRef<
+    "generate" | "refresh" | "regenerate" | null
+  >(null);
   const reportRef = useRef<AIInsightReport | null>(report);
 
   const periodEntries = useMemo(
@@ -173,6 +179,8 @@ export function useAIInsightReport(
   }, []);
 
   const refresh = useCallback(async () => {
+    lastFailedOperationRef.current = "refresh";
+
     if (!enabled) {
       return;
     }
@@ -229,6 +237,8 @@ export function useAIInsightReport(
         setReport(null);
         removeCachedReport(userId, cacheKey);
       }
+
+      lastFailedOperationRef.current = null;
     } catch (refreshError) {
       if (!isCurrentRequestContext(requestVersion)) {
         return;
@@ -276,6 +286,8 @@ export function useAIInsightReport(
 
   const requestGeneration = useCallback(
     async (regenerate: boolean) => {
+      lastFailedOperationRef.current = regenerate ? "regenerate" : "generate";
+
       if (!enabled) {
         return;
       }
@@ -349,6 +361,7 @@ export function useAIInsightReport(
         setReport(generatedReport);
         setLegacyReportAvailable(false);
         setCachedReport(userId, cacheKey, generatedReport);
+        lastFailedOperationRef.current = null;
       } catch (generationError) {
         if (!isCurrentRequestContext(requestVersion)) {
           return;
@@ -392,6 +405,17 @@ export function useAIInsightReport(
     refresh,
     regenerate: () => requestGeneration(true),
     report,
+    retry: () => {
+      if (lastFailedOperationRef.current === "regenerate") {
+        return requestGeneration(true);
+      }
+
+      if (lastFailedOperationRef.current === "generate") {
+        return requestGeneration(false);
+      }
+
+      return refresh();
+    },
   };
 }
 
@@ -404,13 +428,39 @@ async function syncPeriodSourcesBeforeGeneration({
   runAutoSync: (reason?: "journal_change") => Promise<void>;
   userId: string;
 }) {
-  if (!hasUnsyncedPeriodSources({ period, userId })) {
-    return true;
+  const periodEntries = getEntriesInPeriod(
+    useJournalStore
+      .getState()
+      .allEntries.filter((entry) => entry.userId === userId),
+    period,
+    true,
+  );
+  const periodMoodLogs = getMoodLogsInPeriod(
+    useMoodLogStore.getState().allMoodLogs,
+    period,
+    userId,
+    true,
+  );
+  const entryIds = periodEntries.map((entry) => entry.id);
+  const moodLogIds = periodMoodLogs.map((moodLog) => moodLog.id);
+
+  if (entryIds.length > 0) {
+    useJournalStore.getState().markEntriesPendingSync(userId, entryIds);
   }
 
-  await runAutoSync("journal_change");
+  if (moodLogIds.length > 0) {
+    useMoodLogStore.getState().markMoodLogsPendingSync(userId, moodLogIds);
+  }
 
-  return !hasUnsyncedPeriodSources({ period, userId });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await runAutoSync("journal_change");
+
+    if (!hasUnsyncedPeriodSources({ period, userId })) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function hasUnsyncedPeriodSources({
@@ -425,6 +475,7 @@ function hasUnsyncedPeriodSources({
       .getState()
       .allEntries.filter((entry) => entry.userId === userId),
     period,
+    true,
   ).some((entry) => entry.syncStatus !== "synced");
   const hasUnsyncedMoodLogs = getMoodLogsInPeriod(
     useMoodLogStore.getState().allMoodLogs,
@@ -436,7 +487,11 @@ function hasUnsyncedPeriodSources({
   return hasUnsyncedEntries || hasUnsyncedMoodLogs;
 }
 
-function getEntriesInPeriod(entries: JournalEntry[], period: ReportPeriod) {
+function getEntriesInPeriod(
+  entries: JournalEntry[],
+  period: ReportPeriod,
+  includeDeleted = false,
+) {
   const periodStart = period.start.getTime();
   const periodEnd = period.end.getTime();
 
@@ -444,7 +499,7 @@ function getEntriesInPeriod(entries: JournalEntry[], period: ReportPeriod) {
     const createdAt = Date.parse(entry.createdAt);
 
     return (
-      !entry.deletedAt &&
+      (includeDeleted || !entry.deletedAt) &&
       Number.isFinite(createdAt) &&
       createdAt >= periodStart &&
       createdAt <= periodEnd
@@ -481,14 +536,7 @@ function getMoodLogsInPeriod(
 function getLocalSource(entries: JournalEntry[], moodLogs: MoodLog[]) {
   const entryIds = entries.map((entry) => entry.id).sort();
   const moodLogIds = moodLogs.map((moodLog) => moodLog.id).sort();
-  const snapshotInput = [
-    ...entries.map((entry) => `entry:${entry.id}:${entry.updatedAt}`),
-    ...moodLogs.map(
-      (moodLog) => `mood:${moodLog.id}:${moodLog.updatedAt}`,
-    ),
-  ]
-    .sort()
-    .join("|");
+  const snapshotInput = buildReportSourceSnapshotInput(entries, moodLogs);
   const latestUpdatedAt =
     [...entries, ...moodLogs]
       .map((source) => source.updatedAt)
@@ -586,6 +634,10 @@ function isTimestampAfter(
 }
 
 function getErrorMessage(error: unknown) {
+  if (error instanceof AIInsightReportServiceError) {
+    return error.message;
+  }
+
   return normalizeAppError(error, {
     operation: "ai_insight_report",
   }).userMessage;
