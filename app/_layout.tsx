@@ -9,6 +9,7 @@ import { AchievementWatcher } from "@/components/achievements/AchievementWatcher
 import { AppLockGate } from "@/components/app-lock/AppLockGate";
 import { ConfigurationErrorScreen } from "@/components/errors/configuration-error-screen";
 import { RootErrorFallback } from "@/components/errors/RootErrorFallback";
+import { AppLaunchGate } from "@/components/onboarding/app-launch-gate";
 import { publicEnvironmentResult } from "@/lib/environment";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
 import { AppLockProvider } from "@/providers/AppLockProvider";
@@ -60,10 +61,12 @@ function AppStack() {
 
   return (
     <AppLockProvider>
-      <AppLockGate>
-        <RootNavigator />
-        {isLoaded && userId ? <AchievementWatcher userId={userId} /> : null}
-      </AppLockGate>
+      <AppLaunchGate>
+        <AppLockGate>
+          <RootNavigator />
+          {isLoaded && userId ? <AchievementWatcher userId={userId} /> : null}
+        </AppLockGate>
+      </AppLaunchGate>
     </AppLockProvider>
   );
 }

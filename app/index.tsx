@@ -1,8 +1,6 @@
 import { useAuth } from "@clerk/expo";
-import { Redirect, Stack } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { Redirect } from "expo-router";
 
-import { SplashScreen } from "@/components/onboarding/splash-screen";
 import { useOnboardingStore } from "@/store/onboarding-store";
 
 const homeHref = "/home-tab" as const;
@@ -11,36 +9,13 @@ const onboardingHref = "/onboarding-screen-1" as const;
 
 export default function Index() {
   const { isLoaded, isSignedIn } = useAuth();
-  const [hasSplashFinished, setHasSplashFinished] = useState(false);
   const hasCompletedOnboarding = useOnboardingStore(
     (state) => state.hasCompletedOnboarding,
   );
   const hasHydrated = useOnboardingStore((state) => state.hasHydrated);
-  const setHasHydrated = useOnboardingStore((state) => state.setHasHydrated);
 
-  useEffect(() => {
-    if (hasHydrated) {
-      return;
-    }
-
-    const hydrationFallback = setTimeout(() => {
-      setHasHydrated(true);
-    }, 1500);
-
-    return () => clearTimeout(hydrationFallback);
-  }, [hasHydrated, setHasHydrated]);
-
-  const handleSplashAnimationEnd = useCallback(() => {
-    setHasSplashFinished(true);
-  }, []);
-
-  if (!hasSplashFinished || !isLoaded || !hasHydrated) {
-    return (
-      <>
-        <Stack.Screen options={{ headerShown: false }} />
-        <SplashScreen onAnimationEnd={handleSplashAnimationEnd} />
-      </>
-    );
+  if (!isLoaded || !hasHydrated) {
+    return null;
   }
 
   if (isSignedIn) {
