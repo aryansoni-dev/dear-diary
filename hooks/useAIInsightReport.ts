@@ -179,8 +179,6 @@ export function useAIInsightReport(
   }, []);
 
   const refresh = useCallback(async () => {
-    lastFailedOperationRef.current = "refresh";
-
     if (!enabled) {
       return;
     }
@@ -212,6 +210,7 @@ export function useAIInsightReport(
     const requestVersion = requestContextVersionRef.current;
     setIsLoading(true);
     setError(null);
+    lastFailedOperationRef.current = "refresh";
 
     try {
       const result = await fetchAIInsightReport({ period });
@@ -286,8 +285,6 @@ export function useAIInsightReport(
 
   const requestGeneration = useCallback(
     async (regenerate: boolean) => {
-      lastFailedOperationRef.current = regenerate ? "regenerate" : "generate";
-
       if (!enabled) {
         return;
       }
@@ -325,6 +322,7 @@ export function useAIInsightReport(
       requestInFlightRef.current = true;
       setIsGenerating(true);
       setError(null);
+      lastFailedOperationRef.current = regenerate ? "regenerate" : "generate";
 
       try {
         const sourcesAreSynced = await syncPeriodSourcesBeforeGeneration({

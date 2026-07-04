@@ -723,13 +723,19 @@ async function generateValidNarrative(
   prompt: string,
   analytics: ReportAnalytics,
 ) {
+  let retryReason: "parse_failure" | "truncated" | null = null;
+
   for (let attempt = 1; attempt <= maxNarrativeAttempts; attempt += 1) {
     let rawNarrative: string;
+    const attemptPrompt =
+      retryReason === "truncated"
+        ? buildNarrativeTruncationRetryPrompt(prompt)
+        : retryReason === "parse_failure"
+          ? buildNarrativeRetryPrompt(prompt)
+          : prompt;
 
     try {
-      rawNarrative = await callAIProvider(
-        attempt === 1 ? prompt : buildNarrativeRetryPrompt(prompt),
-      );
+      rawNarrative = await callAIProvider(attemptPrompt);
     } catch (error) {
       if (
         error instanceof AIProviderError &&
@@ -739,6 +745,7 @@ async function generateValidNarrative(
         console.warn("generate-insight-report truncated_ai_response", {
           attempt,
         });
+        retryReason = "truncated";
         continue;
       }
 
@@ -758,6 +765,7 @@ async function generateValidNarrative(
       characterCount: rawNarrative.length,
       reason: parsed.reason,
     });
+    retryReason = "parse_failure";
   }
 
   throw new AIProviderError(
@@ -773,6 +781,16 @@ Your previous response could not be parsed.
 Return only one valid JSON object with every requested key and the correct value types.
 Keep every narrative field complete and preserve its full detail.
 Use null instead of an empty string for optional fields.`;
+}
+
+function buildNarrativeTruncationRetryPrompt(prompt: string) {
+  return `${prompt}
+
+Your previous response was cut off because it was too long.
+Return one complete JSON object with every requested key.
+Stay within the original two-sentence and four-item caps above.
+Use shorter wording and fewer items where the journal evidence allows.
+Do not add commentary or markdown.`;
 }
 
 async function callAIProvider(finalPrompt: string) {
