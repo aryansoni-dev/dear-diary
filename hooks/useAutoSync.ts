@@ -65,7 +65,7 @@ export function useAutoSync() {
         return;
       }
 
-      if (syncState.isSyncing || connectivity.status === "offline") {
+      if (connectivity.status === "offline") {
         return;
       }
 

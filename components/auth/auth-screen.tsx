@@ -11,7 +11,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import type { Href } from "expo-router";
 import { Link, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -87,7 +87,7 @@ export function AuthScreen({
     "oauth_google" | "oauth_apple" | null
   >(null);
   const isLogin = mode === "login";
-  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
+  const { isLoaded: isAuthLoaded } = useAuth();
   const { fetchStatus: signInFetchStatus, signIn } = useSignIn();
   const { fetchStatus: signUpFetchStatus, signUp } = useSignUp();
   const { startSSOFlow } = useSSO();
@@ -98,12 +98,6 @@ export function AuthScreen({
   const isClerkReady = isAuthLoaded && !isFetching;
   const emailFeedback = getEmailFeedback(email);
   const passwordFeedback = getPasswordFeedback(password, isLogin);
-
-  useEffect(() => {
-    if (isSignedIn) {
-      router.replace(homeHref);
-    }
-  }, [isSignedIn]);
 
   function showError(message: string) {
     showAuthError(showDialog, message);

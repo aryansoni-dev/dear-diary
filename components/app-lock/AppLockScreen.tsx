@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/expo";
+import { useClerk } from "@clerk/expo";
 import { Feather } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -22,7 +22,7 @@ import { useJournalStore } from "@/store/journal-store";
 
 export function AppLockScreen() {
   const insets = useSafeAreaInsets();
-  const { signOut } = useAuth();
+  const { signOut } = useClerk();
   const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
   const {
     biometricAvailability,

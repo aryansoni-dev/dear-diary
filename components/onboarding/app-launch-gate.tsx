@@ -1,3 +1,4 @@
+import { usePathname } from "expo-router";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { AppPrivacyCover } from "@/components/app-lock/AppPrivacyCover";
@@ -5,9 +6,15 @@ import { SplashScreen } from "@/components/onboarding/splash-screen";
 import { useOnboardingStore } from "@/store/onboarding-store";
 
 const hydrationFallbackDelayMs = 1500;
+const authCallbackPaths = new Set(["/sso", "/sso-callback"]);
+
+let hasCompletedLaunchSplash = false;
 
 export function AppLaunchGate({ children }: { children: ReactNode }) {
-  const [hasSplashFinished, setHasSplashFinished] = useState(false);
+  const pathname = usePathname();
+  const [hasSplashFinished, setHasSplashFinished] = useState(
+    hasCompletedLaunchSplash,
+  );
   const [showHydrationFallback, setShowHydrationFallback] = useState(false);
   const hasHydrated = useOnboardingStore((state) => state.hasHydrated);
 
@@ -23,12 +30,28 @@ export function AppLaunchGate({ children }: { children: ReactNode }) {
     return () => clearTimeout(hydrationFallback);
   }, [hasHydrated]);
 
+  useEffect(() => {
+    if (!authCallbackPaths.has(pathname)) {
+      return;
+    }
+
+    hasCompletedLaunchSplash = true;
+    setHasSplashFinished(true);
+  }, [pathname]);
+
   const handleSplashAnimationEnd = useCallback(() => {
+    hasCompletedLaunchSplash = true;
     setHasSplashFinished(true);
   }, []);
 
-  if (!hasSplashFinished) {
+  const isAuthCallback = authCallbackPaths.has(pathname);
+
+  if (!hasSplashFinished && !isAuthCallback) {
     return <SplashScreen onAnimationEnd={handleSplashAnimationEnd} />;
+  }
+
+  if (isAuthCallback) {
+    return children;
   }
 
   if (!hasHydrated) {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
-import { AppState, type AppStateStatus } from "react-native";
+import { AppState } from "react-native";
 
 import type { AppLockConfig, AppLockDelay, AppLockStatus } from "@/types/appLock";
 
@@ -27,7 +27,6 @@ export function useAppLockLifecycle({
   setPrivacyCoverVisible,
   status,
 }: UseAppLockLifecycleParams) {
-  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const backgroundedAtRef = useRef<number | null>(null);
   const visibilityRef = useRef(AppState.currentState === "active");
   const configRef = useRef(config);
@@ -97,9 +96,9 @@ export function useAppLockLifecycle({
       setPrivacyCoverVisible(false);
     }
 
+    // Android `blur` can fire for dialogs while the app is still active.
+    // Only real AppState transitions should reveal the privacy cover.
     const changeSubscription = AppState.addEventListener("change", (nextState) => {
-      appStateRef.current = nextState;
-
       if (isAuthenticatingRef.current) {
         return;
       }
@@ -115,19 +114,9 @@ export function useAppLockLifecycle({
 
       handleBecomeVisible();
     });
-    const blurSubscription = AppState.addEventListener(
-      "blur",
-      handleLoseVisibility,
-    );
-    const focusSubscription = AppState.addEventListener(
-      "focus",
-      handleBecomeVisible,
-    );
 
     return () => {
-      blurSubscription.remove();
       changeSubscription.remove();
-      focusSubscription.remove();
     };
   }, [
     isAuthenticatingRef,

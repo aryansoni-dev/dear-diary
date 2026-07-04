@@ -14,7 +14,8 @@ export const privacyPolicy = {
     {
       body: [
         "DearDiary is an AI-powered journaling companion. This draft explains what data the app handles and how account deletion works. It requires legal review before public release.",
-        `Operator: ${legalPlaceholders.companyName}. Website: ${legalPlaceholders.websiteUrl}.`,
+        `Operator: ${legalPlaceholders.companyName}.`,
+        `Website: ${legalPlaceholders.websiteUrl}.`
       ],
       title: "Overview",
     },
@@ -58,7 +59,7 @@ export const privacyPolicy = {
     },
     {
       body: [
-        `For privacy questions or account deletion help, contact ${legalPlaceholders.supportEmail}.`,
+        `For privacy questions or account deletion help, contact - ${legalPlaceholders.supportEmail}.`,
       ],
       title: "Contact",
     },

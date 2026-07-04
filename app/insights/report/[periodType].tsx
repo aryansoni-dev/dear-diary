@@ -170,7 +170,7 @@ export default function AIInsightReportScreen() {
                 : reportState.error
             }
             onRetry={() => {
-              void reportState.refresh();
+              void reportState.retry();
             }}
             retrying={reportState.isLoading}
           />

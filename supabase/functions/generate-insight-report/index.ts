@@ -6,6 +6,7 @@ import {
   type MoodLogRow,
   type ReportAnalytics,
 } from "../_shared/buildReportAnalytics.ts";
+import { buildReportSourceSnapshot } from "../_shared/buildReportSourceSnapshot.ts";
 import {
   parseReportNarrative,
   type ReportNarrative,
@@ -83,6 +84,7 @@ const maxTitleLength = 200;
 const maxPromptLength = 300;
 const maxTagsPerEntry = 10;
 const maxNarrativeAttempts = 2;
+const maxNarrativeTokens = 2200;
 const reportFormatVersion = 4;
 const validMoodIds = new Set([
   "anxious",
@@ -269,7 +271,7 @@ Deno.serve(async (request) => {
     periodStart,
     timezone: reportRequest.timezone,
   });
-  const source = await buildSourceSnapshot(entries, moodLogs);
+  const source = await buildReportSourceSnapshot(entries, moodLogs);
   const existingReportResult = await fetchExistingReport({
     periodEnd: reportRequest.periodEnd,
     periodStart: reportRequest.periodStart,
@@ -657,29 +659,6 @@ async function fetchExistingReport({
   };
 }
 
-async function buildSourceSnapshot(
-  entries: JournalEntryRow[],
-  moodLogs: MoodLogRow[],
-) {
-  const sortedParts = [
-    ...entries.map((entry) => `entry:${entry.id}:${entry.updated_at}`),
-    ...moodLogs.map((moodLog) => `mood:${moodLog.id}:${moodLog.updated_at}`),
-  ].sort();
-  const latestUpdatedAt =
-    [...entries, ...moodLogs]
-      .map((source) => source.updated_at)
-      .filter(Boolean)
-      .sort()
-      .at(-1) ?? null;
-  const bytes = new TextEncoder().encode(sortedParts.join("|"));
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  const hash = Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-
-  return { hash, latestUpdatedAt };
-}
-
 function buildNarrativePrompt({
   analytics,
   entries,
@@ -720,7 +699,10 @@ Return valid JSON with exactly this shape:
   "nextFocus": "string",
   "reflectionPrompt": "string or null",
   "dataQualityNote": "string or null"
-}`;
+}
+
+Keep the overview and emotionalJourney to at most two concise sentences each.
+Keep every array to at most four concise items.`;
 }
 
 function formatEntryForPrompt(entry: JournalEntryRow) {
@@ -741,10 +723,34 @@ async function generateValidNarrative(
   prompt: string,
   analytics: ReportAnalytics,
 ) {
+  let retryReason: "parse_failure" | "truncated" | null = null;
+
   for (let attempt = 1; attempt <= maxNarrativeAttempts; attempt += 1) {
-    const rawNarrative = await callAIProvider(
-      attempt === 1 ? prompt : buildNarrativeRetryPrompt(prompt),
-    );
+    let rawNarrative: string;
+    const attemptPrompt =
+      retryReason === "truncated"
+        ? buildNarrativeTruncationRetryPrompt(prompt)
+        : retryReason === "parse_failure"
+          ? buildNarrativeRetryPrompt(prompt)
+          : prompt;
+
+    try {
+      rawNarrative = await callAIProvider(attemptPrompt);
+    } catch (error) {
+      if (
+        error instanceof AIProviderError &&
+        error.code === "provider_response_truncated" &&
+        attempt < maxNarrativeAttempts
+      ) {
+        console.warn("generate-insight-report truncated_ai_response", {
+          attempt,
+        });
+        retryReason = "truncated";
+        continue;
+      }
+
+      throw error;
+    }
     const parsed = parseReportNarrative(
       rawNarrative,
       analytics.dataWasCapped,
@@ -759,6 +765,7 @@ async function generateValidNarrative(
       characterCount: rawNarrative.length,
       reason: parsed.reason,
     });
+    retryReason = "parse_failure";
   }
 
   throw new AIProviderError(
@@ -774,6 +781,16 @@ Your previous response could not be parsed.
 Return only one valid JSON object with every requested key and the correct value types.
 Keep every narrative field complete and preserve its full detail.
 Use null instead of an empty string for optional fields.`;
+}
+
+function buildNarrativeTruncationRetryPrompt(prompt: string) {
+  return `${prompt}
+
+Your previous response was cut off because it was too long.
+Return one complete JSON object with every requested key.
+Stay within the original two-sentence and four-item caps above.
+Use shorter wording and fewer items where the journal evidence allows.
+Do not add commentary or markdown.`;
 }
 
 async function callAIProvider(finalPrompt: string) {
@@ -802,7 +819,7 @@ async function callAIProvider(finalPrompt: string) {
           { content: systemPrompt, role: "system" },
           { content: finalPrompt, role: "user" },
         ],
-        max_tokens: 1400,
+        max_tokens: maxNarrativeTokens,
         model,
         temperature: 0.45,
       }),
