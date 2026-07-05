@@ -6,6 +6,10 @@ import type { JournalEntry } from "@/types/journal";
 type ExportFileType = "json" | "markdown";
 
 const exportDirectoryName = "DearDiary Export";
+const directoryPickerCancellationCodes = new Set([
+  "ERR_FILE_PICKING_CANCELLED",
+  "ERR_PICKER_CANCELLED",
+]);
 
 export type JournalExportErrorCode =
   | "file-system-unavailable"
@@ -165,9 +169,17 @@ const getExportFileName = (type: ExportFileType): string => {
   return `deardiary-export-${getExportDateStamp()}.${extension}`;
 };
 
-const isDirectoryPickerCancellation = (error: unknown): boolean =>
-  error instanceof Error &&
-  error.message.toLowerCase().includes("file picker was cancelled");
+const isDirectoryPickerCancellation = (error: unknown): boolean => {
+  if (
+    !(error instanceof Error) ||
+    !("code" in error) ||
+    typeof error.code !== "string"
+  ) {
+    return false;
+  }
+
+  return directoryPickerCancellationCodes.has(error.code);
+};
 
 const formatDisplayDate = (dateValue: Date | string): string => {
   const date = dateValue instanceof Date ? dateValue : new Date(dateValue);

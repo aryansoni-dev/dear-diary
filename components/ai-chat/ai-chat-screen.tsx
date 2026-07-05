@@ -519,7 +519,8 @@ export function AiChatScreen({
         colors={["rgba(250, 247, 242, 0)", "#FAF7F2"]}
         className="px-6 pt-4"
         style={{
-          paddingBottom: Math.max(insets.bottom, 24),
+          paddingBottom:
+            footerKeyboardOffset > 0 ? 0 : Math.max(insets.bottom, 24),
           transform: [{ translateY: -footerKeyboardOffset }],
         }}
       >
