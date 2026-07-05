@@ -450,12 +450,23 @@ export function ProfileScreen() {
     setIsExportingJournal(true);
 
     try {
-      if (format === "markdown") {
-        await exportJournalAsMarkdown(currentUserEntries);
+      const exportSucceeded =
+        format === "markdown"
+          ? await exportJournalAsMarkdown(currentUserEntries)
+          : await exportJournalAsJson(currentUserEntries);
+
+      if (!exportSucceeded) {
         return;
       }
 
-      await exportJournalAsJson(currentUserEntries);
+      showDialog({
+        confirmText: "Done",
+        icon: "✓",
+        message:
+          "Your journal export was saved in the DearDiary Export folder.",
+        title: "Export complete",
+        variant: "success",
+      });
     } catch (error) {
       if (!(error instanceof JournalExportError)) {
         reportAppError(error, {

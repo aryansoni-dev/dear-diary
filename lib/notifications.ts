@@ -5,10 +5,16 @@ const morningReminderId = "dear-diary-morning-reminder";
 const eveningReminderId = "dear-diary-evening-reminder";
 const reminderChannelId = "dear-diary-reflection-reminders";
 
-const reminderContent = {
+const morningReminderContent = {
+  body: "Take a quiet moment to set your intention for the day.",
+  sound: true,
+  title: "Morning intention",
+};
+
+const eveningReminderContent = {
   body: "Take a quiet moment to reflect on your day.",
   sound: true,
-  title: "DearDiary",
+  title: "Evening reflection",
 };
 
 type NotificationsModule = typeof import("expo-notifications");
@@ -57,7 +63,7 @@ export async function scheduleJournalReminders({
   await cancelJournalReminders(notificationModule);
 
   await notificationModule.scheduleNotificationAsync({
-    content: reminderContent,
+    content: morningReminderContent,
     identifier: morningReminderId,
     trigger: {
       channelId: reminderChannelId,
@@ -68,7 +74,7 @@ export async function scheduleJournalReminders({
   });
 
   await notificationModule.scheduleNotificationAsync({
-    content: reminderContent,
+    content: eveningReminderContent,
     identifier: eveningReminderId,
     trigger: {
       channelId: reminderChannelId,

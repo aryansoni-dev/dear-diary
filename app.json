@@ -2,14 +2,14 @@
   "expo": {
     "name": "DearDiary",
     "slug": "dear-diary",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "deardiary",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "buildNumber": "2",
+      "buildNumber": "3",
       "supportsTablet": true
     },
     "android": {
@@ -21,7 +21,7 @@
       ],
       "icon": "./assets/images/icon.png",
       "package": "com.aryan.deardiary",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#FFDDE8",
         "foregroundImage": "./assets/images/icon.png"
@@ -38,13 +38,13 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-logo.png",
+          "image": "./assets/images/icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#F4EFFA",
           "dark": {
-            "image": "./assets/images/splash-logo.png",
-            "backgroundColor": "#F4EFFA"
+            "image": "./assets/images/icon.png",
+            "backgroundColor": "#1C1B1F"
           }
         }
       ],

@@ -155,9 +155,7 @@ export function AiChatScreen({
     const keyboardDidShowSubscription = Keyboard.addListener(
       "keyboardDidShow",
       (event) => {
-        setKeyboardOffset(
-          Math.max(0, event.endCoordinates.height - insets.bottom),
-        );
+        setKeyboardOffset(Math.max(0, event.endCoordinates.height));
       },
     );
     const keyboardDidHideSubscription = Keyboard.addListener(
@@ -169,7 +167,7 @@ export function AiChatScreen({
       keyboardDidShowSubscription.remove();
       keyboardDidHideSubscription.remove();
     };
-  }, [insets.bottom, shouldUseKeyboardOffset]);
+  }, [shouldUseKeyboardOffset]);
 
   function handleBackPress() {
     if (router.canGoBack()) {
@@ -521,7 +519,8 @@ export function AiChatScreen({
         colors={["rgba(250, 247, 242, 0)", "#FAF7F2"]}
         className="px-6 pt-4"
         style={{
-          paddingBottom: Math.max(insets.bottom, 24),
+          paddingBottom:
+            footerKeyboardOffset > 0 ? 0 : Math.max(insets.bottom, 24),
           transform: [{ translateY: -footerKeyboardOffset }],
         }}
       >
