@@ -1,22 +1,11 @@
-import * as FileSystem from "expo-file-system/legacy";
-import { requireOptionalNativeModule } from "expo-modules-core";
-import { Share } from "react-native";
+import { Directory, File } from "expo-file-system";
 
 import { formatTagLabel } from "@/lib/tags";
 import type { JournalEntry } from "@/types/journal";
 
 type ExportFileType = "json" | "markdown";
 
-type SharingOptions = {
-  UTI?: string;
-  dialogTitle?: string;
-  mimeType?: string;
-};
-
-type NativeSharingModule = {
-  isAvailableAsync?: () => Promise<boolean>;
-  shareAsync?: (url: string, options?: SharingOptions) => Promise<void>;
-};
+const exportDirectoryName = "DearDiary Export";
 
 export type JournalExportErrorCode =
   | "file-system-unavailable"
@@ -92,16 +81,16 @@ export const generateJournalJson = (entries: JournalEntry[]): string => {
 
 export const exportJournalAsMarkdown = async (
   entries: JournalEntry[],
-): Promise<void> => {
+): Promise<boolean> => {
   const markdown = generateJournalMarkdown(entries);
-  await writeAndShareExportFile(markdown, "markdown");
+  return writeExportFile(markdown, "markdown");
 };
 
 export const exportJournalAsJson = async (
   entries: JournalEntry[],
-): Promise<void> => {
+): Promise<boolean> => {
   const json = generateJournalJson(entries);
-  await writeAndShareExportFile(json, "json");
+  return writeExportFile(json, "json");
 };
 
 const getExportDateStamp = (): string => new Date().toISOString().split("T")[0];
@@ -112,67 +101,73 @@ const getEntriesNewestFirst = (entries: JournalEntry[]) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
-const writeAndShareExportFile = async (
+const writeExportFile = async (
   contents: string,
   type: ExportFileType,
-): Promise<void> => {
-  if (!FileSystem.documentDirectory) {
-    throw new JournalExportError(
-      "file-system-unavailable",
-      "File storage is not available on this device.",
-    );
-  }
+): Promise<boolean> => {
+  try {
+    const pickedDirectory = await Directory.pickDirectoryAsync();
+    const selectedDirectory = new Directory(pickedDirectory.uri);
+    const exportDirectory = getOrCreateExportDirectory(selectedDirectory);
+    const fileName = getExportFileName(type);
+    const file = getOrCreateExportFile(exportDirectory, fileName, type);
 
-  const extension = type === "markdown" ? "md" : "json";
-  const fileUri = `${FileSystem.documentDirectory}deardiary-export-${getExportDateStamp()}.${extension}`;
-
-  await FileSystem.writeAsStringAsync(fileUri, contents);
-
-  const Sharing = getNativeSharingModule();
-
-  if (Sharing) {
-    const sharingAvailable = await Sharing.isAvailableAsync();
-
-    if (sharingAvailable) {
-      await Sharing.shareAsync(fileUri, {
-        dialogTitle: "Share DearDiary export",
-        mimeType: type === "markdown" ? "text/markdown" : "application/json",
-        UTI:
-          type === "markdown" ? "net.daringfireball.markdown" : "public.json",
-      });
-      return;
+    file.write(contents);
+    return true;
+  } catch (error) {
+    if (isDirectoryPickerCancellation(error)) {
+      return false;
     }
-  }
 
-  await Share.share(
-    {
-      message: contents,
-      title: getShareTitle(type),
-      url: fileUri,
-    },
-    {
-      dialogTitle: "Share DearDiary export",
-      subject: getShareTitle(type),
-    },
-  );
+    throw error;
+  }
 };
 
-const getNativeSharingModule = (): Required<NativeSharingModule> | null => {
-  const Sharing =
-    requireOptionalNativeModule<NativeSharingModule>("ExpoSharing");
-
-  if (!Sharing?.isAvailableAsync || !Sharing.shareAsync) {
-    return null;
+const getOrCreateExportDirectory = (parentDirectory: Directory): Directory => {
+  if (parentDirectory.name === exportDirectoryName) {
+    return parentDirectory;
   }
 
-  return {
-    isAvailableAsync: Sharing.isAvailableAsync,
-    shareAsync: Sharing.shareAsync,
-  };
+  const existingDirectory = parentDirectory
+    .list()
+    .find(
+      (item) => item instanceof Directory && item.name === exportDirectoryName,
+    );
+
+  if (existingDirectory instanceof Directory) {
+    return existingDirectory;
+  }
+
+  return parentDirectory.createDirectory(exportDirectoryName);
 };
 
-const getShareTitle = (type: ExportFileType): string =>
-  type === "markdown" ? "DearDiary Markdown Export" : "DearDiary JSON Export";
+const getOrCreateExportFile = (
+  exportDirectory: Directory,
+  fileName: string,
+  type: ExportFileType,
+): File => {
+  const existingFile = exportDirectory
+    .list()
+    .find((item) => item instanceof File && item.name === fileName);
+
+  if (existingFile instanceof File) {
+    return existingFile;
+  }
+
+  const mimeType = type === "markdown" ? "text/markdown" : "application/json";
+
+  return exportDirectory.createFile(fileName, mimeType);
+};
+
+const getExportFileName = (type: ExportFileType): string => {
+  const extension = type === "markdown" ? "md" : "json";
+
+  return `deardiary-export-${getExportDateStamp()}.${extension}`;
+};
+
+const isDirectoryPickerCancellation = (error: unknown): boolean =>
+  error instanceof Error &&
+  error.message.toLowerCase().includes("file picker was cancelled");
 
 const formatDisplayDate = (dateValue: Date | string): string => {
   const date = dateValue instanceof Date ? dateValue : new Date(dateValue);

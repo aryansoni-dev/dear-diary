@@ -155,9 +155,7 @@ export function AiChatScreen({
     const keyboardDidShowSubscription = Keyboard.addListener(
       "keyboardDidShow",
       (event) => {
-        setKeyboardOffset(
-          Math.max(0, event.endCoordinates.height - insets.bottom),
-        );
+        setKeyboardOffset(Math.max(0, event.endCoordinates.height));
       },
     );
     const keyboardDidHideSubscription = Keyboard.addListener(
@@ -169,7 +167,7 @@ export function AiChatScreen({
       keyboardDidShowSubscription.remove();
       keyboardDidHideSubscription.remove();
     };
-  }, [insets.bottom, shouldUseKeyboardOffset]);
+  }, [shouldUseKeyboardOffset]);
 
   function handleBackPress() {
     if (router.canGoBack()) {
