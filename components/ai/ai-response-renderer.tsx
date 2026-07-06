@@ -129,6 +129,8 @@ function AIResponseContent({
     [content, isStreaming],
   );
 
+  // Keep the Yoga and native text layouts on the same explicit width. This
+  // prevents Android from measuring fewer lines than it ultimately draws.
   return (
     <View
       accessibilityLabel={accessibilityLabel}
@@ -207,7 +209,7 @@ function AIResponseBlock({
     return (
       <InlineMarkdownText
         accessibilityRole="header"
-        className={`${headingClassName} ${textClassName ?? ""}`}
+        className={`w-full ${headingClassName} ${textClassName ?? ""}`}
         selectable={selectable}
         style={safeTextStyle}
         text={block.content}
@@ -219,7 +221,7 @@ function AIResponseBlock({
     return (
       <View className="min-w-0 border-l-4 border-[#D8C5EF] bg-[#F7F2FC] px-4 py-3">
         <InlineMarkdownText
-          className={`${classes.muted} ${textClassName ?? ""}`}
+          className={`w-full ${classes.muted} ${textClassName ?? ""}`}
           selectable={selectable}
           style={safeTextStyle}
           text={block.content}
@@ -243,12 +245,14 @@ function AIResponseBlock({
             >
               {item.marker}
             </Text>
-            <InlineMarkdownText
-              className={`min-w-0 flex-1 ${classes.body} ${textClassName ?? ""}`}
-              selectable={selectable}
-              style={safeTextStyle}
-              text={item.content}
-            />
+            <View className="min-w-0 flex-1 basis-0">
+              <InlineMarkdownText
+                className={`w-full ${classes.body} ${textClassName ?? ""}`}
+                selectable={selectable}
+                style={safeTextStyle}
+                text={item.content}
+              />
+            </View>
           </View>
         ))}
       </View>
@@ -261,7 +265,7 @@ function AIResponseBlock({
 
   return (
     <InlineMarkdownText
-      className={`${classes.body} ${textClassName ?? ""}`}
+      className={`w-full ${classes.body} ${textClassName ?? ""}`}
       selectable={selectable}
       style={safeTextStyle}
       text={block.content}
@@ -419,7 +423,7 @@ class AIResponseErrorBoundary extends Component<
       return (
         <Text
           android_hyphenationFrequency="normal"
-          className={variantClasses[this.props.variant].body}
+          className={`w-full ${variantClasses[this.props.variant].body}`}
           selectable={this.props.selectable}
           style={safeTextStyle}
           textBreakStrategy="highQuality"

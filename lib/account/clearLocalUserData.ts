@@ -6,6 +6,7 @@ import { useJournalStore } from "@/store/journal-store";
 import { useAchievementStore } from "@/store/useAchievementStore";
 import { useAIInsightReportStore } from "@/store/useAIInsightReportStore";
 import { useChatStore } from "@/store/useChatStore";
+import { useDailyReflectionPromptStore } from "@/store/useDailyReflectionPromptStore";
 import { useEntryReflectionStore } from "@/store/useEntryReflectionStore";
 import { useMoodLogStore } from "@/store/useMoodLogStore";
 import { useNotificationPreferencesStore } from "@/store/notification-preferences-store";
@@ -35,6 +36,7 @@ async function clearInMemoryAndPersistedStores(userId: string) {
   useJournalStore.getState().setActiveUserId(null);
   useMoodLogStore.getState().clearMoodLogsForUser(userId);
   useChatStore.getState().clearMessagesForUser(userId);
+  useDailyReflectionPromptStore.getState().clearBundlesForUser(userId);
   useEntryReflectionStore.getState().clearReflectionsForUser(userId);
   useAIInsightReportStore.getState().clearReportsForUser(userId);
   useAchievementStore.getState().resetAchievementNotifications(userId);
