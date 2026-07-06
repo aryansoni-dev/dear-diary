@@ -197,6 +197,10 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
 
   function openDailyReflection() {
     if (!reflectionPrompt) {
+      router.push({
+        pathname: "/journal/new",
+        params: { source: "home" },
+      });
       return;
     }
 
@@ -328,12 +332,10 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
                 accessibilityLabel={
                   reflectionPrompt
                     ? `Start writing about: ${reflectionPrompt}`
-                    : "Preparing today's reflection prompt"
+                    : "Start writing a journal entry"
                 }
                 accessibilityRole="button"
-                accessibilityState={{ disabled: !reflectionPrompt }}
                 className="mt-auto h-12 items-center justify-center rounded-[17px] bg-[#FF2056]"
-                disabled={!reflectionPrompt}
                 onPress={openDailyReflection}
               >
                 <Text className="text-[19px] font-semibold leading-6 text-white">
@@ -438,7 +440,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
             <RecentEntriesEmptyState
               body="Write your first entry and give today a place to live."
               ctaLabel="Write an entry"
-              onCtaPress={reflectionPrompt ? openDailyReflection : undefined}
+              onCtaPress={openDailyReflection}
               title="Your journal begins here"
             />
           ) : (
