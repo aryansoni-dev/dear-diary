@@ -1170,11 +1170,13 @@ function InsightMessageCard({ card }: { card: InsightCard }) {
             <Sparkles size={19} color={primaryColor} strokeWidth={2.2} />
           </View>
         ) : (
-          <Text className="w-9 text-[21px] leading-5">{card.emoji}</Text>
+          <Text className="w-9 text-[21px] leading-6">{card.emoji}</Text>
         )}
-        <Text className="flex-1 text-[17px] font-bold leading-5 text-[#18181B]">
-          {card.title}
-        </Text>
+        <View className="min-w-0 flex-1 basis-0">
+          <Text className="w-full text-[17px] font-bold leading-6 text-[#18181B]">
+            {card.title}
+          </Text>
+        </View>
       </View>
       <View className="mt-7 min-w-0">
         <AIResponseRenderer

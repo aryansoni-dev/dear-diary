@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Pressable,
   ScrollView,
@@ -22,7 +22,13 @@ import { ScreenErrorState } from "@/components/states/ScreenErrorState";
 import { ScenicCardBackground } from "@/components/ui/scenic-card-background";
 import { images } from "@/constants/images";
 import { fallbackMoodMetadata, moodMetadata } from "@/constants/moods";
+import { useDailyReflectionPrompt } from "@/hooks/useDailyReflectionPrompt";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
+import { useReflectionClock } from "@/hooks/useReflectionClock";
+import {
+  getLocalDateKey,
+  hasAnsweredReflectionPrompt,
+} from "@/lib/reflection-prompts/dailyReflectionPrompts";
 import {
   retryJournalStoreHydration,
   useJournalHydrationStore,
@@ -87,16 +93,6 @@ const entryTypeMetadata: Record<
   },
 };
 
-const aiReflectionPrompt = "What made you smile unexpectedly today?";
-const journalEditorHref = {
-  pathname: "/journal/new",
-  params: {
-    prompt: aiReflectionPrompt,
-    source: "home",
-    type: "ai_reflection",
-  },
-} as Href;
-
 const journalHistoryHref = "/journal-history" as Href;
 const morningIntentionPrompt =
   "What is the one thing you'd like to focus on today?";
@@ -139,7 +135,23 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const topBackgroundHeight = Math.max(188, insets.top + 148);
   const homeCardWidth = Math.max(width - 56, 0);
-  const currentTime = useCurrentMinute();
+  const reflectionCardMinHeight = homeCardWidth / homeScenicCardAspectRatio;
+  const currentTime = useReflectionClock();
+  const dailyReflection = useDailyReflectionPrompt(currentTime);
+  const reflectionPrompt = dailyReflection.prompt;
+  const reflectionCardText =
+    reflectionPrompt ?? "Preparing a thoughtful question for today...";
+  const hasAnsweredCurrentReflection = useMemo(
+    () =>
+      hasAnsweredReflectionPrompt({
+        date: currentTime,
+        entries,
+        prompt: reflectionPrompt,
+      }),
+    [currentTime, entries, reflectionPrompt],
+  );
+  const shouldShowReflectionCard =
+    hasHydrated && !hydrationError && !hasAnsweredCurrentReflection;
   const displayName = firstName?.trim() || "";
   const greeting = useMemo(() => getGreeting(currentTime), [currentTime]);
   const greetingBackground = greetingBackgrounds[greeting.period];
@@ -181,6 +193,21 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
 
   function retryJournalHydration() {
     retryJournalStoreHydration();
+  }
+
+  function openDailyReflection() {
+    if (!reflectionPrompt) {
+      return;
+    }
+
+    router.push({
+      pathname: "/journal/new",
+      params: {
+        prompt: reflectionPrompt,
+        source: "home",
+        type: "ai_reflection",
+      },
+    });
   }
 
   return (
@@ -266,44 +293,56 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
           </View>
         </View>
 
-        <View
-          className="mb-9 w-full overflow-hidden rounded-[30px] border-[6px] border-white/80 bg-[#F9E2EC]"
-          style={{
-            aspectRatio: homeScenicCardAspectRatio,
-            boxShadow: "0 20px 48px -22px rgba(190, 80, 125, 0.5)",
-          }}
-        >
-          <ScenicCardBackground cardWidth={homeCardWidth} variant="ai" />
+        {shouldShowReflectionCard ? (
+          <View
+            className="mb-9 w-full overflow-hidden rounded-[30px] border-[6px] border-white/80 bg-[#F9E2EC]"
+            style={{
+              boxShadow: "0 20px 48px -22px rgba(190, 80, 125, 0.5)",
+              minHeight: reflectionCardMinHeight,
+            }}
+          >
+            <ScenicCardBackground cardWidth={homeCardWidth} variant="ai" />
 
-          <View className="h-full px-5 py-5">
-            <View className="mb-3 flex-row items-center gap-3">
-              <View className="size-8 items-center justify-center rounded-full bg-white/70">
-                <Ionicons
-                  color={colors.primary}
-                  name="sparkles-outline"
-                  size={21}
-                />
-              </View>
-              <Text className="flex-1 text-[13px] font-semibold uppercase leading-6 tracking-normal text-zinc-950/45">
-                AI Reflection Prompt
-              </Text>
-            </View>
-
-            <Text className="mb-3 text-[21px] font-semibold leading-6 text-[#27272A]">
-              {aiReflectionPrompt.replace(" unexpectedly", "\nunexpectedly")}
-            </Text>
-
-            <Pressable
-              accessibilityRole="button"
-              className="mt-auto h-12 items-center justify-center rounded-[17px] bg-[#FF2056]"
-              onPress={() => router.push(journalEditorHref)}
+            <View
+              className="px-5 py-5"
+              style={{ minHeight: Math.max(reflectionCardMinHeight - 12, 0) }}
             >
-              <Text className="text-[19px] font-semibold leading-6 text-white">
-                Start Writing ✨
+              <View className="mb-3 flex-row items-center gap-3">
+                <View className="size-8 items-center justify-center rounded-full bg-white/70">
+                  <Ionicons
+                    color={colors.primary}
+                    name="sparkles-outline"
+                    size={21}
+                  />
+                </View>
+                <Text className="flex-1 text-[13px] font-semibold uppercase leading-6 tracking-normal text-zinc-950/45">
+                  AI Reflection Prompt
+                </Text>
+              </View>
+
+              <Text className="mb-3 text-[21px] font-semibold leading-6 text-[#27272A]">
+                {reflectionCardText}
               </Text>
-            </Pressable>
+
+              <Pressable
+                accessibilityLabel={
+                  reflectionPrompt
+                    ? `Start writing about: ${reflectionPrompt}`
+                    : "Preparing today's reflection prompt"
+                }
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !reflectionPrompt }}
+                className="mt-auto h-12 items-center justify-center rounded-[17px] bg-[#FF2056]"
+                disabled={!reflectionPrompt}
+                onPress={openDailyReflection}
+              >
+                <Text className="text-[19px] font-semibold leading-6 text-white">
+                  Start Writing ✨
+                </Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
+        ) : null}
 
         <HomeMoodCheckInCard />
 
@@ -399,7 +438,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
             <RecentEntriesEmptyState
               body="Write your first entry and give today a place to live."
               ctaLabel="Write an entry"
-              onCtaPress={() => router.push(journalEditorHref)}
+              onCtaPress={reflectionPrompt ? openDailyReflection : undefined}
               title="Your journal begins here"
             />
           ) : (
@@ -569,20 +608,6 @@ function getEntryPreview(entry: StoredJournalEntry) {
   return entry.content.trim() || entry.title || "Open your morning intention...";
 }
 
-function useCurrentMinute() {
-  const [currentTime, setCurrentTime] = useState(() => new Date());
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60 * 1000);
-
-    return () => clearInterval(intervalId);
-  }, []);
-
-  return currentTime;
-}
-
 function getGreeting(date: Date): { label: string; period: GreetingPeriod } {
   const hour = date.getHours();
 
@@ -655,14 +680,6 @@ function getReflectionStreak(entries: StoredJournalEntry[]) {
   }
 
   return streak;
-}
-
-function getLocalDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
 }
 
 function startOfLocalDay(date: Date) {
