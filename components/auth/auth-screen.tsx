@@ -21,8 +21,10 @@ import {
   View,
 } from "react-native";
 
+import { OfflineNotice } from "@/components/connectivity/OfflineNotice";
 import { images } from "@/constants/images";
 import { useAppDialog } from "@/hooks/useAppDialog";
+import { useConnectivity } from "@/hooks/useConnectivity";
 import { useOnboardingStore } from "@/store/onboarding-store";
 
 import { AuthTextField } from "./auth-text-field";
@@ -92,10 +94,15 @@ export function AuthScreen({
   const { fetchStatus: signUpFetchStatus, signUp } = useSignUp();
   const { startSSOFlow } = useSSO();
   const { showDialog } = useAppDialog();
+  const connectivity = useConnectivity();
   const resetOnboarding = useOnboardingStore((state) => state.resetOnboarding);
   const isFetching =
     signInFetchStatus === "fetching" || signUpFetchStatus === "fetching";
+  const isOffline = connectivity.status === "offline";
   const isClerkReady = isAuthLoaded && !isFetching;
+  const isAuthActionDisabled = !isClerkReady || isOffline || isSubmitting;
+  const isSocialActionDisabled =
+    !isClerkReady || isOffline || socialStrategy !== null;
   const emailFeedback = getEmailFeedback(email);
   const passwordFeedback = getPasswordFeedback(password, isLogin);
 
@@ -104,6 +111,11 @@ export function AuthScreen({
   }
 
   async function handlePrimaryPress() {
+    if (isOffline) {
+      showError("No Internet Access. Connect to the internet to continue.");
+      return;
+    }
+
     if (!isClerkReady || isSubmitting) {
       return;
     }
@@ -317,6 +329,11 @@ export function AuthScreen({
   }
 
   async function handleSocialPress(strategy: "oauth_google" | "oauth_apple") {
+    if (isOffline) {
+      showError("No Internet Access. Connect to the internet to continue.");
+      return;
+    }
+
     if (!isClerkReady || socialStrategy) {
       return;
     }
@@ -401,6 +418,16 @@ export function AuthScreen({
             }}
           >
             <View className="gap-4">
+              {isOffline ? (
+                <OfflineNotice
+                  message={
+                    isLogin
+                      ? "No Internet Access. Connect to the internet to sign in."
+                      : "No Internet Access. Connect to the internet to create your account."
+                  }
+                />
+              ) : null}
+
               {!isLogin ? (
                 <AuthTextField
                   iconName="user"
@@ -450,11 +477,13 @@ export function AuthScreen({
 
             <Pressable
               accessibilityRole="button"
+              accessibilityState={{ disabled: isAuthActionDisabled }}
               className="mt-5 h-14 items-center justify-center rounded-full bg-[#ff2056]"
-              disabled={!isClerkReady || isSubmitting}
+              disabled={isAuthActionDisabled}
               onPress={handlePrimaryPress}
               style={{
                 boxShadow: "0 12px 28px -9px rgba(255, 32, 86, 0.7)",
+                opacity: isAuthActionDisabled ? 0.55 : 1,
               }}
             >
               <View className="flex-row items-center justify-center gap-2">
@@ -471,7 +500,7 @@ export function AuthScreen({
 
             <View className="mt-16">
               <SocialButtons
-                disabled={!isClerkReady || socialStrategy !== null}
+                disabled={isSocialActionDisabled}
                 loadingStrategy={socialStrategy}
                 onApplePress={() => void handleSocialPress("oauth_apple")}
                 onGooglePress={() => void handleSocialPress("oauth_google")}
@@ -596,6 +625,7 @@ function SocialButtons({
         className="h-10 flex-row items-center justify-center gap-2 rounded-full border border-zinc-200 bg-zinc-50"
         disabled={disabled}
         onPress={onGooglePress}
+        style={{ opacity: disabled ? 0.55 : 1 }}
       >
         <View className="size-5 items-center justify-center">
           {isGoogleLoading ? (
@@ -620,6 +650,7 @@ function SocialButtons({
         className="h-10 flex-row items-center justify-center gap-2 rounded-full border border-zinc-200 bg-zinc-50"
         disabled={disabled}
         onPress={onApplePress}
+        style={{ opacity: disabled ? 0.55 : 1 }}
       >
         <View className="size-5 items-center justify-center">
           {isAppleLoading ? (
