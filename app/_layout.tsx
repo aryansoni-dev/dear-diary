@@ -1,6 +1,7 @@
 import "../global.css";
 
 import { ClerkProvider, useAuth } from "@clerk/expo";
+import { resourceCache } from "@clerk/expo/resource-cache";
 import { tokenCache } from "@clerk/expo/token-cache";
 import { Stack, type ErrorBoundaryProps } from "expo-router";
 import { useEffect } from "react";
@@ -30,6 +31,7 @@ export default function RootLayout() {
   return (
     <ClerkProvider
       publishableKey={publicEnvironmentResult.environment.clerkPublishableKey}
+      __experimental_resourceCache={resourceCache}
       tokenCache={tokenCache}
     >
       <ConnectivityProvider>

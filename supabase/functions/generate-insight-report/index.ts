@@ -122,6 +122,17 @@ type AIInsightReportRow = {
   user_id: string;
 };
 
+type ChatCompletionRequestBody = {
+  max_tokens: number;
+  messages: {
+    content: string;
+    role: "system" | "user";
+  }[];
+  model: string;
+  response_format?: { type: "json_object" };
+  temperature: number;
+};
+
 class AIProviderError extends Error {
   constructor(
     message: string,
@@ -813,16 +824,22 @@ async function callAIProvider(finalPrompt: string) {
   const timeout = setTimeout(() => controller.abort(), 45000);
 
   try {
+    const requestBody: ChatCompletionRequestBody = {
+      messages: [
+        { content: systemPrompt, role: "system" },
+        { content: finalPrompt, role: "user" },
+      ],
+      max_tokens: maxNarrativeTokens,
+      model,
+      temperature: 0.25,
+    };
+
+    if (supportsJsonObjectResponseFormat(baseUrl)) {
+      requestBody.response_format = { type: "json_object" };
+    }
+
     const response = await fetch(`${baseUrl}/chat/completions`, {
-      body: JSON.stringify({
-        messages: [
-          { content: systemPrompt, role: "system" },
-          { content: finalPrompt, role: "user" },
-        ],
-        max_tokens: maxNarrativeTokens,
-        model,
-        temperature: 0.45,
-      }),
+      body: JSON.stringify(requestBody),
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -924,6 +941,26 @@ async function getProviderErrorCode(response: Response) {
   }
 
   return `provider_http_${response.status}`;
+}
+
+function supportsJsonObjectResponseFormat(baseUrl: string) {
+  const hostname = getProviderHostname(baseUrl);
+
+  return (
+    hostname === "api.openai.com" ||
+    hostname === "api.groq.com" ||
+    hostname === "api.openrouter.ai" ||
+    hostname === "openrouter.ai" ||
+    hostname.endsWith(".openai.azure.com")
+  );
+}
+
+function getProviderHostname(baseUrl: string) {
+  try {
+    return new URL(baseUrl).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
 }
 
 function getProviderMessage(body: unknown) {
