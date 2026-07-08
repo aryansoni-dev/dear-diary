@@ -42,6 +42,10 @@ assert.equal(
   routeTransitionCategories.sensitive,
 );
 assert.equal(
+  getRouteTransitionCategory("settings"),
+  routeTransitionCategories.standardDetail,
+);
+assert.equal(
   getRouteTransitionCategory("unknown-route"),
   routeTransitionCategories.standardDetail,
 );

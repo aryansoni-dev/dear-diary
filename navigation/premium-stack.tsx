@@ -1,6 +1,6 @@
 import {
-  ParamListBase,
-  StackNavigationState,
+  type ParamListBase,
+  type StackNavigationState,
   type EventMapBase,
 } from "@react-navigation/native";
 import { withLayoutContext } from "expo-router";
