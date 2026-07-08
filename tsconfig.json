@@ -3,6 +3,12 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
+      "react-native-screen-transitions": [
+        "./node_modules/react-native-screen-transitions/lib/typescript/shared/index.d.ts"
+      ],
+      "react-native-screen-transitions/blank-stack": [
+        "./node_modules/react-native-screen-transitions/lib/typescript/blank-stack/index.d.ts"
+      ],
       "@/*": [
         "./*"
       ]

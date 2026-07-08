@@ -478,12 +478,13 @@ export function AuthScreen({
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ disabled: isAuthActionDisabled }}
-              className="mt-5 h-14 items-center justify-center rounded-full bg-[#ff2056]"
+              className={`mt-5 h-14 items-center justify-center rounded-full bg-[#ff2056] ${
+                isAuthActionDisabled ? "opacity-50" : "opacity-100"
+              }`}
               disabled={isAuthActionDisabled}
               onPress={handlePrimaryPress}
               style={{
                 boxShadow: "0 12px 28px -9px rgba(255, 32, 86, 0.7)",
-                opacity: isAuthActionDisabled ? 0.55 : 1,
               }}
             >
               <View className="flex-row items-center justify-center gap-2">
@@ -622,10 +623,11 @@ function SocialButtons({
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ busy: isGoogleLoading, disabled }}
-        className="h-10 flex-row items-center justify-center gap-2 rounded-full border border-zinc-200 bg-zinc-50"
+        className={`h-10 flex-row items-center justify-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 ${
+          disabled ? "opacity-50" : "opacity-100"
+        }`}
         disabled={disabled}
         onPress={onGooglePress}
-        style={{ opacity: disabled ? 0.55 : 1 }}
       >
         <View className="size-5 items-center justify-center">
           {isGoogleLoading ? (
@@ -647,10 +649,11 @@ function SocialButtons({
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ busy: isAppleLoading, disabled }}
-        className="h-10 flex-row items-center justify-center gap-2 rounded-full border border-zinc-200 bg-zinc-50"
+        className={`h-10 flex-row items-center justify-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 ${
+          disabled ? "opacity-50" : "opacity-100"
+        }`}
         disabled={disabled}
         onPress={onApplePress}
-        style={{ opacity: disabled ? 0.55 : 1 }}
       >
         <View className="size-5 items-center justify-center">
           {isAppleLoading ? (

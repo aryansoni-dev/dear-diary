@@ -13,6 +13,8 @@ import { RootErrorFallback } from "@/components/errors/RootErrorFallback";
 import { AppLaunchGate } from "@/components/onboarding/app-launch-gate";
 import { publicEnvironmentResult } from "@/lib/environment";
 import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
+import { rootRouteTransitions } from "@/navigation/route-transition-map";
+import { useNativeTransitionOptions } from "@/navigation/transitions";
 import { AppLockProvider } from "@/providers/AppLockProvider";
 import { AppDialogProvider } from "@/providers/AppDialogProvider";
 import { ConnectivityProvider } from "@/providers/ConnectivityProvider";
@@ -31,6 +33,8 @@ export default function RootLayout() {
   return (
     <ClerkProvider
       publishableKey={publicEnvironmentResult.environment.clerkPublishableKey}
+      // Clerk's offline resource cache is experimental; keep this aligned with
+      // the SDK pattern and expect changes before the API is production-stable.
       __experimental_resourceCache={resourceCache}
       tokenCache={tokenCache}
     >
@@ -74,24 +78,43 @@ function AppStack() {
 }
 
 function RootNavigator() {
+  const authBoundaryOptions = useNativeTransitionOptions(
+    rootRouteTransitions.index,
+  );
+  const standardDetailOptions = useNativeTransitionOptions(
+    rootRouteTransitions.settings,
+  );
+  const writingFlowOptions = useNativeTransitionOptions(
+    rootRouteTransitions.journal,
+  );
+  const sensitiveOptions = useNativeTransitionOptions(rootRouteTransitions.sso);
+
   return (
-    <Stack initialRouteName="index">
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+    <Stack
+      initialRouteName="index"
+      screenOptions={authBoundaryOptions}
+    >
+      <Stack.Screen name="index" options={authBoundaryOptions} />
+      <Stack.Screen name="(onboarding)" options={authBoundaryOptions} />
+      <Stack.Screen name="(auth)" options={authBoundaryOptions} />
+      <Stack.Screen name="(tabs)" options={authBoundaryOptions} />
       <Stack.Screen
         name="achievements/index"
-        options={{ headerShown: false }}
+        options={standardDetailOptions}
       />
       <Stack.Screen
         name="insights/report/[periodType]"
-        options={{ headerShown: false }}
+        options={standardDetailOptions}
       />
-      <Stack.Screen name="journal" options={{ headerShown: false }} />
-      <Stack.Screen name="legal/privacy-policy" options={{ headerShown: false }} />
-      <Stack.Screen name="legal/terms" options={{ headerShown: false }} />
-      <Stack.Screen name="settings" options={{ headerShown: false }} />
+      <Stack.Screen name="journal" options={writingFlowOptions} />
+      <Stack.Screen
+        name="legal/privacy-policy"
+        options={standardDetailOptions}
+      />
+      <Stack.Screen name="legal/terms" options={standardDetailOptions} />
+      <Stack.Screen name="settings" options={standardDetailOptions} />
+      <Stack.Screen name="sso" options={sensitiveOptions} />
+      <Stack.Screen name="sso-callback" options={sensitiveOptions} />
     </Stack>
   );
 }
