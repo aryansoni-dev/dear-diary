@@ -824,6 +824,9 @@ async function callAIProvider(finalPrompt: string) {
   const timeout = setTimeout(() => controller.abort(), 45000);
 
   try {
+    const responseFormat = supportsJsonObjectResponseFormat(baseUrl)
+      ? ({ response_format: { type: "json_object" } } as const)
+      : {};
     const requestBody: ChatCompletionRequestBody = {
       messages: [
         { content: systemPrompt, role: "system" },
@@ -831,12 +834,9 @@ async function callAIProvider(finalPrompt: string) {
       ],
       max_tokens: maxNarrativeTokens,
       model,
+      ...responseFormat,
       temperature: 0.25,
     };
-
-    if (supportsJsonObjectResponseFormat(baseUrl)) {
-      requestBody.response_format = { type: "json_object" };
-    }
 
     const response = await fetch(`${baseUrl}/chat/completions`, {
       body: JSON.stringify(requestBody),
