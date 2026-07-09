@@ -1,66 +1,96 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
+# Dependencies and package-manager caches
 node_modules/
+.npm/
+.yarn/cache/
+.yarn/install-state.gz
+.pnpm-store/
 
-# Expo
+# Expo and generated web output
 .expo/
 dist/
 web-build/
 expo-env.d.ts
+*.tsbuildinfo
 
-# Native
+# Generated native projects and build output
+/android/
+/ios/
+.gradle/
 .kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
+build/
+*.apk
+*.aab
+*.ipa
+*.xcarchive
+*.dSYM/
 
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-*.log
-logs/
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
+# Environment files
 .env
-.env.preview.example
-.env.production.example
 .env.*
 .env*.local
 !.env.example
 !.env.*.example
 
-# local tool state
-.codex/
+# Signing credentials and service configuration
+*.jks
+*.keystore
+*.p8
+*.p12
+*.pem
+*.key
+*.mobileprovision
+google-services.json
+GoogleService-Info.plist
+service-account*.json
+firebase-adminsdk*.json
 
-# Supabase local CLI state
+# Logs and runtime diagnostics
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.metro-health-check*
+
+# Tests, coverage, and local reports
+coverage/
+test-results/
+playwright-report/
+junit.xml
+testsprite_tests/
+.maestro/tests/
+
+# Local caches and temporary files
+.cache/
+.eslintcache
+.parcel-cache/
+.turbo/
+.tmp/
+tmp/
 supabase/.branches/
 supabase/.temp/
+*.orig
+*.orig.*
 
-# typescript
-*.tsbuildinfo
+# Editors and local workspace state
+.idea/
+.vscode/*.local.json
+.claude/settings.local.json
+.codex/
+.cursor/
+.fleet/
+.zed/
+*.swp
+*.swo
 
-# local screenshots / captures
-# Screenshot_*.png
-# Screen Shot *.png
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
 
-app-example
-
-# generated native folders
-/ios
-/android
-
+# Local project notes and generated scratch folders
+app-example/
 PROMPTS.md
 task.md
 DB.md
