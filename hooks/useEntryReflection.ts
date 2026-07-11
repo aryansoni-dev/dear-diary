@@ -305,10 +305,11 @@ function applyReflectionThemesToEntryTags({
       ...reflection,
       sourceEntryUpdatedAt: updatedEntry.updatedAt,
     };
-  } catch {
+  } catch (error) {
     if (__DEV__) {
       console.warn("Entry AI reflection themes could not be applied as tags", {
         entryIdPresent: Boolean(entryId),
+        error,
         themeCount: reflection.themes.length,
       });
     }

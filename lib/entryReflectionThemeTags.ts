@@ -46,12 +46,11 @@ export function mergeEntryTagsWithAiThemes(
 export function areEntryTagsEqual(firstTags: string[], secondTags: string[]) {
   const normalizedFirstTags = normalizeTags(firstTags);
   const normalizedSecondTags = normalizeTags(secondTags);
+  const normalizedSecondTagSet = new Set(normalizedSecondTags);
 
   return (
     normalizedFirstTags.length === normalizedSecondTags.length &&
-    normalizedFirstTags.every(
-      (tag, index) => tag === normalizedSecondTags[index],
-    )
+    normalizedFirstTags.every((tag) => normalizedSecondTagSet.has(tag))
   );
 }
 

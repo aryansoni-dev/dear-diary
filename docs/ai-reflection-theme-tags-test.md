@@ -1,6 +1,6 @@
 # AI Reflection Theme Tags Test Matrix
 
-| ID | Scenario | Initial tags | AI themes | Expected final tags | Actual | Status |
+| ID | Scenario | Initial tags | AI themes | Expected outcome | Actual | Status |
 |---|---|---|---|---|---|---|
 | 1 | Untagged entry + successful reflection with two themes | none | productivity, accomplishment | productivity, accomplishment | Not run | Not tested |
 | 2 | Entry with existing tag + successful reflection | college | productivity, accomplishment | college, productivity, accomplishment | Not run | Not tested |

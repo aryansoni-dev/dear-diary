@@ -83,6 +83,14 @@ assert(
 );
 
 assert(
+  areEntryTagsEqual(["accomplishment", "Productivity"], [
+    "productivity",
+    "accomplishment",
+  ]),
+  "Tag equality should ignore tag order after normalization",
+);
+
+assert(
   !areEntryTagsEqual(["college"], ["college", "productivity"]),
   "Tag equality should detect newly added AI theme tags",
 );
