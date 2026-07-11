@@ -4,7 +4,12 @@ import {
   fetchEntryReflection,
   generateEntryReflection,
 } from "@/lib/ai/entryReflectionService";
+import {
+  areEntryTagsEqual,
+  mergeEntryTagsWithAiThemes,
+} from "@/lib/entryReflectionThemeTags";
 import { normalizeAppError } from "@/lib/errors/normalizeAppError";
+import { useJournalStore } from "@/store/journal-store";
 import {
   useEntryReflectionHydrationStore,
   useEntryReflectionStore,
@@ -102,8 +107,11 @@ export function useEntryReflection({
       }
 
       if (latestReflection?.userId === userId) {
-        upsertReflection(latestReflection);
-        setRemoteReflection(latestReflection);
+        const reflectionForLocalCache =
+          preserveLocalSourceEntryUpdatedAt(latestReflection, userId, entryId);
+
+        upsertReflection(reflectionForLocalCache);
+        setRemoteReflection(reflectionForLocalCache);
       }
     } catch (refreshError) {
       if (requestGenerationRef.current !== requestGeneration) {
@@ -167,8 +175,14 @@ export function useEntryReflection({
         }
 
         if (generatedReflection.userId === userId) {
-          upsertReflection(generatedReflection);
-          setRemoteReflection(generatedReflection);
+          const reflectionForLocalCache = applyReflectionThemesToEntryTags({
+            entryId,
+            reflection: generatedReflection,
+            userId,
+          });
+
+          upsertReflection(reflectionForLocalCache);
+          setRemoteReflection(reflectionForLocalCache);
         }
       } catch (generationError) {
         if (requestGenerationRef.current !== requestGeneration) {
@@ -233,6 +247,123 @@ async function rehydrateReflectionCache() {
   await useEntryReflectionStore.persist.rehydrate();
 
   return !useEntryReflectionHydrationStore.getState().hydrationError;
+}
+
+function applyReflectionThemesToEntryTags({
+  entryId,
+  reflection,
+  userId,
+}: {
+  entryId: string;
+  reflection: EntryAIReflection;
+  userId: string;
+}): EntryAIReflection {
+  try {
+    if (reflection.entryId !== entryId || reflection.userId !== userId) {
+      return reflection;
+    }
+
+    const journalStore = useJournalStore.getState();
+
+    if (journalStore.activeUserId !== userId) {
+      return reflection;
+    }
+
+    const latestEntry = journalStore.getEntryById(entryId);
+
+    if (
+      !latestEntry ||
+      latestEntry.deletedAt ||
+      latestEntry.userId !== userId
+    ) {
+      return reflection;
+    }
+
+    const mergedTags = mergeEntryTagsWithAiThemes(
+      latestEntry.tags ?? [],
+      reflection.themes,
+    );
+
+    if (areEntryTagsEqual(latestEntry.tags ?? [], mergedTags)) {
+      return reflection;
+    }
+
+    journalStore.updateEntry(entryId, { tags: mergedTags });
+
+    const updatedEntry = useJournalStore.getState().getEntryById(entryId);
+
+    if (
+      !updatedEntry ||
+      updatedEntry.deletedAt ||
+      updatedEntry.userId !== userId ||
+      !areEntryTagsEqual(updatedEntry.tags ?? [], mergedTags)
+    ) {
+      return reflection;
+    }
+
+    return {
+      ...reflection,
+      sourceEntryUpdatedAt: updatedEntry.updatedAt,
+    };
+  } catch (error) {
+    if (__DEV__) {
+      console.warn("Entry AI reflection themes could not be applied as tags", {
+        entryIdPresent: Boolean(entryId),
+        error,
+        themeCount: reflection.themes.length,
+      });
+    }
+  }
+
+  return reflection;
+}
+
+function preserveLocalSourceEntryUpdatedAt(
+  remoteReflection: EntryAIReflection,
+  userId: string,
+  entryId: string,
+) {
+  const cachedReflection = useEntryReflectionStore
+    .getState()
+    .getReflectionByEntryId(userId, entryId);
+
+  if (
+    !cachedReflection ||
+    cachedReflection.id !== remoteReflection.id ||
+    cachedReflection.userId !== remoteReflection.userId ||
+    cachedReflection.entryId !== remoteReflection.entryId
+  ) {
+    return remoteReflection;
+  }
+
+  const cachedUpdatedTime = Date.parse(cachedReflection.updatedAt);
+  const remoteUpdatedTime = Date.parse(remoteReflection.updatedAt);
+  const cachedSourceTime = Date.parse(cachedReflection.sourceEntryUpdatedAt);
+  const remoteSourceTime = Date.parse(remoteReflection.sourceEntryUpdatedAt);
+
+  if (
+    Number.isFinite(cachedUpdatedTime) &&
+    Number.isFinite(remoteUpdatedTime) &&
+    cachedUpdatedTime > remoteUpdatedTime
+  ) {
+    return cachedReflection;
+  }
+
+  if (
+    Number.isFinite(cachedUpdatedTime) &&
+    Number.isFinite(remoteUpdatedTime) &&
+    Number.isFinite(cachedSourceTime) &&
+    Number.isFinite(remoteSourceTime) &&
+    cachedUpdatedTime >= remoteUpdatedTime &&
+    cachedSourceTime > remoteSourceTime
+  ) {
+    return {
+      ...remoteReflection,
+      sourceEntryUpdatedAt: cachedReflection.sourceEntryUpdatedAt,
+    };
+  }
+
+  return remoteReflection;
 }
 
 function getReflectionErrorMessage(error: unknown) {
