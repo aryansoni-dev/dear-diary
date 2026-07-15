@@ -88,10 +88,12 @@ export const useAIUsageStore = create<AIUsageState>()(
           });
         }
 
-        state.hasHydrated = true;
-        state.hydrationError = error
-          ? "AI usage counters could not be loaded on this device."
-          : null;
+        useAIUsageStore.setState({
+          hasHydrated: true,
+          hydrationError: error
+            ? "AI usage counters could not be loaded on this device."
+            : null,
+        });
       },
       partialize: (state) => ({ usageByUser: state.usageByUser }),
       storage: createJSONStorage(() => createPersistStorage()),

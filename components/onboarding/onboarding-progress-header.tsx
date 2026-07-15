@@ -33,6 +33,7 @@ export function OnboardingProgressHeader({
     >
       <View
         testID="onboarding-page-indicator"
+        accessible
         accessibilityLabel={`Onboarding page ${activeIndex + 1} of ${total}`}
         className="absolute inset-x-0 flex-row items-center justify-center gap-3"
         style={{ top: dotsTop }}

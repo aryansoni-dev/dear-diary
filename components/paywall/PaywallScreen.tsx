@@ -174,7 +174,7 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
             <X color="#51515B" size={22} strokeWidth={2.5} />
           </AnimatedIconButton>
           <View className="rounded-full bg-[#FFE1EE] px-4 py-2">
-            <Text className="text-[12px] font-bold leading-5 text-[#FF2056]">
+            <Text className="text-[12px] font-bold leading-6 text-[#FF2056]">
               DearDiary Pro
             </Text>
           </View>
@@ -187,10 +187,10 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
           <View className="size-14 items-center justify-center rounded-[20px] bg-[#FFE1EE]">
             <Crown color="#FF2056" size={28} strokeWidth={2.4} />
           </View>
-          <Text className="mt-5 text-[32px] font-bold leading-10 text-[#18181B]">
+          <Text className="mt-5 text-[32px] font-bold leading-6 text-[#18181B]">
             DearDiary Pro
           </Text>
-          <Text className="mt-3 text-[16px] leading-7 text-[#51515B]">
+          <Text className="mt-3 text-[16px] leading-6 text-[#51515B]">
             Go deeper with AI-powered reflections, emotional patterns, weekly
             reports, monthly summaries, and smarter insights.
           </Text>
@@ -330,7 +330,7 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
         </View>
 
         <View className="items-center gap-3">
-          <Text className="text-center text-[12px] leading-5 text-[#71717B]">
+          <Text className="text-center text-[12px] leading-6 text-[#71717B]">
             Subscription renews automatically unless cancelled through the App
             Store or Google Play.
           </Text>
@@ -341,7 +341,7 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
                 accessibilityLabel="Terms"
                 accessibilityRole="link"
               >
-                <Text className="text-[12px] font-bold leading-5 text-[#51515B]">
+                <Text className="text-[12px] font-bold leading-6 text-[#51515B]">
                   Terms
                 </Text>
               </Pressable>
@@ -352,7 +352,7 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
                 accessibilityLabel="Privacy Policy"
                 accessibilityRole="link"
               >
-                <Text className="text-[12px] font-bold leading-5 text-[#51515B]">
+                <Text className="text-[12px] font-bold leading-6 text-[#51515B]">
                   Privacy Policy
                 </Text>
               </Pressable>

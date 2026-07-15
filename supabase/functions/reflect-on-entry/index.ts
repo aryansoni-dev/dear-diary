@@ -1,6 +1,10 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-import { enforceAIUsageAccess } from "../_shared/subscriptionAccess.ts";
+import {
+  finalizeAIUsageReservation,
+  releaseAIUsageReservation,
+  reserveAIUsageAccess,
+} from "../_shared/subscriptionAccess.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Headers":
@@ -301,7 +305,7 @@ Deno.serve(async (request) => {
     });
   }
 
-  const usageAccess = await enforceAIUsageAccess({
+  const usageAccess = await reserveAIUsageAccess({
     feature: "entry_reflection",
     requestId,
     userId: claims.sub,
@@ -310,6 +314,7 @@ Deno.serve(async (request) => {
   if (!usageAccess.ok) {
     return jsonResponse(usageAccess.body, usageAccess.status);
   }
+  const usageReservation = usageAccess.reservation;
 
   let reflectionResult: ValidReflectionResult;
 
@@ -332,6 +337,8 @@ Deno.serve(async (request) => {
       ...providerError,
       requestId,
     });
+
+    await releaseAIUsageReservation(usageReservation, requestId);
 
     return jsonResponse(
       {
@@ -384,6 +391,8 @@ Deno.serve(async (request) => {
       requestId,
     });
 
+    await releaseAIUsageReservation(usageReservation, requestId);
+
     return jsonResponse(
       {
         error: "Reflection could not be saved.",
@@ -395,6 +404,8 @@ Deno.serve(async (request) => {
   }
 
   console.info("reflect-on-entry reflection_saved", { requestId });
+
+  await finalizeAIUsageReservation(usageReservation);
 
   return jsonResponse({
     reflection: mapEntryAIReflectionRow(upsertResult.data),

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Animated, Easing, Pressable, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
@@ -35,8 +35,8 @@ export function BiometricLockSwitch({
   testID,
   value,
 }: BiometricLockSwitchProps) {
-  const progress = useRef(new Animated.Value(value ? 1 : 0)).current;
-  const thumbScale = useRef(new Animated.Value(1)).current;
+  const [progress] = useState(() => new Animated.Value(value ? 1 : 0));
+  const [thumbScale] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     Animated.timing(progress, {

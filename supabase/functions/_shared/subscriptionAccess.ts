@@ -14,6 +14,7 @@ type FeatureLimit = {
 type UsageAccessAllowed = {
   isPro: boolean;
   ok: true;
+  reservation: AIUsageReservation;
 };
 
 type UsageAccessDenied = {
@@ -37,8 +38,20 @@ type UsageRpcResult = {
   period: "monthly";
 };
 
+export type AIUsageReservation = {
+  feature: AIFeature;
+  periodKey: string;
+  userId: string;
+};
+
 const entitlementId = "DearDiary Pro";
 const revenueCatSubscriberEndpoint = "https://api.revenuecat.com/v1/subscribers";
+const revenueCatFallbackTimeoutMs = 3_500;
+const revenueCatFallbackCacheLifetimeMs = 5 * 60 * 1000;
+const revenueCatFallbackCache = new Map<
+  string,
+  { expiresAt: number; isPro: boolean }
+>();
 
 const featureLimits: Record<AIFeature, FeatureLimit> = {
   ai_chat: {
@@ -63,7 +76,7 @@ export function getUTCPeriodKey(date = new Date()) {
   return date.toISOString().slice(0, 7);
 }
 
-export async function enforceAIUsageAccess(params: {
+export async function reserveAIUsageAccess(params: {
   feature: AIFeature;
   requestId: string;
   userId: string;
@@ -90,13 +103,14 @@ export async function enforceAIUsageAccess(params: {
     params.userId,
   );
   const limit = featureLimits[params.feature];
+  const periodKey = getUTCPeriodKey();
   const { data, error } = await serviceClient.rpc(
     "increment_ai_usage_if_allowed",
     {
       p_feature: params.feature,
       p_free_limit: limit.freeLimit,
       p_is_pro: isPro,
-      p_period_key: getUTCPeriodKey(),
+      p_period_key: periodKey,
       p_pro_limit: limit.proLimit,
       p_user_id: params.userId,
     },
@@ -152,7 +166,53 @@ export async function enforceAIUsageAccess(params: {
     };
   }
 
-  return { isPro, ok: true };
+  return {
+    isPro,
+    ok: true,
+    reservation: {
+      feature: params.feature,
+      periodKey,
+      userId: params.userId,
+    },
+  };
+}
+
+export async function finalizeAIUsageReservation(
+  _reservation: AIUsageReservation,
+) {
+  return;
+}
+
+export async function releaseAIUsageReservation(
+  reservation: AIUsageReservation,
+  requestId: string,
+) {
+  const serviceClientResult = getServiceClient();
+
+  if (!serviceClientResult.ok) {
+    console.error("ai_usage_reservation_release_unavailable", {
+      feature: reservation.feature,
+      requestId,
+    });
+    return;
+  }
+
+  const { error } = await serviceClientResult.client.rpc(
+    "release_ai_usage_reservation",
+    {
+      p_feature: reservation.feature,
+      p_period_key: reservation.periodKey,
+      p_user_id: reservation.userId,
+    },
+  );
+
+  if (error) {
+    console.error("ai_usage_reservation_release_failed", {
+      code: error.code,
+      feature: reservation.feature,
+      requestId,
+    });
+  }
 }
 
 function getServiceClient():
@@ -188,13 +248,7 @@ async function resolveServerSideProEntitlement(
     return true;
   }
 
-  const revenueCatStatus = await getRevenueCatProStatus(userId);
-
-  if (revenueCatStatus === null) {
-    return false;
-  }
-
-  return revenueCatStatus;
+  return getCachedRevenueCatProStatus(userId);
 }
 
 async function getMirroredProStatus(
@@ -225,12 +279,36 @@ async function getMirroredProStatus(
   return Number.isFinite(expiresAt) && expiresAt > Date.now();
 }
 
+async function getCachedRevenueCatProStatus(userId: string) {
+  const cachedStatus = revenueCatFallbackCache.get(userId);
+
+  if (cachedStatus && cachedStatus.expiresAt > Date.now()) {
+    return cachedStatus.isPro;
+  }
+
+  const revenueCatStatus = await getRevenueCatProStatus(userId);
+  const isPro = revenueCatStatus ?? false;
+
+  revenueCatFallbackCache.set(userId, {
+    expiresAt: Date.now() + revenueCatFallbackCacheLifetimeMs,
+    isPro,
+  });
+
+  return isPro;
+}
+
 async function getRevenueCatProStatus(userId: string) {
   const revenueCatSecretKey = Deno.env.get("REVENUECAT_SECRET_API_KEY");
 
   if (!revenueCatSecretKey) {
     return null;
   }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    revenueCatFallbackTimeoutMs,
+  );
 
   try {
     const response = await fetch(
@@ -241,6 +319,7 @@ async function getRevenueCatProStatus(userId: string) {
           "Content-Type": "application/json",
         },
         method: "GET",
+        signal: controller.signal,
       },
     );
 
@@ -253,6 +332,8 @@ async function getRevenueCatProStatus(userId: string) {
     return hasActiveRevenueCatEntitlement(body);
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

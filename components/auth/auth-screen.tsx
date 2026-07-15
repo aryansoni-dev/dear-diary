@@ -101,9 +101,10 @@ export function AuthScreen({
   const authTestIdPrefix = isLogin ? "login" : "signup";
   const isOffline = connectivity.status === "offline";
   const isClerkReady = isAuthLoaded && !isFetching;
-  const isAuthActionDisabled = !isClerkReady || isOffline || isSubmitting;
+  const hasActiveAuthRequest = isSubmitting || socialStrategy !== null;
+  const isAuthActionDisabled = !isClerkReady || isOffline || hasActiveAuthRequest;
   const isSocialActionDisabled =
-    !isClerkReady || isOffline || socialStrategy !== null;
+    !isClerkReady || isOffline || hasActiveAuthRequest;
   const emailFeedback = getEmailFeedback(email);
   const passwordFeedback = getPasswordFeedback(password, isLogin);
 
@@ -117,7 +118,7 @@ export function AuthScreen({
       return;
     }
 
-    if (!isClerkReady || isSubmitting) {
+    if (!isClerkReady || hasActiveAuthRequest) {
       return;
     }
 
@@ -335,7 +336,7 @@ export function AuthScreen({
       return;
     }
 
-    if (!isClerkReady || socialStrategy) {
+    if (!isClerkReady || hasActiveAuthRequest) {
       return;
     }
 

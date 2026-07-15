@@ -44,19 +44,19 @@ export function PlanCard({
           <Text className="text-[17px] font-bold leading-6 text-[#18181B]">
             {title}
           </Text>
-          <Text className="mt-1 text-[13px] leading-5 text-[#71717B]">
+          <Text className="mt-1 text-[13px] leading-6 text-[#71717B]">
             {billingLabel}
           </Text>
         </View>
         {isRecommended ? (
           <View className="rounded-full bg-[#FF2056] px-3 py-1">
-            <Text className="text-[11px] font-bold leading-4 text-white">
+            <Text className="text-[11px] font-bold leading-6 text-white">
               Best value
             </Text>
           </View>
         ) : null}
       </View>
-      <Text className="mt-4 text-[24px] font-bold leading-8 text-[#FF2056]">
+      <Text className="mt-4 text-[24px] font-bold leading-6 text-[#FF2056]">
         {planPackage.product.priceString}
       </Text>
     </Pressable>

@@ -11,7 +11,11 @@ import {
   parseReportNarrative,
   type ReportNarrative,
 } from "../_shared/parseReportNarrative.ts";
-import { enforceAIUsageAccess } from "../_shared/subscriptionAccess.ts";
+import {
+  finalizeAIUsageReservation,
+  releaseAIUsageReservation,
+  reserveAIUsageAccess,
+} from "../_shared/subscriptionAccess.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Headers":
@@ -352,7 +356,7 @@ Deno.serve(async (request) => {
     );
   }
 
-  const usageAccess = await enforceAIUsageAccess({
+  const usageAccess = await reserveAIUsageAccess({
     feature:
       reportRequest.periodType === "weekly" ? "weekly_report" : "monthly_report",
     requestId,
@@ -362,6 +366,7 @@ Deno.serve(async (request) => {
   if (!usageAccess.ok) {
     return jsonResponse(usageAccess.body, usageAccess.status);
   }
+  const usageReservation = usageAccess.reservation;
 
   const prompt = buildNarrativePrompt({
     analytics,
@@ -395,6 +400,8 @@ Deno.serve(async (request) => {
       ...providerError,
       requestId,
     });
+
+    await releaseAIUsageReservation(usageReservation, requestId);
 
     return jsonResponse(
       {
@@ -462,6 +469,8 @@ Deno.serve(async (request) => {
       requestId,
     });
 
+    await releaseAIUsageReservation(usageReservation, requestId);
+
     return jsonResponse(
       {
         code: "report_upsert_failed",
@@ -475,6 +484,8 @@ Deno.serve(async (request) => {
   const report = mapReportRow(upsertResult.data);
 
   if (!report) {
+    await releaseAIUsageReservation(usageReservation, requestId);
+
     return jsonResponse(
       {
         code: "invalid_saved_report",
@@ -486,6 +497,8 @@ Deno.serve(async (request) => {
   }
 
   console.info("generate-insight-report report_saved", { requestId });
+
+  await finalizeAIUsageReservation(usageReservation);
 
   return jsonResponse({ report, requestId });
 });

@@ -45,20 +45,18 @@ import {
 import { FeatureErrorBoundary } from "@/components/errors/FeatureErrorBoundary";
 import { ReportStatGrid } from "@/components/insights/report/ReportStatGrid";
 import { reportColors } from "@/constants/report-theme";
-import { useAppDialog } from "@/hooks/useAppDialog";
 import { useAIInsightReport } from "@/hooks/useAIInsightReport";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { useReportAccessActions } from "@/hooks/useReportAccessActions";
 import {
   getCurrentReportPeriod,
   isAIInsightPeriodType,
 } from "@/lib/insights/reportPeriods";
-import { useAIUsageStore } from "@/store/useAIUsageStore";
 
 export default function AIInsightReportScreen() {
   const { isLoaded, isSignedIn, userId } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { showDialog } = useAppDialog();
   const params = useLocalSearchParams<{ periodType?: string }>();
   const periodTypeParam = Array.isArray(params.periodType)
     ? params.periodType[0]
@@ -75,70 +73,19 @@ export default function AIInsightReportScreen() {
   const reportFeature =
     period.type === "weekly" ? "weekly_report" : "monthly_report";
   const reportAccess = useFeatureAccess(reportFeature, userId);
+  const {
+    fairUseLimitMessage,
+    handleGenerate,
+    handleRegenerate,
+  } = useReportAccessActions({
+    feature: reportFeature,
+    reportAccess,
+    reportState,
+    userId,
+  });
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const minimumEntries = period.type === "weekly" ? 2 : 3;
   const hasEnoughEntries = reportState.availableEntryCount >= minimumEntries;
-
-  async function handleGenerate() {
-    if (!canUseReportAccess()) {
-      return;
-    }
-
-    const generated = await reportState.generate();
-
-    if (generated && userId) {
-      useAIUsageStore.getState().incrementMonthlyUsage(userId, reportFeature);
-    }
-  }
-
-  function handleRegenerate() {
-    if (!canUseReportAccess()) {
-      return;
-    }
-
-    showDialog({
-      cancelText: "Keep Current",
-      confirmText: "Regenerate",
-      icon: "✦",
-      message:
-        "DearDiary will analyze this period again and replace the current visual reflection.",
-      onConfirm: () => {
-        void handleConfirmedRegenerate();
-      },
-      showCancel: true,
-      title: "Regenerate reflection?",
-    });
-  }
-
-  async function handleConfirmedRegenerate() {
-    const regenerated = await reportState.regenerate();
-
-    if (regenerated && userId) {
-      useAIUsageStore.getState().incrementMonthlyUsage(userId, reportFeature);
-    }
-  }
-
-  function canUseReportAccess() {
-    if (reportAccess.allowed) {
-      return true;
-    }
-
-    if (reportAccess.reason === "Pro_fair_use_exhausted") {
-      showDialog({
-        confirmText: "OK",
-        message:
-          "You've reached this month's DearDiary Pro fair-use limit for reflection reports. Please try again next month.",
-        title: "Monthly report limit reached",
-      });
-      return false;
-    }
-
-    router.push({
-      pathname: "/paywall",
-      params: { feature: reportFeature },
-    } as unknown as Href);
-    return false;
-  }
 
   if (!isLoaded) {
     return null;
@@ -170,13 +117,17 @@ export default function AIInsightReportScreen() {
     );
   }
 
-  if (period.type === "monthly" && !reportAccess.allowed) {
+  if (
+    period.type === "monthly" &&
+    !reportAccess.allowed &&
+    reportAccess.reason !== "Pro_fair_use_exhausted"
+  ) {
     return (
       <ReportShell bottomNavHeight={bottomNavHeight} insetsTop={insets.top}>
         <View className="flex-1 items-center justify-center px-6">
           <Text
             allowFontScaling={false}
-            className="text-center text-[24px] font-bold leading-8 text-[#18181B]"
+            className="text-center text-[24px] font-bold leading-6 text-[#18181B]"
           >
             Monthly AI reports are included with DearDiary Pro.
           </Text>
@@ -248,6 +199,10 @@ export default function AIInsightReportScreen() {
             <RefreshCw color={reportColors.primary} size={20} strokeWidth={2.4} />
           </AnimatedIconButton>
         </View>
+
+        {fairUseLimitMessage ? (
+          <ErrorBanner message={fairUseLimitMessage} />
+        ) : null}
 
         {reportState.error ? (
           <ErrorBanner

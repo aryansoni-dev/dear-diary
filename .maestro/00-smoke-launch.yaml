@@ -33,4 +33,3 @@ appId: com.aryan.deardiary
 
 - assertVisible:
     id: "home-screen"
-    optional: true

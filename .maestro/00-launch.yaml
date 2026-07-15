@@ -9,7 +9,6 @@ appId: com.aryan.deardiary
 
 - assertVisible:
     text: "Today"
-    optional: true
 
 - assertVisible:
     text: "Reflect"

@@ -1,4 +1,3 @@
-import { useClerk } from "@clerk/expo";
 import { Feather } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -14,16 +13,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PinInput } from "@/components/app-lock/PinInput";
 import { useAppLock } from "@/hooks/useAppLock";
-import {
-  getSupabaseAccessTokenProvider,
-  setSupabaseAccessTokenProvider,
-} from "@/lib/supabase";
-import { useJournalStore } from "@/store/journal-store";
+import { useAppSignOut } from "@/hooks/useAppSignOut";
 
 export function AppLockScreen() {
   const insets = useSafeAreaInsets();
-  const { signOut } = useClerk();
-  const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
+  const signOutApp = useAppSignOut();
   const {
     biometricAvailability,
     config,
@@ -153,18 +147,11 @@ export function AppLockScreen() {
       return;
     }
 
-    const previousActiveUserId = useJournalStore.getState().activeUserId;
-    const previousAccessTokenProvider = getSupabaseAccessTokenProvider();
-
     setSigningOut(true);
 
     try {
-      await signOut();
-      setActiveUserId(null);
-      setSupabaseAccessTokenProvider(null);
+      await signOutApp();
     } catch (error) {
-      setActiveUserId(previousActiveUserId);
-      setSupabaseAccessTokenProvider(previousAccessTokenProvider);
       setMessage(
         error instanceof Error
           ? error.message

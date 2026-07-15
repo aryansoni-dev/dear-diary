@@ -27,7 +27,7 @@ export function getFeatureAccess(params: {
     };
   }
 
-  if (limit.proOnly && !params.subscriptionAvailable) {
+  if (limit.proOnly) {
     return { allowed: false, reason: "subscription_unavailable" };
   }
 

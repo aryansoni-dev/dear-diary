@@ -1,4 +1,4 @@
-import { useAuth, useClerk, useUser } from "@clerk/expo";
+import { useAuth, useUser } from "@clerk/expo";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
@@ -32,6 +32,7 @@ import {
   type ProfileStat,
 } from "@/data/profile";
 import { useAppDialog } from "@/hooks/useAppDialog";
+import { useAppSignOut } from "@/hooks/useAppSignOut";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
@@ -45,7 +46,6 @@ import {
 } from "@/lib/exportJournal";
 import { reportAppError } from "@/lib/errors/reportAppError";
 import { getPublicEnvironment } from "@/lib/environment";
-import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
 import { requestSync } from "@/lib/sync/requestSync";
 import {
   retryJournalStoreHydration,
@@ -94,9 +94,9 @@ const moodEmoji: Record<MoodId, string> = {
 export function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { getToken } = useAuth();
-  const { signOut } = useClerk();
   const { user } = useUser();
   const { showDialog } = useAppDialog();
+  const signOutApp = useAppSignOut();
   const { customerInfo, isConfigured: subscriptionsConfigured, isPro } =
     useSubscription();
   const connectivity = useConnectivity();
@@ -107,7 +107,6 @@ export function ProfileScreen() {
   const hydrationError = useJournalHydrationStore(
     (state) => state.hydrationError,
   );
-  const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
   const achievementHasHydrated = useAchievementHydrationStore(
     (state) => state.hasHydrated,
   );
@@ -191,19 +190,11 @@ export function ProfileScreen() {
       return;
     }
 
-    const signingOutUserId = user?.id ?? null;
-
     setIsSigningOut(true);
 
     try {
-      await signOut();
-      setActiveUserId(null);
-      if (signingOutUserId) {
-        useSyncStore.getState().clearSyncStateForUser(signingOutUserId);
-      }
-      setSupabaseAccessTokenProvider(null);
+      await signOutApp(user?.id);
     } catch {
-      setActiveUserId(signingOutUserId);
       showDialog({
         confirmText: "OK",
         message: "We could not sign you out. Please try again.",
@@ -372,7 +363,7 @@ export function ProfileScreen() {
     const result = await deleteCurrentAccount({
       confirmationPhrase: deleteConfirmationText,
       getToken,
-      signOut: () => signOut(),
+      signOut: () => signOutApp(userId),
       userId,
     });
 
@@ -484,8 +475,15 @@ export function ProfileScreen() {
       const canOpen = await Linking.canOpenURL(managementUrl);
 
       if (canOpen) {
-        await Linking.openURL(managementUrl);
-        return;
+        try {
+          await Linking.openURL(managementUrl);
+          return;
+        } catch (error) {
+          reportAppError(error, {
+            feature: "subscription",
+            operation: "open_management_url",
+          });
+        }
       }
     }
 
