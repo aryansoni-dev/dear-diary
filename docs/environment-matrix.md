@@ -19,8 +19,11 @@ Reserved for a future Play Store AAB using production services. Production value
 | `EXPO_PUBLIC_SUPABASE_URL`                          | Local ignored HTTPS URL            | Approved non-production project URL; missing in EAS        | Future production project URL; pending               |          Yes |          Yes |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY`                     | Local ignored legacy anonymous key | Approved Preview anonymous/publishable key; missing in EAS | Future production anonymous/publishable key; pending |          Yes |          Yes |
 | `EXPO_PUBLIC_ACCOUNT_DELETION_URL`                  | Optional public URL                | Optional public Preview URL; missing in EAS                | Future public URL; pending                           |          Yes |           No |
+| `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`            | Optional public Android SDK key    | Preview RevenueCat Android public SDK key; missing in EAS  | Production Android public SDK key; pending           |          Yes | No for core app, yes for purchases |
+| `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`                | Optional public iOS SDK key        | Preview RevenueCat iOS public SDK key when iOS is enabled  | Production iOS public SDK key; pending               |          Yes | No for core app, yes for purchases |
 | `OPENROUTER_API_KEY`                                | Backend secret storage             | Backend secret storage                                     | Backend secret storage                               |           No | Backend only |
 | `CLERK_SECRET_KEY`                                  | Delete-account Edge Function only  | Delete-account Edge Function only                          | Backend only                                         |           No | Backend only |
+| `REVENUECAT_SECRET_API_KEY`                         | AI Edge Functions only             | AI Edge Functions only                                     | AI Edge Functions only                               |           No | Backend only |
 | `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_SECRET_KEY` | Edge Functions only                | Edge Functions only                                        | Backend only                                         |           No | Backend only |
 
 ## Rules
@@ -42,6 +45,8 @@ EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
 EXPO_PUBLIC_SUPABASE_URL
 EXPO_PUBLIC_SUPABASE_ANON_KEY
 EXPO_PUBLIC_ACCOUNT_DELETION_URL (optional)
+EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY
+EXPO_PUBLIC_REVENUECAT_IOS_API_KEY (optional until iOS builds are enabled)
 ```
 
 Re-run `eas env:list preview` without value-revealing flags, then run the pre-build checks before building.

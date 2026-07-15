@@ -35,6 +35,8 @@ export function BottomTabBar({ activeTab }: BottomTabBarProps) {
 
           return (
             <Pressable
+              testID={`tab-${item.label.toLowerCase()}-button`}
+              accessibilityLabel={`${item.label} tab`}
               accessibilityRole="button"
               accessibilityState={{
                 disabled: !item.href,

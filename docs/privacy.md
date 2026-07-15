@@ -12,6 +12,8 @@ Visible placeholders are intentionally used:
 
 The current drafts avoid unsupported claims such as end-to-end encryption, zero-knowledge encryption, HIPAA compliance, medical treatment, therapist-client confidentiality, or third-party-free processing.
 
+Subscription language now covers DearDiary Pro, RevenueCat, App Store and Google Play billing, purchase restoration, auto-renewal, store-managed cancellation, AI fair-use limits, and the fact that account deletion does not cancel store subscriptions.
+
 ## Deletion Architecture
 
 1. User starts deletion from Profile with **Delete My Data and Account**.
@@ -31,6 +33,7 @@ Required Edge Function secrets:
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
 CLERK_SECRET_KEY
+REVENUECAT_SECRET_API_KEY (AI subscription validation only)
 ```
 
 `SUPABASE_ANON_KEY` or `SUPABASE_PUBLISHABLE_KEY` must also be available for the user-token auth probe.

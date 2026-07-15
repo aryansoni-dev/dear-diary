@@ -62,6 +62,7 @@ export function ReportShell({
 export function LoadingState({ periodType }: { periodType: ReportPeriodType }) {
   return (
     <View
+      testID="report-loading-indicator"
       className="items-center rounded-[28px] bg-white px-6 py-8"
       style={{ boxShadow: reportCardShadow }}
     >
@@ -91,6 +92,7 @@ export function UpdatingBanner({
 }) {
   return (
     <View
+      testID="report-loading-indicator"
       className="flex-row items-center gap-3 rounded-[22px] bg-white px-4 py-4"
       style={{ boxShadow: reportCardShadow }}
     >
@@ -118,6 +120,7 @@ export function ErrorBanner({
 }) {
   return (
     <View
+      testID="report-error-message"
       className="rounded-[22px] px-4 py-4"
       style={{
         backgroundColor: reportColors.rose,
@@ -134,6 +137,8 @@ export function ErrorBanner({
       </Text>
       {onRetry ? (
         <Pressable
+          testID="report-retry-button"
+          accessibilityLabel="Retry report generation"
           accessibilityRole="button"
           accessibilityState={{ disabled: retrying }}
           className="mt-3 min-h-10 items-center justify-center rounded-full bg-white px-4"
@@ -186,6 +191,10 @@ export function ReportRegenerateCard({
           : "You can regenerate this reflection anytime without changing your journal entries."}
       </Text>
       <Pressable
+        testID={`${isStale ? "report-update" : "report-regenerate"}-button`}
+        accessibilityLabel={
+          isStale ? "Update reflection report" : "Regenerate reflection report"
+        }
         accessibilityRole="button"
         accessibilityState={{ disabled }}
         className="mt-5 w-full"
@@ -278,6 +287,7 @@ export function EmptyReportState({
         disabled={disabled}
         label={getGenerateLabel(periodType)}
         onPress={onGenerate}
+        testID={`${periodType}-report-generate-button`}
       />
     </View>
   );
@@ -327,6 +337,7 @@ export function OlderFormatState({
         disabled={disabled}
         label="Generate Visual Reflection"
         onPress={onGenerate}
+        testID={`${periodType}-report-generate-button`}
       />
       <Text
         allowFontScaling={false}
@@ -344,10 +355,12 @@ export function PrimaryButton({
   disabled,
   label,
   onPress,
+  testID,
 }: {
   disabled?: boolean;
   label: string;
   onPress: () => void;
+  testID?: string;
 }) {
   const pressValue = useMemo(() => new Animated.Value(0), []);
   const scale = pressValue.interpolate({
@@ -366,6 +379,8 @@ export function PrimaryButton({
   return (
     <Animated.View className="mt-6 w-full" style={{ transform: [{ scale }] }}>
       <Pressable
+        testID={testID}
+        accessibilityLabel={label}
         accessibilityRole="button"
         accessibilityState={{ disabled: disabled === true }}
         className="w-full"

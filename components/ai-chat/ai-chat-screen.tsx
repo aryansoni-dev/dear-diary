@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Sparkles } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -29,11 +29,14 @@ import { CONNECTION_STATE_COLORS } from "@/constants/theme";
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { detectChatIntent } from "@/lib/ai/chatIntent";
 import {
   generateRemoteJournalResponse,
   RemoteJournalAssistantError,
 } from "@/lib/ai/remoteJournalAssistant";
 import { addSafeBreakOpportunities } from "@/lib/text/add-safe-break-opportunities";
+import { useAIUsageStore } from "@/store/useAIUsageStore";
 import { useChatStore } from "@/store/useChatStore";
 import type { ChatMessage } from "@/types/chat";
 
@@ -79,6 +82,7 @@ export function AiChatScreen({
   const [isEmojiPickerVisible, setIsEmojiPickerVisible] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const aiChatAccess = useFeatureAccess("ai_chat", userId);
   const chatMessages = useChatStore((state) => state.messages);
   const chatHasHydrated = useChatStore((state) => state.hasHydrated);
   const chatHydrationError = useChatStore((state) => state.hydrationError);
@@ -271,6 +275,28 @@ export function AiChatScreen({
       return;
     }
 
+    const resolvedDateTimeOptions = Intl.DateTimeFormat().resolvedOptions();
+    const clientContext = {
+      currentDateTimeISO: new Date().toISOString(),
+      locale: resolvedDateTimeOptions.locale || "en-IN",
+      timezone: resolvedDateTimeOptions.timeZone,
+    };
+    const recentMessages = currentUserMessages.slice(-10).map((chatMessage) => ({
+      content: chatMessage.content,
+      relatedEntryIds: chatMessage.relatedEntryIds,
+      role: chatMessage.role,
+    }));
+    const intent = detectChatIntent(trimmedMessage, recentMessages);
+    const countsTowardAIQuota = shouldCountChatIntentTowardQuota(intent);
+
+    if (countsTowardAIQuota && !aiChatAccess.allowed) {
+      handleDeniedAIAccess({
+        feature: "ai_chat",
+        reason: aiChatAccess.reason,
+      });
+      return;
+    }
+
     const userMessage: ChatMessage = {
       content: trimmedMessage,
       createdAt: new Date().toISOString(),
@@ -286,17 +312,6 @@ export function AiChatScreen({
     setIsThinking(true);
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
-    const resolvedDateTimeOptions = Intl.DateTimeFormat().resolvedOptions();
-    const clientContext = {
-      currentDateTimeISO: new Date().toISOString(),
-      locale: resolvedDateTimeOptions.locale || "en-IN",
-      timezone: resolvedDateTimeOptions.timeZone,
-    };
-    const recentMessages = currentUserMessages.slice(-10).map((chatMessage) => ({
-      content: chatMessage.content,
-      relatedEntryIds: chatMessage.relatedEntryIds,
-      role: chatMessage.role,
-    }));
 
     try {
       const remoteResponse = await generateRemoteJournalResponse({
@@ -323,6 +338,10 @@ export function AiChatScreen({
         source: remoteResponse.source,
         userId,
       });
+
+      if (countsTowardAIQuota) {
+        useAIUsageStore.getState().incrementMonthlyUsage(userId, "ai_chat");
+      }
     } catch (error) {
       if (requestIdRef.current !== requestId) {
         return;
@@ -337,6 +356,43 @@ export function AiChatScreen({
               ? { message: error.message, name: error.name }
               : { type: typeof error },
         );
+      }
+
+      if (
+        error instanceof RemoteJournalAssistantError &&
+        error.code === "quota_exhausted"
+      ) {
+        addMessage({
+          content: error.message,
+          createdAt: new Date().toISOString(),
+          id: createChatMessageId(),
+          role: "assistant",
+          userId,
+        });
+        router.push({
+          pathname: "/paywall",
+          params: { feature: "ai_chat" },
+        } as unknown as Href);
+        return;
+      }
+
+      if (
+        error instanceof RemoteJournalAssistantError &&
+        error.code === "pro_fair_use_exhausted"
+      ) {
+        addMessage({
+          content: error.message,
+          createdAt: new Date().toISOString(),
+          id: createChatMessageId(),
+          role: "assistant",
+          userId,
+        });
+        showDialog({
+          confirmText: "OK",
+          message: error.message,
+          title: "Monthly AI Chat limit reached",
+        });
+        return;
       }
 
       addMessage({
@@ -361,6 +417,29 @@ export function AiChatScreen({
     }
   }
 
+  function handleDeniedAIAccess({
+    feature,
+    reason,
+  }: {
+    feature: "ai_chat";
+    reason: typeof aiChatAccess.reason;
+  }) {
+    if (reason === "Pro_fair_use_exhausted") {
+      showDialog({
+        confirmText: "OK",
+        message:
+          "You've reached this month's DearDiary Pro fair-use limit for AI Chat. Please try again next month.",
+        title: "Monthly AI Chat limit reached",
+      });
+      return;
+    }
+
+    router.push({
+      pathname: "/paywall",
+      params: { feature },
+    } as unknown as Href);
+  }
+
   return (
     <KeyboardAvoidingView
       behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined}
@@ -377,10 +456,12 @@ export function AiChatScreen({
       />
 
       <View
+        testID="ai-chat-screen"
         className="flex-row items-center gap-4 px-6 pb-4"
         style={{ paddingTop: Math.max(56, insets.top + 20) }}
       >
         <AnimatedIconButton
+          testID="ai-chat-back-button"
           accessibilityLabel="Go back"
           onPress={handleBackPress}
           shadow="0 3px 10px rgba(39, 39, 42, 0.18)"
@@ -419,6 +500,7 @@ export function AiChatScreen({
 
           {currentUserMessages.length > 0 ? (
             <Pressable
+              testID="ai-chat-clear-button"
               accessibilityLabel="Clear chat"
               accessibilityRole="button"
               className="size-8 items-center justify-center rounded-full bg-white"
@@ -432,6 +514,7 @@ export function AiChatScreen({
       </View>
 
       <ScrollView
+        testID="ai-chat-message-list"
         className="flex-1"
         contentContainerStyle={{
           paddingBottom: 32 + footerKeyboardOffset,
@@ -461,18 +544,23 @@ export function AiChatScreen({
             </View>
           ) : null}
           {!chatHasHydrated && showChatHydrationState ? (
-            <View className="rounded-[20px] bg-white px-4 py-4">
+            <View
+              testID="ai-chat-loading-indicator"
+              className="rounded-[20px] bg-white px-4 py-4"
+            >
               <Text className="text-[14px] font-semibold leading-6 text-[#71717B]">
                 Preparing your conversation...
               </Text>
             </View>
           ) : null}
           {chatHydrationError ? (
-            <ScreenErrorState
-              compact
-              error={chatHydrationError}
-              onRetry={retryChatHydration}
-            />
+            <View testID="ai-chat-error-message">
+              <ScreenErrorState
+                compact
+                error={chatHydrationError}
+                onRetry={retryChatHydration}
+              />
+            </View>
           ) : null}
           {visibleMessages.map((chatMessage, index) => (
             <ChatBubble
@@ -486,7 +574,7 @@ export function AiChatScreen({
             />
           ))}
           {isThinking ? (
-            <View className="items-start">
+            <View testID="ai-chat-thinking-indicator" className="items-start">
               <View className="mb-1 flex-row items-center gap-2">
                 <AiAvatar size={28} iconSize={16} />
                 <Text className="text-[11px] font-bold leading-5 text-[#A1A1AA]">
@@ -503,6 +591,8 @@ export function AiChatScreen({
       {showJumpToLatest ? (
         <View className="items-center px-6 pb-2">
           <Pressable
+            testID="ai-chat-jump-latest-button"
+            accessibilityLabel="Jump to latest message"
             accessibilityRole="button"
             className="min-h-10 items-center justify-center rounded-full bg-white px-5"
             onPress={handleJumpToLatest}
@@ -556,6 +646,7 @@ export function AiChatScreen({
             }}
           >
             <Pressable
+              testID="ai-chat-emoji-toggle-button"
               accessibilityLabel="Toggle emojis"
               accessibilityRole="button"
               className="h-10 justify-center"
@@ -567,6 +658,9 @@ export function AiChatScreen({
               <Feather name="smile" size={22} color="#A1A1AA" />
             </Pressable>
             <TextInput
+              testID="ai-chat-message-input"
+              accessibilityLabel="AI chat message"
+              accessibilityHint="Enter a question about your journal"
               className="flex-1 text-[15px] leading-5 text-zinc-700 mb-1"
               multiline
               onChangeText={handleMessageChange}
@@ -586,6 +680,7 @@ export function AiChatScreen({
           </View>
 
           <Pressable
+            testID="ai-chat-send-button"
             accessibilityLabel="Send message"
             accessibilityRole="button"
             className="size-12 items-center justify-center rounded-full bg-[#FF3F75]"
@@ -602,6 +697,19 @@ export function AiChatScreen({
       </LinearGradient>
     </KeyboardAvoidingView>
   );
+}
+
+function shouldCountChatIntentTowardQuota(
+  intent: ReturnType<typeof detectChatIntent>,
+) {
+  return ![
+    "app_capability",
+    "crisis",
+    "date_time",
+    "prompt_generation",
+    "small_talk",
+    "unsupported",
+  ].includes(intent);
 }
 
 function ThinkingText() {

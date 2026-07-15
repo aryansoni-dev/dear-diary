@@ -1,11 +1,13 @@
 import { useAuth } from "@clerk/expo";
-import { Redirect, Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
+import { useEffect } from "react";
 
 import { AutoSyncManager } from "@/components/sync/auto-sync-manager";
 import { bottomTabRouteTransitions } from "@/navigation/route-transition-map";
 import { useNativeTransitionOptions } from "@/navigation/transitions";
 
 export default function HomeTabLayout() {
+  const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
   const tabOptions = useNativeTransitionOptions(
     bottomTabRouteTransitions["home-tab/index"],
@@ -14,12 +16,18 @@ export default function HomeTabLayout() {
     bottomTabRouteTransitions["journal-editor/index"],
   );
 
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.replace("/login");
+    }
+  }, [isLoaded, isSignedIn, router]);
+
   if (!isLoaded) {
     return null;
   }
 
   if (!isSignedIn) {
-    return <Redirect href="/login" />;
+    return null;
   }
 
   return (

@@ -176,6 +176,7 @@ export function JournalCalendarView({
       >
         <View className="flex-row items-center justify-between gap-3">
           <Pressable
+            testID="calendar-prev-month-button"
             accessibilityLabel="Show previous month"
             accessibilityRole="button"
             className="size-10 items-center justify-center rounded-full bg-zinc-50"
@@ -197,6 +198,7 @@ export function JournalCalendarView({
           </View>
 
           <Pressable
+            testID="calendar-next-month-button"
             accessibilityLabel="Show next month"
             accessibilityRole="button"
             className="size-10 items-center justify-center rounded-full bg-zinc-50"
@@ -211,6 +213,8 @@ export function JournalCalendarView({
           style={{ transform: [{ scale: todayButtonScale }] }}
         >
           <Pressable
+            testID="calendar-today-button"
+            accessibilityLabel="Show today"
             accessibilityRole="button"
             className="h-10 items-center justify-center rounded-full px-4"
             onPress={goToToday}
@@ -317,6 +321,7 @@ function CalendarDayCell({
   return (
     <View className="w-[14.285%] p-0.5">
       <Pressable
+        testID={`calendar-day-button-${day.dateKey}`}
         accessibilityLabel={getDayAccessibilityLabel(day)}
         accessibilityRole="button"
         accessibilityState={{ selected: isSelected }}

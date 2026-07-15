@@ -5,6 +5,7 @@ export const appLockColors = {
   disabled: "#F4F4F5",
   disabledText: "#A1A1AA",
   option: "#F8F3FC",
+  pinBorder: "#F1C8DC",
   primary: "#FF2056",
   primaryTint: "#FFDDE8",
   primarySoft: "#FFE1EE",

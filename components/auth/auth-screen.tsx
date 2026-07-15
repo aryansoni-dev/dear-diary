@@ -98,6 +98,7 @@ export function AuthScreen({
   const resetOnboarding = useOnboardingStore((state) => state.resetOnboarding);
   const isFetching =
     signInFetchStatus === "fetching" || signUpFetchStatus === "fetching";
+  const authTestIdPrefix = isLogin ? "login" : "signup";
   const isOffline = connectivity.status === "offline";
   const isClerkReady = isAuthLoaded && !isFetching;
   const isAuthActionDisabled = !isClerkReady || isOffline || isSubmitting;
@@ -374,6 +375,7 @@ export function AuthScreen({
       style={{ flex: 1 }}
     >
       <ScrollView
+        testID={`${authTestIdPrefix}-screen`}
         className="flex-1"
         contentContainerStyle={{
           flexGrow: 1,
@@ -430,6 +432,9 @@ export function AuthScreen({
 
               {!isLogin ? (
                 <AuthTextField
+                  testID="signup-name-input"
+                  accessibilityHint="Enter your first and last name"
+                  accessibilityLabel="Full name"
                   iconName="user"
                   label="Full name"
                   onChangeText={setFullName}
@@ -438,6 +443,9 @@ export function AuthScreen({
                 />
               ) : null}
               <AuthTextField
+                testID={`${authTestIdPrefix}-email-input`}
+                accessibilityHint="Enter your email address"
+                accessibilityLabel="Email address"
                 iconName="mail"
                 keyboardType="email-address"
                 label="Email address"
@@ -448,6 +456,13 @@ export function AuthScreen({
                 value={email}
               />
               <AuthTextField
+                testID={`${authTestIdPrefix}-password-input`}
+                accessibilityHint={
+                  isLogin
+                    ? "Enter your account password"
+                    : "Create a secure account password"
+                }
+                accessibilityLabel="Password"
                 iconName="lock"
                 label="Password"
                 helperText={passwordFeedback?.message}
@@ -461,12 +476,18 @@ export function AuthScreen({
                   isPasswordVisible ? "Hide password" : "Show password"
                 }
                 rightIconName={isPasswordVisible ? "eye-off" : "eye"}
+                rightTestID={`${authTestIdPrefix}-password-visibility-button`}
                 secureTextEntry={!isPasswordVisible}
                 value={password}
               />
               {isLogin && forgotPasswordHref ? (
                 <Link href={forgotPasswordHref} asChild>
-                  <Pressable className="-mt-1 self-end px-2 py-1">
+                  <Pressable
+                    testID="login-forgot-password-button"
+                    accessibilityLabel="Forgot password"
+                    accessibilityRole="button"
+                    className="-mt-1 self-end px-2 py-1"
+                  >
                     <Text className="text-[13px] font-bold leading-5 text-[#ff2056]">
                       {forgotPasswordText}
                     </Text>
@@ -476,6 +497,8 @@ export function AuthScreen({
             </View>
 
             <Pressable
+              testID={`${authTestIdPrefix}-submit-button`}
+              accessibilityLabel={buttonText}
               accessibilityRole="button"
               accessibilityState={{ disabled: isAuthActionDisabled }}
               className={`mt-5 h-14 items-center justify-center rounded-full bg-[#ff2056] ${
@@ -492,7 +515,11 @@ export function AuthScreen({
                   {buttonText}
                 </Text>
                 {isSubmitting ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
+                  <ActivityIndicator
+                    testID="auth-loading-indicator"
+                    color="#ffffff"
+                    size="small"
+                  />
                 ) : null}
               </View>
             </Pressable>
@@ -510,7 +537,12 @@ export function AuthScreen({
 
             <View className="mt-5 items-center">
               <Link href={footerLinkHref} asChild>
-                <Pressable className="px-3 py-1">
+                <Pressable
+                  testID={isLogin ? "login-signup-link" : "signup-login-link"}
+                  accessibilityLabel={footerLinkText}
+                  accessibilityRole="button"
+                  className="px-3 py-1"
+                >
                   <Text
                     className="text-center text-[13px] leading-5 text-zinc-500"
                     adjustsFontSizeToFit
@@ -565,6 +597,8 @@ export function AuthScreen({
 
             {isLogin && showTemporaryOnboardingBackButton ? (
               <Pressable
+                testID="onboarding-back-button"
+                accessibilityLabel="Back to onboarding"
                 accessibilityRole="button"
                 className="rounded-full px-4 py-2"
                 onPress={handleTemporaryOnboardingBackPress}
@@ -621,6 +655,8 @@ function SocialButtons({
   return (
     <View className="gap-3">
       <Pressable
+        testID="auth-sso-google-button"
+        accessibilityLabel="Continue with Google"
         accessibilityRole="button"
         accessibilityState={{ busy: isGoogleLoading, disabled }}
         className={`h-10 flex-row items-center justify-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 ${
@@ -631,7 +667,11 @@ function SocialButtons({
       >
         <View className="size-5 items-center justify-center">
           {isGoogleLoading ? (
-            <ActivityIndicator color="#ff2056" size="small" />
+            <ActivityIndicator
+              testID="auth-loading-indicator"
+              color="#ff2056"
+              size="small"
+            />
           ) : (
             <Image
               source={images.googleLogo}
@@ -647,6 +687,8 @@ function SocialButtons({
       </Pressable>
 
       <Pressable
+        testID="auth-sso-apple-button"
+        accessibilityLabel="Continue with Apple"
         accessibilityRole="button"
         accessibilityState={{ busy: isAppleLoading, disabled }}
         className={`h-10 flex-row items-center justify-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 ${
@@ -657,7 +699,11 @@ function SocialButtons({
       >
         <View className="size-5 items-center justify-center">
           {isAppleLoading ? (
-            <ActivityIndicator color="#ff2056" size="small" />
+            <ActivityIndicator
+              testID="auth-loading-indicator"
+              color="#ff2056"
+              size="small"
+            />
           ) : (
             <Ionicons name="logo-apple" size={14} color="#18181b" />
           )}

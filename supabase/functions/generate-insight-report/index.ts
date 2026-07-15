@@ -11,6 +11,7 @@ import {
   parseReportNarrative,
   type ReportNarrative,
 } from "../_shared/parseReportNarrative.ts";
+import { enforceAIUsageAccess } from "../_shared/subscriptionAccess.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Headers":
@@ -349,6 +350,17 @@ Deno.serve(async (request) => {
       },
       422,
     );
+  }
+
+  const usageAccess = await enforceAIUsageAccess({
+    feature:
+      reportRequest.periodType === "weekly" ? "weekly_report" : "monthly_report",
+    requestId,
+    userId: claims.sub,
+  });
+
+  if (!usageAccess.ok) {
+    return jsonResponse(usageAccess.body, usageAccess.status);
   }
 
   const prompt = buildNarrativePrompt({

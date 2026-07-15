@@ -297,8 +297,12 @@ function getHttpErrorMessage(response: unknown) {
     return "This journal entry could not be found.";
   }
 
+  if (response.status === 402) {
+    return "You've used your free AI reflections for this month. Upgrade to DearDiary Pro for more reflections, reports, and insights.";
+  }
+
   if (response.status === 503) {
-    return "AI reflections are still being set up. Please try again after the database migration is applied.";
+    return "AI reflections are still being set up. Please try again after subscription usage tracking is configured.";
   }
 
   if (response.status === 502) {

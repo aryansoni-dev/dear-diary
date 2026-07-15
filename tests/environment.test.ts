@@ -112,6 +112,8 @@ assert(
     "https://example.com/delete-account" &&
     productionResult.environment.appEnvironment === "production" &&
     productionResult.environment.clerkPublishableKey === "pk_live_example" &&
+    productionResult.environment.revenueCatAndroidApiKey === null &&
+    productionResult.environment.revenueCatIosApiKey === null &&
     productionResult.environment.supabasePublicKey === "production-public-key" &&
     productionResult.environment.supabaseUrl ===
       "https://production.supabase.co",

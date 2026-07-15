@@ -1,5 +1,6 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Keyboard,
   Pressable,
   Text,
   TextInput,
@@ -7,25 +8,33 @@ import {
   View,
 } from "react-native";
 
+import { appLockColors } from "@/constants/app-lock-theme";
+
 type PinInputProps = {
   accessibilityLabel: string;
+  accessibilityHint?: string;
   autoFocus?: boolean;
   disabled?: boolean;
   onChangePin: (pin: string) => void;
   onSubmit?: () => void;
   pin: string;
+  testID?: string;
 };
 
 export function PinInput({
+  accessibilityHint,
   accessibilityLabel,
   autoFocus = false,
   disabled = false,
   onChangePin,
   onSubmit,
   pin,
+  testID,
 }: PinInputProps) {
   const inputRef = useRef<TextInput>(null);
+  const [isFocused, setFocused] = useState(false);
   const digits = Array.from({ length: 6 }, (_, index) => pin[index] ?? "");
+  const activeIndex = Math.min(pin.length, digits.length - 1);
 
   function handleChangeText(value: string) {
     onChangePin(value.replace(/\D/g, "").slice(0, 6));
@@ -34,8 +43,29 @@ export function PinInput({
   const returnKeyType: TextInputProps["returnKeyType"] =
     pin.length === 6 ? "done" : "default";
 
+  function clearFocus() {
+    inputRef.current?.blur();
+    setFocused(false);
+  }
+
+  useEffect(() => {
+    const subscription = Keyboard.addListener("keyboardDidHide", clearFocus);
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (disabled) {
+      clearFocus();
+    }
+  }, [disabled]);
+
   return (
     <Pressable
+      testID={testID}
+      accessibilityHint={accessibilityHint}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
@@ -46,11 +76,21 @@ export function PinInput({
       <View className="flex-row gap-2.5">
         {digits.map((digit, index) => (
           <View
-            className="size-12 items-center justify-center rounded-2xl border border-[#F1C8DC] bg-white"
+            className="size-12 items-center justify-center rounded-2xl border bg-white"
             key={`${index}-${digit ? "filled" : "empty"}`}
-            style={{ borderCurve: "continuous" }}
+            style={{
+              borderColor:
+                isFocused && index === activeIndex
+                  ? appLockColors.primary
+                  : appLockColors.pinBorder,
+              borderCurve: "continuous",
+              borderWidth: isFocused && index === activeIndex ? 2 : 1,
+            }}
           >
-            <Text className="text-[22px] font-bold leading-7 text-[#27272A]">
+            <Text
+              className="text-[22px] font-bold leading-7"
+              style={{ color: appLockColors.text }}
+            >
               {digit ? "•" : ""}
             </Text>
           </View>
@@ -68,6 +108,8 @@ export function PinInput({
         keyboardType="number-pad"
         maxLength={6}
         onChangeText={handleChangeText}
+        onBlur={() => setFocused(false)}
+        onFocus={() => setFocused(true)}
         onSubmitEditing={onSubmit}
         ref={inputRef}
         returnKeyType={returnKeyType}

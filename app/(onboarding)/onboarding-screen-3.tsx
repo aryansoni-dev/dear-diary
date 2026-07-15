@@ -284,6 +284,7 @@ export default function OnboardingScreenThree() {
         >
           <Link href={nextHref} asChild>
             <Pressable
+              testID="onboarding-next-button"
               accessibilityLabel="Next onboarding screen"
               accessibilityRole="button"
               className="w-full flex-row items-center justify-center gap-3 rounded-full bg-brand-primary"
@@ -304,6 +305,7 @@ export default function OnboardingScreenThree() {
 
           <Link href={backHref} asChild>
             <Pressable
+              testID="onboarding-back-button"
               accessibilityLabel="Previous onboarding screen"
               accessibilityRole="button"
               className="px-4 py-1"

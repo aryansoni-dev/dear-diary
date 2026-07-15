@@ -8,17 +8,22 @@ type MoodSpectrumSelectorProps = {
   disabled?: boolean;
   moods: readonly MoodMetadata[];
   onSelectMood: (moodId: MoodId) => void;
+  optionTestIDPrefix?: string;
   selectedMoodId: MoodId | null;
+  testID?: string;
 };
 
 export function MoodSpectrumSelector({
   disabled = false,
   moods,
   onSelectMood,
+  optionTestIDPrefix,
   selectedMoodId,
+  testID,
 }: MoodSpectrumSelectorProps) {
   return (
     <View
+      testID={testID}
       accessibilityLabel="Mood selector"
       className="gap-2"
     >
@@ -30,6 +35,11 @@ export function MoodSpectrumSelector({
             key={mood.id}
             mood={mood}
             onPress={() => onSelectMood(mood.id)}
+            testID={
+              optionTestIDPrefix
+                ? `${optionTestIDPrefix}-${mood.id}-button`
+                : undefined
+            }
           />
         ))}
       </View>

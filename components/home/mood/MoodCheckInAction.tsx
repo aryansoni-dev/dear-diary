@@ -5,6 +5,7 @@ type MoodCheckInActionProps = {
   isSaving: boolean;
   label: string;
   onPress: () => void;
+  testID?: string;
 };
 
 export function MoodCheckInAction({
@@ -12,9 +13,12 @@ export function MoodCheckInAction({
   isSaving,
   label,
   onPress,
+  testID,
 }: MoodCheckInActionProps) {
   return (
     <Pressable
+      testID={testID}
+      accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ disabled: disabled || isSaving }}
       className="min-h-[54px] flex-row items-center justify-center gap-2 rounded-[17px] px-5"

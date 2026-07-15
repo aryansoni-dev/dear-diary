@@ -18,6 +18,7 @@ import { useNativeTransitionOptions } from "@/navigation/transitions";
 import { AppLockProvider } from "@/providers/AppLockProvider";
 import { AppDialogProvider } from "@/providers/AppDialogProvider";
 import { ConnectivityProvider } from "@/providers/ConnectivityProvider";
+import { SubscriptionProvider } from "@/providers/SubscriptionProvider";
 
 export default function RootLayout() {
   if (!publicEnvironmentResult.isValid) {
@@ -40,7 +41,9 @@ export default function RootLayout() {
     >
       <ConnectivityProvider>
         <AppDialogProvider>
-          <AppStack />
+          <SubscriptionProvider>
+            <AppStack />
+          </SubscriptionProvider>
         </AppDialogProvider>
       </ConnectivityProvider>
     </ClerkProvider>
@@ -111,6 +114,7 @@ function RootNavigator() {
         name="legal/privacy-policy"
         options={standardDetailOptions}
       />
+      <Stack.Screen name="paywall" options={standardDetailOptions} />
       <Stack.Screen name="legal/terms" options={standardDetailOptions} />
       <Stack.Screen name="settings" options={standardDetailOptions} />
       <Stack.Screen name="sso" options={sensitiveOptions} />

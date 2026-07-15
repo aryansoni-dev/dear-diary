@@ -12,7 +12,10 @@ export default function SsoCallbackScreen() {
     >
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar hidden />
-      <View className="flex-1 items-center justify-center px-6">
+      <View
+        testID="sso-callback-loading"
+        className="flex-1 items-center justify-center px-6"
+      >
         <Text className="text-center text-[18px] font-bold leading-7 text-zinc-950">
           Finishing sign in...
         </Text>

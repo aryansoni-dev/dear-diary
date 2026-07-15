@@ -32,16 +32,20 @@ export function SettingsRow({
   isBusy = false,
   label,
   onPress,
+  testID,
   value,
 }: {
   icon: keyof typeof Feather.glyphMap;
   isBusy?: boolean;
   label: string;
   onPress: () => void;
+  testID?: string;
   value: string;
 }) {
   return (
     <Pressable
+      testID={testID}
+      accessibilityLabel={label}
       accessibilityRole="button"
       className="min-h-[58px] flex-row items-center justify-between gap-3 rounded-[18px] p-3"
       onPress={onPress}

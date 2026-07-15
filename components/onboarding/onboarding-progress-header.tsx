@@ -32,6 +32,8 @@ export function OnboardingProgressHeader({
       style={{ height: headerHeight, maxWidth }}
     >
       <View
+        testID="onboarding-page-indicator"
+        accessibilityLabel={`Onboarding page ${activeIndex + 1} of ${total}`}
         className="absolute inset-x-0 flex-row items-center justify-center gap-3"
         style={{ top: dotsTop }}
       >
@@ -55,6 +57,7 @@ export function OnboardingProgressHeader({
 
       {onSkipPress ? (
         <Pressable
+          testID="onboarding-skip-button"
           accessibilityLabel="Skip onboarding"
           accessibilityRole="button"
           className="absolute right-0 top-0 items-center justify-center rounded-full px-5"

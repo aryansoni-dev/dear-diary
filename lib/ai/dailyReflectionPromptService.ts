@@ -75,10 +75,10 @@ async function requestDailyReflectionPromptBundle(params: {
 
   if (error) {
     if (__DEV__) {
-      console.warn("Daily reflection prompt generation failed", {
-        name: error.name,
-        requestFailed: true,
-      });
+      console.warn(
+        "Daily reflection prompt generation failed",
+        await getFunctionErrorDetails(error),
+      );
     }
 
     throw getUserFacingFunctionError(error);
@@ -152,6 +152,66 @@ function getUserFacingFunctionError(error: unknown) {
     "DearDiary AI is unavailable right now.",
     "unknown_function_error",
   );
+}
+
+async function getFunctionErrorDetails(error: unknown) {
+  if (error instanceof FunctionsHttpError) {
+    const response = error.context;
+    const body = await readFunctionErrorBody(response);
+
+    return {
+      body,
+      name: error.name,
+      requestFailed: true,
+      status: response instanceof Response ? response.status : undefined,
+    };
+  }
+
+  if (error instanceof FunctionsRelayError) {
+    const response = error.context;
+
+    return {
+      name: error.name,
+      requestFailed: true,
+      status: response instanceof Response ? response.status : undefined,
+    };
+  }
+
+  if (error instanceof FunctionsFetchError) {
+    return {
+      message: error.message,
+      name: error.name,
+      requestFailed: true,
+    };
+  }
+
+  return {
+    message: error instanceof Error ? error.message : "Unknown error",
+    name: error instanceof Error ? error.name : "UnknownError",
+    requestFailed: true,
+  };
+}
+
+async function readFunctionErrorBody(response: unknown) {
+  if (!(response instanceof Response)) {
+    return null;
+  }
+
+  try {
+    const body: unknown = await response.clone().json();
+
+    if (!isRecord(body)) {
+      return null;
+    }
+
+    return {
+      code: typeof body.code === "string" ? body.code : undefined,
+      requestId:
+        typeof body.requestId === "string" ? body.requestId : undefined,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

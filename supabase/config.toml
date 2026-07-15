@@ -8,7 +8,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.generate-daily-reflection-prompts]
-verify_jwt = true
+verify_jwt = false
 
 [functions.delete-account]
 verify_jwt = true

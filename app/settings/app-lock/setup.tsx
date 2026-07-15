@@ -5,12 +5,12 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BiometricLockSwitch } from "@/components/app-lock/BiometricLockSwitch";
 import { PinInput } from "@/components/app-lock/PinInput";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { appLockColors, appLockLayout } from "@/constants/app-lock-theme";
@@ -108,6 +108,7 @@ export default function AppLockSetupScreen() {
       style={{ backgroundColor: appLockColors.background }}
     >
       <ScrollView
+        testID="app-lock-setup-screen"
         className="flex-1"
         contentContainerStyle={{
           paddingBottom: Math.max(insets.bottom + 36, 56),
@@ -119,6 +120,7 @@ export default function AppLockSetupScreen() {
       >
         <View className="flex-row items-center justify-between">
           <AnimatedIconButton
+            testID="app-lock-setup-back-button"
             accessibilityLabel="Go back"
             onPress={() => router.back()}
             shadow="0 2px 6px rgba(39, 39, 42, 0.16)"
@@ -153,7 +155,9 @@ export default function AppLockSetupScreen() {
               Create a six-digit PIN
             </Text>
             <PinInput
+              testID="app-lock-setup-pin-input"
               accessibilityLabel="Create your six-digit App Lock PIN"
+              accessibilityHint="Create a six-digit PIN for App Lock"
               autoFocus
               disabled={isSaving}
               onChangePin={handlePinChange}
@@ -177,7 +181,9 @@ export default function AppLockSetupScreen() {
               Confirm PIN
             </Text>
             <PinInput
+              testID="app-lock-confirm-pin-input"
               accessibilityLabel="Confirm your six-digit App Lock PIN"
+              accessibilityHint="Re-enter your six-digit App Lock PIN"
               disabled={isSaving}
               onChangePin={handleConfirmedPinChange}
               onSubmit={handleSave}
@@ -185,6 +191,7 @@ export default function AppLockSetupScreen() {
             />
             {helperMessage ? (
               <Text
+                testID="app-lock-error-message"
                 className="text-center text-[14px] font-medium leading-5"
                 style={{ color: appLockColors.danger }}
               >
@@ -218,7 +225,8 @@ export default function AppLockSetupScreen() {
                     : "Biometrics are not available or enrolled on this device."}
                 </Text>
               </View>
-              <Switch
+              <BiometricLockSwitch
+                testID="app-lock-biometric-toggle"
                 accessibilityLabel={`Use ${biometricLabel} for App Lock`}
                 disabled={!canUseBiometrics || isSaving}
                 onValueChange={setBiometricEnabled}
@@ -245,6 +253,8 @@ export default function AppLockSetupScreen() {
             <View className="gap-2">
               {delayOptions.map((option) => (
                 <Pressable
+                  testID={`app-lock-delay-${option.value}-button`}
+                  accessibilityLabel={option.label}
                   accessibilityRole="button"
                   accessibilityState={{ selected: lockDelay === option.value }}
                   className="min-h-[46px] flex-row items-center justify-between"
@@ -278,6 +288,8 @@ export default function AppLockSetupScreen() {
           </View>
 
           <Pressable
+            testID="app-lock-enable-button"
+            accessibilityLabel="Enable App Lock"
             accessibilityRole="button"
             accessibilityState={{ disabled: !canSave }}
             className="h-[56px] items-center justify-center rounded-full"

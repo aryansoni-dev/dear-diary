@@ -217,6 +217,7 @@ export default function OnboardingScreenFive() {
           }}
         >
           <Pressable
+            testID="onboarding-complete-button"
             accessibilityLabel="Start writing"
             accessibilityRole="button"
             className="w-full items-center justify-center rounded-full"
@@ -236,6 +237,7 @@ export default function OnboardingScreenFive() {
           </Pressable>
 
           <Pressable
+            testID="onboarding-maybe-later-button"
             accessibilityLabel="Maybe later"
             accessibilityRole="button"
             className="px-4 py-1"

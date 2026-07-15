@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
+import { enforceAIUsageAccess } from "../_shared/subscriptionAccess.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
@@ -480,6 +482,16 @@ Deno.serve(async (request) => {
       requestId,
     });
 
+    const usageAccess = await enforceAIUsageAccess({
+      feature: "ai_chat",
+      requestId,
+      userId: authClaims.sub,
+    });
+
+    if (!usageAccess.ok) {
+      return jsonResponse(usageAccess.body, usageAccess.status);
+    }
+
     try {
       const assistantMessage = await callAIProvider(summaryPrompt, {
         maxTokens: 950,
@@ -567,6 +579,16 @@ Deno.serve(async (request) => {
     requestId,
     useJournalContext,
   });
+
+  const usageAccess = await enforceAIUsageAccess({
+    feature: "ai_chat",
+    requestId,
+    userId: authClaims.sub,
+  });
+
+  if (!usageAccess.ok) {
+    return jsonResponse(usageAccess.body, usageAccess.status);
+  }
 
   try {
     const assistantMessage = await callAIProvider(finalPrompt, { requestId });

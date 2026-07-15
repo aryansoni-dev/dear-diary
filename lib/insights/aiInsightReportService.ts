@@ -234,12 +234,22 @@ function getHttpErrorMessage(
     return "DearDiary created the reflection, but could not save the report. Please try again.";
   }
 
+  if (body?.code === "QUOTA_EXHAUSTED") {
+    return periodType === "weekly"
+      ? "You've used your free weekly AI report for this month. Upgrade to DearDiary Pro for more reports and insights."
+      : "Monthly AI reports are included with DearDiary Pro.";
+  }
+
+  if (body?.code === "PRO_FAIR_USE_EXHAUSTED") {
+    return "You've reached this month's DearDiary Pro fair-use limit for reflection reports. Please try again next month.";
+  }
+
   if (response.status === 401) {
     return "Please sign in again before generating a reflection report.";
   }
 
   if (response.status === 404 || response.status === 503) {
-    return "Visual reflection reports are still being set up. Apply the database migration and deploy the report function, then try again.";
+    return "Visual reflection reports are still being set up. Apply the subscription usage migration and deploy the report function, then try again.";
   }
 
   if (response.status === 422) {

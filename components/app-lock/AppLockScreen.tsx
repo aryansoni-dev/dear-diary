@@ -181,6 +181,7 @@ export function AppLockScreen() {
       className="flex-1 bg-[#FFF7FB]"
     >
       <ScrollView
+        testID="app-lock-screen"
         className="flex-1"
         contentContainerStyle={{
           flexGrow: 1,
@@ -207,7 +208,9 @@ export function AppLockScreen() {
                 Use six-digit PIN
               </Text>
               <PinInput
+                testID="app-lock-pin-input"
                 accessibilityLabel="Enter your six-digit App Lock PIN"
+                accessibilityHint="Enter the PIN to unlock DearDiary"
                 disabled={isSubmittingPin || isPinTemporarilyLocked}
                 onChangePin={setPin}
                 onSubmit={handlePinSubmit}
@@ -216,6 +219,7 @@ export function AppLockScreen() {
 
               {helperMessage ? (
                 <Text
+                  testID="app-lock-error-message"
                   accessibilityLiveRegion="polite"
                   className="text-center text-[14px] font-medium leading-5 text-[#DC2626]"
                 >
@@ -224,6 +228,8 @@ export function AppLockScreen() {
               ) : null}
 
               <Pressable
+                testID="app-lock-unlock-button"
+                accessibilityLabel="Unlock DearDiary"
                 accessibilityRole="button"
                 accessibilityState={{
                   disabled:
@@ -266,6 +272,7 @@ export function AppLockScreen() {
 
               {canUseBiometrics ? (
                 <Pressable
+                  testID="app-lock-biometric-button"
                   accessibilityLabel={`Unlock with ${biometricLabel}`}
                   accessibilityRole="button"
                   className="h-[52px] w-full flex-row items-center justify-center gap-2 rounded-full bg-[#FFE1EE]"
@@ -281,6 +288,8 @@ export function AppLockScreen() {
           </View>
 
           <Pressable
+            testID="app-lock-signout-button"
+            accessibilityLabel="Sign out"
             accessibilityRole="button"
             className="min-h-11 flex-row items-center justify-center gap-2 px-4"
             disabled={isSigningOut}

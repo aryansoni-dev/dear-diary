@@ -28,8 +28,17 @@ export const termsAndConditions = {
     {
       body: [
         "DearDiary AI features are reflective tools. AI-generated content may be incomplete or incorrect and is not medical advice, diagnosis, therapy, emergency service, or a substitute for professional care.",
+        "AI features are subject to fair-use limits. DearDiary Pro provides higher AI usage, but it does not provide unlimited AI access.",
       ],
       title: "AI Features",
+    },
+    {
+      body: [
+        "DearDiary Pro is an optional auto-renewing subscription that unlocks premium AI-powered reflections, reports, emotional patterns, and advanced insights. Prices are shown in the app from the App Store or Google Play through RevenueCat and may vary by region, taxes, and store configuration.",
+        "Subscriptions renew automatically unless cancelled through your App Store or Google Play account settings before renewal. Purchase, renewal, cancellation, refund, and billing support are handled by the relevant store.",
+        "You can use Restore purchases in the app to ask RevenueCat and the store to restore an active entitlement. Restoration only unlocks Pro when the store and RevenueCat report an active Pro entitlement.",
+      ],
+      title: "Subscriptions",
     },
     {
       body: [
@@ -40,6 +49,7 @@ export const termsAndConditions = {
     {
       body: [
         "You may delete your account and associated DearDiary data through the app. Deletion is permanent once completed and cannot be undone.",
+        "Account deletion does not cancel an active App Store or Google Play subscription. If you subscribed to DearDiary Pro, manage or cancel it through your store account settings.",
       ],
       title: "Account Deletion",
     },

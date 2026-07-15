@@ -2,7 +2,7 @@ import { useAuth } from "@clerk/expo";
 import { LinearGradient as ExpoLinearGradient } from "expo-linear-gradient";
 import { Link, useRouter, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { BarChart3, CalendarDays, Sparkles } from "lucide-react-native";
+import { BarChart3, CalendarDays, Lock, Sparkles } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
@@ -52,6 +52,7 @@ import {
 import { useAIInsightReport } from "@/hooks/useAIInsightReport";
 import type { UseAIInsightReportResult } from "@/hooks/useAIInsightReport";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { deriveInsights } from "@/lib/insights/deriveInsights";
 import {
   getInsightDateRange,
@@ -160,6 +161,8 @@ export function InsightsScreen() {
   const monthlyReportState = useAIInsightReport(monthlyPeriod, {
     enabled: localDataHasHydrated,
   });
+  const advancedInsightsAccess = useFeatureAccess("advanced_insights", userId);
+  const monthlyReportAccess = useFeatureAccess("monthly_report", userId);
   const insights = useMemo(
     () =>
       getLocalInsights({
@@ -275,6 +278,7 @@ export function InsightsScreen() {
       />
 
       <ScrollView
+        testID="insights-screen"
         className="flex-1"
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
@@ -345,6 +349,7 @@ export function InsightsScreen() {
             </View>
 
             <View
+              testID="insights-mood-journey-card"
               className="mt-7 rounded-[30px] bg-white/80 px-6 py-6"
               style={{ boxShadow: "0 12px 40px rgba(160, 140, 200, 0.2)" }}
             >
@@ -391,9 +396,20 @@ export function InsightsScreen() {
                 AI-generated reflections from your saved reports
               </Text>
               <View className="mt-4 gap-4">
-                {aiInsightCards.map((card) => (
-                  <InsightMessageCard card={card} key={card.title} />
-                ))}
+                {advancedInsightsAccess.allowed ? (
+                  aiInsightCards.map((card) => (
+                    <InsightMessageCard card={card} key={card.title} />
+                  ))
+                ) : (
+                  <LockedInsightCard
+                    onPress={() =>
+                      router.push({
+                        pathname: "/paywall",
+                        params: { feature: "advanced_insights" },
+                      } as unknown as Href)
+                    }
+                  />
+                )}
               </View>
             </View>
 
@@ -411,6 +427,13 @@ export function InsightsScreen() {
                 />
                 <ReflectionReportCard
                   period={monthlyPeriod}
+                  isLocked={!monthlyReportAccess.allowed}
+                  onLockedPress={() =>
+                    router.push({
+                      pathname: "/paywall",
+                      params: { feature: "monthly_report" },
+                    } as unknown as Href)
+                  }
                   reportState={monthlyReportState}
                 />
               </View>
@@ -425,9 +448,13 @@ export function InsightsScreen() {
 }
 
 function ReflectionReportCard({
+  isLocked = false,
+  onLockedPress,
   period,
   reportState,
 }: {
+  isLocked?: boolean;
+  onLockedPress?: () => void;
   period: ReportPeriod;
   reportState: UseAIInsightReportResult;
 }) {
@@ -444,10 +471,11 @@ function ReflectionReportCard({
     hasEnoughEntries,
     isGenerating: reportState.isGenerating,
     isStale: reportState.isStale,
+    isLocked,
     legacyReportAvailable: reportState.legacyReportAvailable,
     reportExists: Boolean(reportState.report),
   });
-  const buttonLabel = reportState.report ? "View" : "Open";
+  const buttonLabel = isLocked ? "View Pro" : reportState.report ? "View" : "Open";
   const buttonScale = useSharedValue(1);
   const animatedButtonStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
@@ -475,6 +503,7 @@ function ReflectionReportCard({
 
   return (
     <View
+      testID={`insights-${periodType}-report-card`}
       className={reflectionReportCardStyles.cardClassName}
       style={{ boxShadow: reflectionReportCardStyles.shadow }}
     >
@@ -518,16 +547,13 @@ function ReflectionReportCard({
           </Text>
         </View>
       </View>
-      <Link
-        asChild
-        href={{
-          pathname: "/insights/report/[periodType]",
-          params: { periodType },
-        }}
-      >
+      {isLocked ? (
         <Pressable
+          testID={`insights-${periodType}-report-upgrade-button`}
+          accessibilityLabel={`Upgrade for ${periodType} reflection report`}
           accessibilityRole="button"
           className="mt-5 h-12"
+          onPress={onLockedPress}
           onPressIn={handleButtonPressIn}
           onPressOut={handleButtonPressOut}
         >
@@ -551,7 +577,44 @@ function ReflectionReportCard({
             </Text>
           </Animated.View>
         </Pressable>
-      </Link>
+      ) : (
+        <Link
+          asChild
+          href={{
+            pathname: "/insights/report/[periodType]",
+            params: { periodType },
+          }}
+        >
+          <Pressable
+            testID={`${periodType}-report-open-button`}
+            accessibilityLabel={`Open ${periodType} reflection report`}
+            accessibilityRole="button"
+            className="mt-5 h-12"
+            onPressIn={handleButtonPressIn}
+            onPressOut={handleButtonPressOut}
+          >
+            <Animated.View
+              style={[
+                {
+                  alignItems: "center",
+                  backgroundColor: primaryColor,
+                  borderRadius: 999,
+                  height: "100%",
+                  justifyContent: "center",
+                },
+                animatedButtonStyle,
+              ]}
+            >
+              <Text
+                allowFontScaling={false}
+                className="text-[15px] font-bold leading-5 text-white"
+              >
+                {buttonLabel}
+              </Text>
+            </Animated.View>
+          </Pressable>
+        </Link>
+      )}
     </View>
   );
 }
@@ -560,15 +623,21 @@ function getReportCardStatus({
   hasEnoughEntries,
   isGenerating,
   isStale,
+  isLocked,
   legacyReportAvailable,
   reportExists,
 }: {
   hasEnoughEntries: boolean;
   isGenerating: boolean;
   isStale: boolean;
+  isLocked: boolean;
   legacyReportAvailable: boolean;
   reportExists: boolean;
 }) {
+  if (isLocked) {
+    return "Pro";
+  }
+
   if (isGenerating) {
     return "Generating";
   }
@@ -586,6 +655,41 @@ function getReportCardStatus({
   }
 
   return reportExists ? "Ready" : "Not generated";
+}
+
+function LockedInsightCard({ onPress }: { onPress: () => void }) {
+  return (
+    <View
+      testID="premium-locked-card"
+      className="rounded-[28px] bg-white px-6 py-6"
+      style={{ boxShadow: "0 10px 30px rgba(160, 140, 200, 0.16)" }}
+    >
+      <View className="flex-row items-start gap-4">
+        <View className="size-11 items-center justify-center rounded-full bg-[#FFE1EE]">
+          <Lock color={primaryColor} size={20} strokeWidth={2.4} />
+        </View>
+        <View className="flex-1">
+          <Text className="text-[18px] font-bold leading-6 text-[#18181B]">
+            Unlock deeper patterns with DearDiary Pro
+          </Text>
+          <Text className="mt-2 text-[14px] leading-6 text-[#71717B]">
+            Advanced mood and writing insights appear here with Pro reports.
+          </Text>
+        </View>
+      </View>
+      <Pressable
+        testID="insights-advanced-upgrade-button"
+        accessibilityLabel="Upgrade for advanced insights"
+        accessibilityRole="button"
+        className="mt-5 h-12 items-center justify-center rounded-full bg-[#FF2056]"
+        onPress={onPress}
+      >
+        <Text className="text-[15px] font-bold leading-6 text-white">
+          Upgrade
+        </Text>
+      </Pressable>
+    </View>
+  );
 }
 
 type LocalInsights = {

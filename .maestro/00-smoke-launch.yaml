@@ -1,0 +1,36 @@
+appId: com.aryan.deardiary
+---
+- launchApp:
+    clearState: false
+
+- assertVisible:
+    id: "login-screen"
+    optional: true
+
+- assertVisible:
+    id: "signup-screen"
+    optional: true
+
+- assertVisible:
+    id: "home-screen"
+    optional: true
+
+- assertVisible:
+    id: "app-lock-screen"
+    optional: true
+
+- tapOn:
+    id: "tab-profile-button"
+    optional: true
+
+- assertVisible:
+    id: "profile-screen"
+    optional: true
+
+- tapOn:
+    id: "tab-today-button"
+    optional: true
+
+- assertVisible:
+    id: "home-screen"
+    optional: true

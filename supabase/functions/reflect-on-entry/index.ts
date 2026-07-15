@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+import { enforceAIUsageAccess } from "../_shared/subscriptionAccess.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
@@ -297,6 +299,16 @@ Deno.serve(async (request) => {
       reflection: mapEntryAIReflectionRow(existingResult.data),
       requestId,
     });
+  }
+
+  const usageAccess = await enforceAIUsageAccess({
+    feature: "entry_reflection",
+    requestId,
+    userId: claims.sub,
+  });
+
+  if (!usageAccess.ok) {
+    return jsonResponse(usageAccess.body, usageAccess.status);
   }
 
   let reflectionResult: ValidReflectionResult;

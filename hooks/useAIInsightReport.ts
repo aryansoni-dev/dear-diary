@@ -34,10 +34,10 @@ export type UseAIInsightReportResult = {
   legacyReportAvailable: boolean;
   availableEntryCount: number;
   error: string | null;
-  generate: () => Promise<void>;
-  regenerate: () => Promise<void>;
+  generate: () => Promise<boolean>;
+  regenerate: () => Promise<boolean>;
   refresh: () => Promise<void>;
-  retry: () => Promise<void>;
+  retry: () => Promise<boolean | void>;
 };
 
 type UseAIInsightReportOptions = {
@@ -286,17 +286,17 @@ export function useAIInsightReport(
   const requestGeneration = useCallback(
     async (regenerate: boolean) => {
       if (!enabled) {
-        return;
+        return false;
       }
 
       if (cacheHydrationError) {
         setError(cacheHydrationError.userMessage);
-        return;
+        return false;
       }
 
       if (moodLogsHydrationError) {
         setError(moodLogsHydrationError.userMessage);
-        return;
+        return false;
       }
 
       if (
@@ -305,17 +305,17 @@ export function useAIInsightReport(
         !moodLogsHaveHydrated ||
         requestInFlightRef.current
       ) {
-        return;
+        return false;
       }
 
       if (!userId) {
         setError("Please sign in again before generating a reflection report.");
-        return;
+        return false;
       }
 
       if (connectivity.status === "offline") {
         setError("Connect to the internet to generate a reflection report.");
-        return;
+        return false;
       }
 
       const requestVersion = requestContextVersionRef.current;
@@ -332,14 +332,14 @@ export function useAIInsightReport(
         });
 
         if (!isCurrentRequestContext(requestVersion)) {
-          return;
+          return false;
         }
 
         if (!sourcesAreSynced) {
           setError(
             "Please try again after your latest entries and mood check-ins finish syncing.",
           );
-          return;
+          return false;
         }
 
         const generatedReport = await generateAIInsightReport({
@@ -348,24 +348,26 @@ export function useAIInsightReport(
         });
 
         if (!isCurrentRequestContext(requestVersion)) {
-          return;
+          return false;
         }
 
         if (generatedReport.userId !== userId) {
           setError("Reflection report could not be loaded for this account.");
-          return;
+          return false;
         }
 
         setReport(generatedReport);
         setLegacyReportAvailable(false);
         setCachedReport(userId, cacheKey, generatedReport);
         lastFailedOperationRef.current = null;
+        return true;
       } catch (generationError) {
         if (!isCurrentRequestContext(requestVersion)) {
-          return;
+          return false;
         }
 
         setError(getErrorMessage(generationError));
+        return false;
       } finally {
         if (isCurrentRequestContext(requestVersion)) {
           requestInFlightRef.current = false;

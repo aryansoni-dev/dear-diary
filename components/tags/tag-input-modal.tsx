@@ -16,8 +16,12 @@ import Animated, {
 } from "react-native-reanimated";
 
 type TagInputModalProps = {
+  cancelTestID?: string;
+  closeTestID?: string;
+  inputTestID?: string;
   onAddTag: (tag: string) => void;
   onClose: () => void;
+  submitTestID?: string;
   visible: boolean;
 };
 
@@ -27,8 +31,12 @@ const slideInBottomTiming = {
 } as const;
 
 export function TagInputModal({
+  cancelTestID,
+  closeTestID,
+  inputTestID,
   onAddTag,
   onClose,
+  submitTestID,
   visible,
 }: TagInputModalProps) {
   const inputRef = useRef<TextInput | null>(null);
@@ -80,6 +88,7 @@ export function TagInputModal({
         className="flex-1 justify-end bg-black/30"
       >
         <Pressable
+          testID={closeTestID}
           accessibilityLabel="Close tag input"
           accessibilityRole="button"
           className="flex-1"
@@ -97,7 +106,9 @@ export function TagInputModal({
             Add tag
           </Text>
           <TextInput
+            testID={inputTestID}
             ref={inputRef}
+            accessibilityHint="Enter a short tag for this journal entry"
             accessibilityLabel="Tag name"
             autoCapitalize="none"
             autoCorrect={false}
@@ -112,6 +123,8 @@ export function TagInputModal({
 
           <View className="mt-5 flex-row gap-3">
             <Pressable
+              testID={cancelTestID}
+              accessibilityLabel="Cancel adding tag"
               accessibilityRole="button"
               className="h-12 flex-1 items-center justify-center rounded-full bg-zinc-100"
               onPress={onClose}
@@ -121,6 +134,8 @@ export function TagInputModal({
               </Text>
             </Pressable>
             <Pressable
+              testID={submitTestID}
+              accessibilityLabel="Add tag"
               accessibilityRole="button"
               className="h-12 flex-1 items-center justify-center rounded-full bg-[#FF2056]"
               onPress={handleAddTag}
