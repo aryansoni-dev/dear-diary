@@ -1,0 +1,27 @@
+appId: com.aryan.deardiary
+---
+- launchApp:
+    clearState: false
+
+- assertVisible:
+    text: "DearDiary"
+    optional: true
+
+- assertVisible:
+    text: "Today"
+
+- assertVisible:
+    text: "Reflect"
+    optional: true
+
+- assertVisible:
+    text: "History"
+    optional: true
+
+- assertVisible:
+    text: "Insights"
+    optional: true
+
+- assertVisible:
+    text: "Profile"
+    optional: true

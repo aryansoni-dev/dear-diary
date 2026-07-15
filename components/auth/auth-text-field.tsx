@@ -2,6 +2,9 @@ import { Feather } from "@expo/vector-icons";
 import { Pressable, Text, TextInput, View } from "react-native";
 
 type AuthTextFieldProps = {
+  testID?: string;
+  accessibilityHint?: string;
+  accessibilityLabel?: string;
   iconName: React.ComponentProps<typeof Feather>["name"];
   label: string;
   onChangeText: (text: string) => void;
@@ -13,10 +16,14 @@ type AuthTextFieldProps = {
   onRightIconPress?: () => void;
   rightAccessibilityLabel?: string;
   rightIconName?: React.ComponentProps<typeof Feather>["name"];
+  rightTestID?: string;
   secureTextEntry?: boolean;
 };
 
 export function AuthTextField({
+  testID,
+  accessibilityHint,
+  accessibilityLabel,
   iconName,
   label,
   onChangeText,
@@ -28,6 +35,7 @@ export function AuthTextField({
   onRightIconPress,
   rightAccessibilityLabel,
   rightIconName,
+  rightTestID,
   secureTextEntry = false,
 }: AuthTextFieldProps) {
   return (
@@ -41,6 +49,9 @@ export function AuthTextField({
       >
         <Feather name={iconName} size={14} color="#a1a1aa" />
         <TextInput
+          testID={testID}
+          accessibilityHint={accessibilityHint}
+          accessibilityLabel={accessibilityLabel}
           className="ml-3 flex-1 text-[13px] font-medium leading-5 text-zinc-900"
           autoCapitalize="none"
           autoCorrect={false}
@@ -53,6 +64,7 @@ export function AuthTextField({
         />
         {rightIconName ? (
           <Pressable
+            testID={rightTestID}
             accessibilityRole="button"
             accessibilityLabel={rightAccessibilityLabel}
             className="-mr-2 size-9 items-center justify-center rounded-full"

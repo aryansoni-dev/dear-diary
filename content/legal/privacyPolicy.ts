@@ -35,8 +35,16 @@ export const privacyPolicy = {
     {
       body: [
         "DearDiary uses configured AI services to generate prompts, entry reflections, chat responses, and reports. AI responses may be incomplete or incorrect and are not medical diagnoses, treatment, therapy, or emergency assistance.",
+        "AI features may use fair-use limits to protect service reliability and cost. DearDiary may keep monthly usage counters for AI Chat, entry reflections, and AI reports.",
       ],
       title: "AI Processing",
+    },
+    {
+      body: [
+        "DearDiary Pro subscriptions are processed by the App Store or Google Play and managed through RevenueCat. DearDiary may send RevenueCat your app user ID, product identifiers, entitlement status, renewal status, store, and subscription dates so the app can unlock Pro features and restore purchases.",
+        "DearDiary does not receive or store your full payment card details. Store billing, refunds, cancellation, taxes, and payment method handling are managed by Apple or Google according to their store terms.",
+      ],
+      title: "Subscriptions And Billing",
     },
     {
       body: [
@@ -53,6 +61,7 @@ export const privacyPolicy = {
     {
       body: [
         "You can request deletion from inside the app. Deletion removes your DearDiary cloud data, your Clerk authentication account, and user-scoped DearDiary data on the device after the server-side deletion completes.",
+        "Deleting your DearDiary account does not automatically cancel an active App Store or Google Play subscription. If you subscribed to DearDiary Pro, manage or cancel it through your store account settings.",
         "Some infrastructure backups or logs may persist for a limited period if required for operations, security, or legal obligations. This section requires legal review before release.",
       ],
       title: "Deletion And Retention",

@@ -372,6 +372,9 @@ export default function OnboardingScreenTwo() {
         >
           <Link href={nextHref} asChild>
             <Pressable
+              testID="onboarding-next-button"
+              accessibilityLabel="Next onboarding screen"
+              accessibilityRole="button"
               className="w-full items-center justify-center rounded-full"
               style={{
                 backgroundColor: colors.brandPrimary,
@@ -386,7 +389,12 @@ export default function OnboardingScreenTwo() {
           </Link>
 
           <Link href={backHref} asChild>
-            <Pressable className="px-4 py-1">
+            <Pressable
+              testID="onboarding-back-button"
+              accessibilityLabel="Previous onboarding screen"
+              accessibilityRole="button"
+              className="px-4 py-1"
+            >
               <Text
                 className="text-[15px] font-medium leading-6"
                 style={{ color: mutedPlum }}

@@ -176,6 +176,7 @@ export function NotificationSettingsScreen() {
       />
 
       <ScrollView
+        testID="notifications-settings-screen"
         className="flex-1"
         contentContainerStyle={{
           paddingBottom: bottomNavHeight + 36,
@@ -187,6 +188,7 @@ export function NotificationSettingsScreen() {
       >
         <View className="flex-row items-center justify-between">
           <AnimatedIconButton
+            testID="notifications-back-button"
             accessibilityLabel="Go back"
             onPress={handleBackPress}
             shadow="0 2px 6px rgba(39, 39, 42, 0.16)"
@@ -211,7 +213,10 @@ export function NotificationSettingsScreen() {
                 <Text className="text-[16px] font-semibold leading-5 text-[#27272A]">
                   Use notifications?
                 </Text>
-                <Text className="mt-1 text-[13px] leading-5 text-[#71717B]">
+                <Text
+                  testID="notification-permission-status"
+                  className="mt-1 text-[13px] leading-5 text-[#71717B]"
+                >
                   {hasHydrated
                     ? hydrationError
                       ? "Saved reminder settings need attention"
@@ -225,6 +230,8 @@ export function NotificationSettingsScreen() {
                 <ActivityIndicator color={colors.primary} size="small" />
               ) : (
                 <Switch
+                  testID="notifications-enable-toggle"
+                  accessibilityLabel="Enable notifications"
                   disabled={!hasHydrated || Boolean(hydrationError)}
                   ios_backgroundColor="#E4E4E7"
                   onValueChange={handleToggleNotifications}
@@ -258,6 +265,7 @@ export function NotificationSettingsScreen() {
                 time: morningReminderTime,
               })
             }
+            testID="morning-reminder-time-button"
             time={morningReminderTime}
           />
           <ReminderTimeRow
@@ -270,6 +278,7 @@ export function NotificationSettingsScreen() {
                 time: eveningReminderTime,
               })
             }
+            testID="evening-reminder-time-button"
             time={eveningReminderTime}
           />
         </View>
@@ -298,15 +307,18 @@ function ReminderTimeRow({
   disabled = false,
   label,
   onPress,
+  testID,
   time,
 }: {
   disabled?: boolean;
   label: string;
   onPress: () => void;
+  testID?: string;
   time: string;
 }) {
   return (
     <Pressable
+      testID={testID}
       accessibilityLabel={`Set ${label}`}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
@@ -425,6 +437,8 @@ function AlarmTimePickerModal({
 
           <View className="mt-5 flex-row items-center justify-end gap-5">
             <Pressable
+              testID="reminder-cancel-button"
+              accessibilityLabel="Cancel reminder time"
               accessibilityRole="button"
               className="min-h-10 justify-center px-1"
               onPress={onCancel}
@@ -434,6 +448,8 @@ function AlarmTimePickerModal({
               </Text>
             </Pressable>
             <Pressable
+              testID="reminder-save-button"
+              accessibilityLabel="Save reminder time"
               accessibilityRole="button"
               className="min-h-10 justify-center px-1"
               onPress={() =>

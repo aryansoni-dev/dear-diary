@@ -1,4 +1,4 @@
-import { useAuth, useClerk, useUser } from "@clerk/expo";
+import { useAuth, useUser } from "@clerk/expo";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
@@ -7,6 +7,7 @@ import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   Text,
@@ -31,7 +32,9 @@ import {
   type ProfileStat,
 } from "@/data/profile";
 import { useAppDialog } from "@/hooks/useAppDialog";
+import { useAppSignOut } from "@/hooks/useAppSignOut";
 import { useConnectivity } from "@/hooks/useConnectivity";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { getAccountDeletionFailureMessage } from "@/lib/account/accountDeletionErrors";
 import { deleteCurrentAccount } from "@/lib/account/accountDeletionService";
@@ -43,7 +46,6 @@ import {
 } from "@/lib/exportJournal";
 import { reportAppError } from "@/lib/errors/reportAppError";
 import { getPublicEnvironment } from "@/lib/environment";
-import { setSupabaseAccessTokenProvider } from "@/lib/supabase";
 import { requestSync } from "@/lib/sync/requestSync";
 import {
   retryJournalStoreHydration,
@@ -66,6 +68,9 @@ const achievementsHref = "/achievements" as Href;
 const privacySettingsHref = "/settings/privacy" as Href;
 const cloudSyncItemLabel = "Backup & Sync Data";
 const deleteAccountItemLabel = "Delete My Data and Account";
+const premiumMembershipItemLabel = "Premium Membership";
+const proActiveItemLabel = "DearDiary Pro active";
+const upgradeProItemLabel = "Upgrade to DearDiary Pro";
 const appEnvironment = getPublicEnvironment()?.appEnvironment;
 
 const moodLabels: Record<MoodId, string> = {
@@ -89,9 +94,11 @@ const moodEmoji: Record<MoodId, string> = {
 export function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { getToken } = useAuth();
-  const { signOut } = useClerk();
   const { user } = useUser();
   const { showDialog } = useAppDialog();
+  const signOutApp = useAppSignOut();
+  const { customerInfo, isConfigured: subscriptionsConfigured, isPro } =
+    useSubscription();
   const connectivity = useConnectivity();
   const entries = useJournalStore((state) => state.entries);
   const hasHydrated = useJournalHydrationStore(
@@ -100,7 +107,6 @@ export function ProfileScreen() {
   const hydrationError = useJournalHydrationStore(
     (state) => state.hydrationError,
   );
-  const setActiveUserId = useJournalStore((state) => state.setActiveUserId);
   const achievementHasHydrated = useAchievementHydrationStore(
     (state) => state.hasHydrated,
   );
@@ -157,8 +163,26 @@ export function ProfileScreen() {
   }, [entries, user?.id]);
   const accountMenuItems = useMemo(
     () =>
-      accountItems.filter((item) => item.label !== cloudSyncItemLabel),
-    [],
+      accountItems
+        .filter((item) => item.label !== cloudSyncItemLabel)
+        .map((item) => {
+          if (item.label !== premiumMembershipItemLabel) {
+            return item;
+          }
+
+          return {
+            ...item,
+            badge: isPro ? "ACTIVE" : "PRO",
+            label: isPro ? proActiveItemLabel : upgradeProItemLabel,
+            subtitle: isPro
+              ? "Manage your store subscription"
+              : "Unlock deeper AI reflections and reports",
+            testID: isPro
+              ? "profile-manage-subscription-button"
+              : "profile-upgrade-plus-button",
+          };
+        }),
+    [isPro],
   );
 
   async function handleSignOut() {
@@ -167,16 +191,10 @@ export function ProfileScreen() {
     }
 
     setIsSigningOut(true);
-    setActiveUserId(null);
-    if (user?.id) {
-      useSyncStore.getState().clearSyncStateForUser(user.id);
-    }
 
     try {
-      await signOut();
-      setSupabaseAccessTokenProvider(null);
+      await signOutApp(user?.id);
     } catch {
-      setActiveUserId(user?.id ?? null);
       showDialog({
         confirmText: "OK",
         message: "We could not sign you out. Please try again.",
@@ -345,7 +363,7 @@ export function ProfileScreen() {
     const result = await deleteCurrentAccount({
       confirmationPhrase: deleteConfirmationText,
       getToken,
-      signOut: () => signOut(),
+      signOut: () => signOutApp(userId),
       userId,
     });
 
@@ -439,6 +457,41 @@ export function ProfileScreen() {
       message: "Choose how you want to export your local journal entries.",
       showCancel: true,
       title: "Export Journal",
+    });
+  }
+
+  async function handleSubscriptionPress() {
+    if (!isPro) {
+      router.push({
+        pathname: "/paywall",
+        params: { feature: "profile" },
+      } as unknown as Href);
+      return;
+    }
+
+    const managementUrl = customerInfo?.managementURL;
+
+    if (managementUrl) {
+      const canOpen = await Linking.canOpenURL(managementUrl);
+
+      if (canOpen) {
+        try {
+          await Linking.openURL(managementUrl);
+          return;
+        } catch (error) {
+          reportAppError(error, {
+            feature: "subscription",
+            operation: "open_management_url",
+          });
+        }
+      }
+    }
+
+    showDialog({
+      confirmText: "OK",
+      message:
+        "Manage or cancel your subscription from the App Store or Google Play subscriptions page.",
+      title: "Manage subscription",
     });
   }
 
@@ -542,6 +595,7 @@ export function ProfileScreen() {
       />
 
       <ScrollView
+        testID="profile-screen"
         className="flex-1"
         contentContainerStyle={{
           paddingBottom: bottomNavHeight + 36,
@@ -553,6 +607,7 @@ export function ProfileScreen() {
       >
         <View className="flex-row items-center justify-between">
           <AnimatedIconButton
+            testID="profile-back-button"
             accessibilityLabel="Go back"
             onPress={handleBackPress}
             shadow="0 2px 6px rgba(39, 39, 42, 0.16)"
@@ -565,6 +620,7 @@ export function ProfileScreen() {
           </Text>
 
           <AnimatedIconButton
+            testID="profile-settings-button"
             accessibilityLabel="Settings"
             onPress={() => showComingSoon("Settings")}
             shadow="0 2px 6px rgba(39, 39, 42, 0.16)"
@@ -755,6 +811,25 @@ export function ProfileScreen() {
               return;
             }
 
+            if (
+              item.label === upgradeProItemLabel ||
+              item.label === proActiveItemLabel ||
+              item.label === premiumMembershipItemLabel
+            ) {
+              if (!subscriptionsConfigured && !isPro) {
+                showDialog({
+                  confirmText: "OK",
+                  message:
+                    "DearDiary Pro subscriptions are not configured for this build yet.",
+                  title: "Subscriptions unavailable",
+                });
+                return;
+              }
+
+              void handleSubscriptionPress();
+              return;
+            }
+
             if (item.label === deleteAccountItemLabel) {
               handleDeleteAccountPress();
               return;
@@ -786,6 +861,8 @@ export function ProfileScreen() {
 
         <View className="items-center pt-9">
           <Pressable
+            testID="profile-signout-button"
+            accessibilityLabel="Sign out"
             accessibilityRole="button"
             className="min-h-10 flex-row items-center justify-center gap-2 px-5"
             disabled={isSigningOut}
@@ -849,6 +926,8 @@ function MenuSection({
         {items.map((item, index) => (
           <View key={item.label}>
             <Pressable
+              testID={item.testID}
+              accessibilityLabel={item.label}
               accessibilityState={{
                 disabled: disabledItemLabelSet.has(item.label),
               }}
@@ -943,6 +1022,7 @@ function DeleteAccountConfirmationCard({
   return (
     <View className="pt-8">
       <View
+        testID="delete-account-screen"
         className="gap-5 rounded-[24px] bg-white px-5 py-6"
         style={{ boxShadow: "0 2px 8px rgba(39, 39, 42, 0.14)" }}
       >
@@ -950,7 +1030,10 @@ function DeleteAccountConfirmationCard({
           <Text className="text-[19px] font-bold leading-6 text-[#27272A]">
             Final confirmation
           </Text>
-          <Text className="text-[14px] leading-6 text-[#71717B]">
+          <Text
+            testID="delete-account-warning-text"
+            className="text-[14px] leading-6 text-[#71717B]"
+          >
             This action cannot be undone. Export your journal first if you want
             to keep a copy.
           </Text>
@@ -976,6 +1059,8 @@ function DeleteAccountConfirmationCard({
         </View>
 
         <Pressable
+          testID="delete-account-export-button"
+          accessibilityLabel="Export journal before deleting account"
           accessibilityRole="button"
           className="h-11 items-center justify-center rounded-full bg-[#F4F4F5]"
           disabled={deletionRequestInFlight}
@@ -991,6 +1076,7 @@ function DeleteAccountConfirmationCard({
             Type DELETE to continue
           </Text>
           <TextInput
+            testID="delete-account-confirm-input"
             accessibilityLabel='Confirmation input. Type DELETE to confirm account deletion.'
             autoCapitalize="characters"
             className="h-12 rounded-[16px] border border-[#FCA5A5] bg-[#FFF7FB] px-4 text-[16px] font-semibold leading-5 text-[#27272A]"
@@ -1003,7 +1089,10 @@ function DeleteAccountConfirmationCard({
         </View>
 
         {deletionRequestInFlight ? (
-          <View className="gap-2 rounded-[18px] bg-[#FFF1F5] px-4 py-4">
+          <View
+            testID="delete-account-loading-indicator"
+            className="gap-2 rounded-[18px] bg-[#FFF1F5] px-4 py-4"
+          >
             <View className="flex-row items-center gap-3">
               <ActivityIndicator color="#FF2056" size="small" />
               <Text className="text-[14px] font-semibold leading-5 text-[#27272A]">
@@ -1018,6 +1107,9 @@ function DeleteAccountConfirmationCard({
 
         <View className="gap-3">
           <Pressable
+            testID="delete-account-confirm-button"
+            accessibilityLabel="Delete account"
+            accessibilityHint="Permanently deletes your DearDiary account and data"
             accessibilityRole="button"
             accessibilityState={{ disabled: !canConfirm }}
             className="h-12 items-center justify-center rounded-full"
@@ -1036,6 +1128,8 @@ function DeleteAccountConfirmationCard({
           </Pressable>
 
           <Pressable
+            testID="delete-account-cancel-button"
+            accessibilityLabel="Cancel account deletion"
             accessibilityRole="button"
             accessibilityState={{ disabled: deletionRequestInFlight }}
             className="h-11 items-center justify-center rounded-full bg-[#F4F4F5]"

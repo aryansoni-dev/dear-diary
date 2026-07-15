@@ -231,6 +231,7 @@ export default function OnboardingScreenFour() {
         >
           <Link href={nextHref} asChild>
             <Pressable
+              testID="onboarding-next-button"
               accessibilityLabel="Next onboarding screen"
               accessibilityRole="button"
               className="w-full items-center justify-center rounded-full"
@@ -251,6 +252,7 @@ export default function OnboardingScreenFour() {
 
           <Link href={backHref} asChild>
             <Pressable
+              testID="onboarding-back-button"
               accessibilityLabel="Previous onboarding screen"
               accessibilityRole="button"
               className="px-4 py-1"

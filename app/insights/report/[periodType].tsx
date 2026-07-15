@@ -1,5 +1,11 @@
 import { useAuth } from "@clerk/expo";
-import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
+import {
+  Redirect,
+  Stack,
+  type Href,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
 import { ChevronLeft, RefreshCw } from "lucide-react-native";
 import { useMemo } from "react";
 import {
@@ -39,18 +45,18 @@ import {
 import { FeatureErrorBoundary } from "@/components/errors/FeatureErrorBoundary";
 import { ReportStatGrid } from "@/components/insights/report/ReportStatGrid";
 import { reportColors } from "@/constants/report-theme";
-import { useAppDialog } from "@/hooks/useAppDialog";
 import { useAIInsightReport } from "@/hooks/useAIInsightReport";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
+import { useReportAccessActions } from "@/hooks/useReportAccessActions";
 import {
   getCurrentReportPeriod,
   isAIInsightPeriodType,
 } from "@/lib/insights/reportPeriods";
 
 export default function AIInsightReportScreen() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { showDialog } = useAppDialog();
   const params = useLocalSearchParams<{ periodType?: string }>();
   const periodTypeParam = Array.isArray(params.periodType)
     ? params.periodType[0]
@@ -64,28 +70,22 @@ export default function AIInsightReportScreen() {
   const reportState = useAIInsightReport(period, {
     enabled: isValidPeriodType,
   });
+  const reportFeature =
+    period.type === "weekly" ? "weekly_report" : "monthly_report";
+  const reportAccess = useFeatureAccess(reportFeature, userId);
+  const {
+    fairUseLimitMessage,
+    handleGenerate,
+    handleRegenerate,
+  } = useReportAccessActions({
+    feature: reportFeature,
+    reportAccess,
+    reportState,
+    userId,
+  });
   const bottomNavHeight = bottomTabBarBaseHeight + insets.bottom;
   const minimumEntries = period.type === "weekly" ? 2 : 3;
   const hasEnoughEntries = reportState.availableEntryCount >= minimumEntries;
-
-  function handleGenerate() {
-    void reportState.generate();
-  }
-
-  function handleRegenerate() {
-    showDialog({
-      cancelText: "Keep Current",
-      confirmText: "Regenerate",
-      icon: "✦",
-      message:
-        "DearDiary will analyze this period again and replace the current visual reflection.",
-      onConfirm: () => {
-        void reportState.regenerate();
-      },
-      showCancel: true,
-      title: "Regenerate reflection?",
-    });
-  }
 
   if (!isLoaded) {
     return null;
@@ -117,6 +117,41 @@ export default function AIInsightReportScreen() {
     );
   }
 
+  if (
+    period.type === "monthly" &&
+    !reportAccess.allowed &&
+    reportAccess.reason !== "Pro_fair_use_exhausted"
+  ) {
+    return (
+      <ReportShell bottomNavHeight={bottomNavHeight} insetsTop={insets.top}>
+        <View className="flex-1 items-center justify-center px-6">
+          <Text
+            allowFontScaling={false}
+            className="text-center text-[24px] font-bold leading-6 text-[#18181B]"
+          >
+            Monthly AI reports are included with DearDiary Pro.
+          </Text>
+          <Text
+            allowFontScaling={false}
+            className="mt-3 text-center text-[16px] leading-6 text-[#71717B]"
+          >
+            Unlock monthly summaries, advanced patterns, and long-term writing
+            insights.
+          </Text>
+          <PrimaryButton
+            label="View Pro"
+            onPress={() =>
+              router.push({
+                pathname: "/paywall",
+                params: { feature: "monthly_report" },
+              } as unknown as Href)
+            }
+          />
+        </View>
+      </ReportShell>
+    );
+  }
+
   return (
     <ReportShell bottomNavHeight={bottomNavHeight} insetsTop={insets.top}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -126,6 +161,7 @@ export default function AIInsightReportScreen() {
         onRetry={reportState.refresh}
       >
         <ScrollView
+          testID={`${period.type}-report-content`}
           className="flex-1"
           contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
@@ -138,6 +174,7 @@ export default function AIInsightReportScreen() {
         >
         <View className="flex-row items-center justify-between">
           <AnimatedIconButton
+            testID={`${period.type}-report-back-button`}
             accessibilityLabel="Back to Insights"
             onPress={() => router.back()}
           >
@@ -150,6 +187,7 @@ export default function AIInsightReportScreen() {
             Reflection Report
           </Text>
           <AnimatedIconButton
+            testID={`${period.type}-report-refresh-button`}
             accessibilityLabel="Refresh report"
             disabled={reportState.isLoading || reportState.isGenerating}
             isBusy={reportState.isLoading}
@@ -161,6 +199,10 @@ export default function AIInsightReportScreen() {
             <RefreshCw color={reportColors.primary} size={20} strokeWidth={2.4} />
           </AnimatedIconButton>
         </View>
+
+        {fairUseLimitMessage ? (
+          <ErrorBanner message={fairUseLimitMessage} />
+        ) : null}
 
         {reportState.error ? (
           <ErrorBanner

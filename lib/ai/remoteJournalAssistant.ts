@@ -73,10 +73,7 @@ export const generateRemoteJournalResponse = async (params: {
       );
     }
 
-    throw new RemoteJournalAssistantError(
-      "DearDiary AI is unavailable.",
-      "remote_unavailable",
-    );
+    throw await getUserFacingFunctionError(error);
   }
 
   if (!isRemoteJournalResponse(data)) {
@@ -114,6 +111,38 @@ function isRemoteJournalResponse(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+async function getUserFacingFunctionError(error: unknown) {
+  if (error instanceof FunctionsHttpError) {
+    const body = await readFunctionErrorBody(error.context);
+
+    if (body?.code === "QUOTA_EXHAUSTED") {
+      return new RemoteJournalAssistantError(
+        "You've used your free AI Chat messages for this month. Upgrade to DearDiary Pro for more AI reflection support.",
+        "quota_exhausted",
+      );
+    }
+
+    if (body?.code === "PRO_FAIR_USE_EXHAUSTED") {
+      return new RemoteJournalAssistantError(
+        "You've reached this month's DearDiary Pro fair-use limit for AI Chat. Please try again next month.",
+        "pro_fair_use_exhausted",
+      );
+    }
+  }
+
+  if (error instanceof FunctionsFetchError) {
+    return new RemoteJournalAssistantError(
+      "AI Chat needs an internet connection.",
+      "network_unavailable",
+    );
+  }
+
+  return new RemoteJournalAssistantError(
+    "DearDiary AI is unavailable.",
+    "remote_unavailable",
+  );
 }
 
 async function getFunctionErrorDetails(error: unknown) {

@@ -85,7 +85,7 @@ export const generateEntryReflection = async (params: {
       );
     }
 
-    throw getUserFacingFunctionError(error);
+    throw await getUserFacingFunctionError(error);
   }
 
   if (!isGenerateEntryReflectionResponse(data)) {
@@ -256,7 +256,7 @@ function getEntryReflectionClient() {
   }
 }
 
-function getUserFacingFunctionError(error: unknown) {
+async function getUserFacingFunctionError(error: unknown) {
   if (error instanceof FunctionsFetchError) {
     return new EntryReflectionServiceError(
       "AI reflection needs an internet connection. Your journal entry is still saved safely.",
@@ -265,8 +265,10 @@ function getUserFacingFunctionError(error: unknown) {
   }
 
   if (error instanceof FunctionsHttpError) {
+    const body = await readFunctionErrorBody(error.context);
+
     return new EntryReflectionServiceError(
-      getHttpErrorMessage(error.context),
+      getHttpErrorMessage(error.context, body),
       "function_http_error",
     );
   }
@@ -284,7 +286,10 @@ function getUserFacingFunctionError(error: unknown) {
   );
 }
 
-function getHttpErrorMessage(response: unknown) {
+function getHttpErrorMessage(
+  response: unknown,
+  body?: FunctionErrorBody | null,
+) {
   if (!(response instanceof Response)) {
     return "DearDiary AI is unavailable right now.";
   }
@@ -297,8 +302,16 @@ function getHttpErrorMessage(response: unknown) {
     return "This journal entry could not be found.";
   }
 
+  if (body?.code === "QUOTA_EXHAUSTED") {
+    return "You've used your free AI reflections for this month. Upgrade to DearDiary Pro for more reflections, reports, and insights.";
+  }
+
+  if (body?.code === "PRO_FAIR_USE_EXHAUSTED") {
+    return "You've reached this month's DearDiary Pro fair-use limit for AI reflections. Please try again next month.";
+  }
+
   if (response.status === 503) {
-    return "AI reflections are still being set up. Please try again after the database migration is applied.";
+    return "AI reflections are still being set up. Please try again after subscription usage tracking is configured.";
   }
 
   if (response.status === 502) {
@@ -307,6 +320,11 @@ function getHttpErrorMessage(response: unknown) {
 
   return "DearDiary AI is unavailable right now.";
 }
+
+type FunctionErrorBody = {
+  code?: string;
+  requestId?: string;
+};
 
 async function getFunctionErrorDetails(error: unknown) {
   if (error instanceof FunctionsHttpError) {

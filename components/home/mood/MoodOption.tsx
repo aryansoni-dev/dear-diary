@@ -7,6 +7,7 @@ type MoodOptionProps = {
   isSelected: boolean;
   mood: MoodMetadata;
   onPress: () => void;
+  testID?: string;
 };
 
 export function MoodOption({
@@ -14,9 +15,11 @@ export function MoodOption({
   isSelected,
   mood,
   onPress,
+  testID,
 }: MoodOptionProps) {
   return (
     <Pressable
+      testID={testID}
       accessibilityHint="Select this mood for your current check-in"
       accessibilityLabel={mood.label}
       accessibilityRole="radio"

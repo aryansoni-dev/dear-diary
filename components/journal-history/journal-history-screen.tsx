@@ -203,6 +203,7 @@ export function JournalHistoryScreen() {
       />
 
       <ScrollView
+        testID="history-screen"
         className="flex-1"
         contentContainerStyle={{
           paddingBottom: bottomNavHeight + 30,
@@ -216,6 +217,7 @@ export function JournalHistoryScreen() {
             eyebrow="Your Reflections"
             rightAccessory={
               <AnimatedIconButton
+                testID="history-create-entry-button"
                 accessibilityLabel="Create journal entry"
                 onPress={() => router.push(newJournalEntryHref)}
                 shadow="0 2px 7px rgba(39, 39, 42, 0.18)"
@@ -245,6 +247,7 @@ export function JournalHistoryScreen() {
               >
                 <Search size={22} color={colors.muted} strokeWidth={2.2} />
                 <TextInput
+                  testID="history-search-input"
                   accessibilityLabel="Search journal entries"
                   className="ml-3 flex-1 text-[15px] leading-5 text-zinc-700"
                   onChangeText={setSearchQuery}
@@ -256,6 +259,7 @@ export function JournalHistoryScreen() {
             </View>
 
             <ScrollView
+              testID="history-filter-list"
               className="p-2"
               contentContainerStyle={{
                 gap: 8,
@@ -269,6 +273,8 @@ export function JournalHistoryScreen() {
 
                 return (
                   <Pressable
+                    testID={`history-mood-filter-${filter.id}-button`}
+                    accessibilityLabel={`Filter history by ${filter.label}`}
                     accessibilityRole="button"
                     className="h-9 shrink-0 flex-row items-center justify-center rounded-full px-4"
                     key={filter.label}
@@ -339,7 +345,7 @@ export function JournalHistoryScreen() {
               ))}
             </ScrollView>
 
-            <View className="gap-4 px-6 pt-5">
+            <View testID="history-entry-list" className="gap-4 px-6 pt-5">
               {hydrationError ? (
                 <ScreenErrorState
                   error={hydrationError}
@@ -351,6 +357,7 @@ export function JournalHistoryScreen() {
                 ) : null
               ) : viewState.emptyReason === "first_use" ? (
                 <ScreenEmptyState
+                  testID="history-empty-state"
                   actionLabel="Write an entry"
                   message="Write your first entry and it will appear here."
                   onAction={() => router.push(newJournalEntryHref)}
@@ -542,7 +549,8 @@ function TimelineEntry({
 }) {
   return (
     <Pressable
-      accessibilityLabel={`Open ${entry.title}`}
+      testID={`history-entry-card-${entry.id}`}
+      accessibilityLabel="Open journal history entry"
       accessibilityRole="button"
       className="relative pl-6"
       onPress={onPress}

@@ -32,6 +32,7 @@ type ProfileMenuItemBase = {
   iconColor: string;
   label: string;
   subtitle?: string;
+  testID?: string;
 };
 
 type FeatherMenuItem = ProfileMenuItemBase & {
@@ -115,12 +116,14 @@ export const preferenceItems: ProfileMenuItem[] = [
     icon: "bell",
     iconColor: "#FF2056",
     label: "Notifications",
+    testID: "settings-notifications-row",
   },
   {
     backgroundColor: "#D8F0FE",
     icon: "lock",
     iconColor: "#51515B",
     label: "Privacy & Security",
+    testID: "settings-privacy-row",
   },
   {
     backgroundColor: "#F0DDFB",
@@ -128,6 +131,7 @@ export const preferenceItems: ProfileMenuItem[] = [
     iconSet: "ionicons",
     iconColor: "#51515B",
     label: "Theme",
+    testID: "settings-theme-row",
   },
 ];
 
@@ -137,6 +141,7 @@ export const accountItems: ProfileMenuItem[] = [
     icon: "refresh-cw",
     iconColor: "#51515B",
     label: "Backup & Sync Data",
+    testID: "profile-backup-button",
   },
   {
     backgroundColor: "#FFE1EE",
@@ -145,17 +150,20 @@ export const accountItems: ProfileMenuItem[] = [
     iconSet: "material-community",
     iconColor: "#FF2056",
     label: "Premium Membership",
+    testID: "profile-upgrade-plus-button",
   },
   {
     backgroundColor: "#D8F0FE",
     icon: "download",
     iconColor: "#51515B",
     label: "Export Journal",
+    testID: "profile-export-button",
   },
   {
     backgroundColor: "#FFE1EE",
     icon: "trash-2",
     iconColor: "#FF2056",
     label: "Delete My Data and Account",
+    testID: "profile-delete-account-button",
   },
 ];

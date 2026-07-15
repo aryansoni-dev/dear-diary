@@ -45,6 +45,7 @@ export function EntryAIReflectionCard({
     if (isLoading) {
       return (
         <View
+          testID="entry-reflection-loading"
           className="mt-8 rounded-[28px] bg-white p-5"
           style={{ boxShadow: "0 6px 18px rgba(39, 39, 42, 0.12)" }}
         >
@@ -73,6 +74,7 @@ export function EntryAIReflectionCard({
 
     return (
       <View
+        testID="entry-reflection-screen"
         className="mt-8 rounded-[28px] bg-white p-5"
         style={{ boxShadow: "0 6px 18px rgba(39, 39, 42, 0.12)" }}
       >
@@ -95,6 +97,7 @@ export function EntryAIReflectionCard({
 
         {error ? (
           <Text
+            testID="entry-reflection-error-message"
             className="mt-4 text-[14px] text-[#DC2626]"
             selectable
             style={smallTextStyle}
@@ -104,6 +107,9 @@ export function EntryAIReflectionCard({
         ) : null}
 
         <ReflectionButton
+          testID="entry-reflection-generate-button"
+          accessibilityLabel="Generate AI reflection"
+          accessibilityHint="Creates an AI reflection for this journal entry"
           disabled={isGenerating}
           isLoading={isGenerating}
           label={isGenerating ? "DearDiary is reflecting..." : "Reflect with AI"}
@@ -115,6 +121,7 @@ export function EntryAIReflectionCard({
 
   return (
     <View
+      testID="entry-reflection-screen"
       className="mt-8 rounded-[28px] bg-white p-5"
       style={{ boxShadow: "0 6px 18px rgba(39, 39, 42, 0.12)" }}
     >
@@ -148,32 +155,46 @@ export function EntryAIReflectionCard({
         </View>
       ) : null}
 
-      <ReflectionTextSection title="Summary" value={reflection.summary} />
+      <ReflectionTextSection
+        testID="entry-reflection-summary-section"
+        title="Summary"
+        value={reflection.summary}
+      />
 
       <ReflectionChipSection
+        testID="entry-reflection-emotions-section"
         items={reflection.emotions}
         title="Emotions"
       />
 
-      <ReflectionChipSection items={reflection.themes} title="Themes" />
+      <ReflectionChipSection
+        chipTestIdPrefix="entry-reflection-theme-chip"
+        testID="entry-reflection-themes-section"
+        items={reflection.themes}
+        title="Themes"
+      />
 
       <ReflectionTextSection
+        testID="entry-reflection-observation-section"
         title="Something I noticed"
         value={reflection.observation}
       />
 
       <ReflectionTextSection
+        testID="entry-reflection-question-section"
         title="Reflection question"
         value={reflection.followUpQuestion}
       />
 
       <ReflectionTextSection
+        testID="entry-reflection-next-step-section"
         title="Gentle next step"
         value={reflection.suggestion}
       />
 
       {error ? (
         <Text
+          testID="entry-reflection-error-message"
           className="mt-5 text-[14px] text-[#DC2626]"
           selectable
           style={smallTextStyle}
@@ -184,6 +205,9 @@ export function EntryAIReflectionCard({
       ) : null}
 
       <ReflectionButton
+        testID="entry-reflection-regenerate-button"
+        accessibilityLabel={isStale ? "Update AI reflection" : "Regenerate AI reflection"}
+        accessibilityHint="Creates a fresh AI reflection for this journal entry"
         disabled={isBusy}
         icon={<RefreshCw color="white" size={18} strokeWidth={2.4} />}
         isLoading={isGenerating}
@@ -201,9 +225,11 @@ export function EntryAIReflectionCard({
 }
 
 function ReflectionTextSection({
+  testID,
   title,
   value,
 }: {
+  testID?: string;
   title: string;
   value: string | null;
 }) {
@@ -212,7 +238,7 @@ function ReflectionTextSection({
   }
 
   return (
-    <View className="mt-5">
+    <View testID={testID} className="mt-5">
       <Text className="text-[11px] font-semibold uppercase leading-5 tracking-[2.2px] text-[#A1A1AA]">
         {title}
       </Text>
@@ -228,10 +254,14 @@ function ReflectionTextSection({
 }
 
 function ReflectionChipSection({
+  chipTestIdPrefix,
   items,
+  testID,
   title,
 }: {
+  chipTestIdPrefix?: string;
   items: string[];
+  testID?: string;
   title: string;
 }) {
   if (items.length === 0) {
@@ -239,13 +269,18 @@ function ReflectionChipSection({
   }
 
   return (
-    <View className="mt-5">
+    <View testID={testID} className="mt-5">
       <Text className="text-[11px] font-semibold uppercase leading-5 tracking-[2.2px] text-[#A1A1AA]">
         {title}
       </Text>
       <View className="mt-3 flex-row flex-wrap gap-2">
         {items.map((item) => (
           <View
+            testID={
+              chipTestIdPrefix
+                ? `${chipTestIdPrefix}-${normalizeTestIdSegment(item)}`
+                : undefined
+            }
             className="rounded-full px-3 py-2"
             key={item}
             style={{ backgroundColor: colors.chipBackground }}
@@ -265,20 +300,29 @@ function ReflectionChipSection({
 }
 
 function ReflectionButton({
+  accessibilityHint,
+  accessibilityLabel,
   disabled,
   icon,
   isLoading,
   label,
   onPress,
+  testID,
 }: {
+  accessibilityHint?: string;
+  accessibilityLabel?: string;
   disabled: boolean;
   icon?: ReactNode;
   isLoading: boolean;
   label: string;
   onPress: () => void;
+  testID?: string;
 }) {
   return (
     <Pressable
+      testID={testID}
+      accessibilityHint={accessibilityHint}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       className="mt-5 min-h-[52px] flex-row items-center justify-center gap-2 rounded-full px-5"
@@ -304,5 +348,15 @@ function ReflectionButton({
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+function normalizeTestIdSegment(value: string) {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "theme"
   );
 }

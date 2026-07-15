@@ -25,13 +25,13 @@ type UseEntryReflectionParams = {
 
 type UseEntryReflectionResult = {
   error: string | null;
-  generate: () => Promise<void>;
+  generate: () => Promise<boolean>;
   isGenerating: boolean;
   isLoading: boolean;
   isStale: boolean;
   reflection: EntryAIReflection | null;
   refresh: () => Promise<void>;
-  regenerate: () => Promise<void>;
+  regenerate: () => Promise<boolean>;
 };
 
 export function useEntryReflection({
@@ -140,7 +140,7 @@ export function useEntryReflection({
   const runGeneration = useCallback(
     async (regenerate: boolean) => {
       if (!canUseReflection || !entryId || !userId || isGenerating) {
-        return;
+        return false;
       }
 
       if (cacheHydrationError) {
@@ -152,12 +152,12 @@ export function useEntryReflection({
             cacheHydrationError;
 
           setError(currentError.userMessage);
-          return;
+          return false;
         }
       }
 
       if (!cacheHasHydrated) {
-        return;
+        return false;
       }
 
       const requestGeneration = requestGenerationRef.current;
@@ -171,7 +171,7 @@ export function useEntryReflection({
         });
 
         if (requestGenerationRef.current !== requestGeneration) {
-          return;
+          return false;
         }
 
         if (generatedReflection.userId === userId) {
@@ -183,13 +183,18 @@ export function useEntryReflection({
 
           upsertReflection(reflectionForLocalCache);
           setRemoteReflection(reflectionForLocalCache);
+          return true;
         }
+
+        setError("AI reflection could not be loaded for this account.");
+        return false;
       } catch (generationError) {
         if (requestGenerationRef.current !== requestGeneration) {
-          return;
+          return false;
         }
 
         setError(getReflectionErrorMessage(generationError));
+        return false;
       } finally {
         if (requestGenerationRef.current === requestGeneration) {
           setIsGenerating(false);

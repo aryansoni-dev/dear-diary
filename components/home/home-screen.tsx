@@ -250,6 +250,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
       />
 
       <ScrollView
+        testID="home-screen"
         className="flex-1"
         contentContainerStyle={{
           paddingBottom: bottomNavHeight + 28,
@@ -283,6 +284,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
         </View>
 
         <View
+          testID="home-writing-streak-card"
           className="mb-7 flex-row items-center gap-4 rounded-[20px] bg-white px-6 py-5"
           style={{ boxShadow: "0 6px 20px rgba(0, 0, 0, 0.08)" }}
         >
@@ -299,6 +301,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
 
         {shouldShowReflectionCard ? (
           <View
+            testID="home-ai-prompt-card"
             className="mb-9 w-full overflow-hidden rounded-[30px] border-[6px] border-white/80 bg-[#F9E2EC]"
             style={{
               boxShadow: "0 20px 48px -22px rgba(190, 80, 125, 0.5)",
@@ -324,11 +327,15 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
                 </Text>
               </View>
 
-              <Text className="mb-3 text-[21px] font-semibold leading-6 text-[#27272A]">
+              <Text
+                testID="home-ai-prompt-text"
+                className="mb-3 text-[21px] font-semibold leading-6 text-[#27272A]"
+              >
                 {reflectionCardText}
               </Text>
 
               <Pressable
+                testID="home-ai-prompt-open-button"
                 accessibilityLabel={
                   reflectionPrompt
                     ? `Start writing about: ${reflectionPrompt}`
@@ -353,6 +360,7 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
             Morning Intention
           </Text>
           <View
+            testID="home-morning-intention-card"
             className="w-full overflow-hidden rounded-[30px] border-[6px] border-white/80 bg-[#E8F4E3]"
             style={{
               aspectRatio: homeScenicCardAspectRatio,
@@ -377,6 +385,12 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
                 {intentionSubtitle}
               </Text>
               <Pressable
+                testID="home-morning-intention-open-button"
+                accessibilityLabel={
+                  morningIntention
+                    ? "Open morning intention"
+                    : "Write morning intention"
+                }
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !hasHydrated }}
                 className="mt-auto h-[52px] justify-center rounded-[17px] bg-white/70 px-4"
@@ -407,11 +421,16 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
           </View>
         </View>
 
-        <View className="mb-5 flex-row items-center justify-between">
+        <View
+          testID="home-recent-entries-section"
+          className="mb-5 flex-row items-center justify-between"
+        >
           <Text className="text-[24px] font-semibold leading-8 text-[#27272A]">
             Recent Entries
           </Text>
           <Pressable
+            testID="home-recent-entries-see-all-button"
+            accessibilityLabel="See all recent entries"
             accessibilityRole="button"
             hitSlop={12}
             onPress={() => router.push(journalHistoryHref)}
@@ -446,7 +465,8 @@ export function HomeScreen({ avatarUrl, firstName }: HomeScreenProps) {
           ) : (
             recentJournalEntries.map((entry) => (
               <Pressable
-                accessibilityLabel={`Open ${entry.title}`}
+                testID={`home-recent-entry-card-${entry.id}`}
+                accessibilityLabel="Open recent journal entry"
                 accessibilityRole="button"
                 className="rounded-[24px] border bg-white px-5 py-5"
                 key={entry.id}
@@ -556,6 +576,8 @@ function RecentEntriesEmptyState({
       <Text className="text-[17px] leading-5 text-zinc-950/60">{body}</Text>
       {ctaLabel && onCtaPress ? (
         <Pressable
+          testID="home-empty-entry-open-button"
+          accessibilityLabel={ctaLabel}
           accessibilityRole="button"
           className="mt-5 min-h-[46px] items-center justify-center rounded-full bg-[#FF2056] px-5"
           onPress={onCtaPress}

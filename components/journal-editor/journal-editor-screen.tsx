@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import LottieView from "lottie-react-native";
 import { Check, ChevronLeft, Sparkles, Trash2, X } from "lucide-react-native";
@@ -35,6 +35,7 @@ import { useAutoSync } from "@/hooks/useAutoSync";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useDelayedVisibility } from "@/hooks/useDelayedVisibility";
 import { useEntryReflection } from "@/hooks/useEntryReflection";
+import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { normalizeAppError } from "@/lib/errors/normalizeAppError";
 import { reportAppError } from "@/lib/errors/reportAppError";
 import { formatTagLabel, normalizeTag, normalizeTags } from "@/lib/tags";
@@ -44,6 +45,7 @@ import {
   useJournalStore,
 } from "@/store/journal-store";
 import { useEntryReflectionStore } from "@/store/useEntryReflectionStore";
+import { useAIUsageStore } from "@/store/useAIUsageStore";
 import { useSyncStore } from "@/store/useSyncStore";
 import type { ConnectivityStatus } from "@/types/connectivity";
 import type {
@@ -165,6 +167,10 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
     entryUpdatedAt: entry?.updatedAt ?? null,
     userId: activeUserId,
   });
+  const entryReflectionAccess = useFeatureAccess(
+    "entry_reflection",
+    activeUserId,
+  );
 
   useEffect(() => {
     if (!entry) {
@@ -401,19 +407,59 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
   }
 
   async function handleGenerateReflection() {
+    if (!canUseEntryReflectionAccess()) {
+      return;
+    }
+
     const canGenerate = await syncEntryBeforeReflection();
 
     if (canGenerate) {
-      await entryReflection.generate();
+      const generated = await entryReflection.generate();
+      if (generated && activeUserId) {
+        useAIUsageStore
+          .getState()
+          .incrementMonthlyUsage(activeUserId, "entry_reflection");
+      }
     }
   }
 
   async function handleConfirmedRegenerateReflection() {
+    if (!canUseEntryReflectionAccess()) {
+      return;
+    }
+
     const canRegenerate = await syncEntryBeforeReflection();
 
     if (canRegenerate) {
-      await entryReflection.regenerate();
+      const regenerated = await entryReflection.regenerate();
+      if (regenerated && activeUserId) {
+        useAIUsageStore
+          .getState()
+          .incrementMonthlyUsage(activeUserId, "entry_reflection");
+      }
     }
+  }
+
+  function canUseEntryReflectionAccess() {
+    if (entryReflectionAccess.allowed) {
+      return true;
+    }
+
+    if (entryReflectionAccess.reason === "Pro_fair_use_exhausted") {
+      showDialog({
+        confirmText: "OK",
+        message:
+          "You've reached this month's DearDiary Pro fair-use limit for AI reflections. Please try again next month.",
+        title: "Monthly AI reflection limit reached",
+      });
+      return false;
+    }
+
+    router.push({
+      pathname: "/paywall",
+      params: { feature: "entry_reflection" },
+    } as unknown as Href);
+    return false;
   }
 
   function handleButtonPressOut(scaleValue: Animated.Value) {
@@ -458,6 +504,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       <View className="flex-1 bg-white">
         <StatusBar hidden />
         <View
+          testID="journal-editor-missing-entry"
           className="flex-1 items-center justify-center px-8"
           style={{ paddingBottom: bottomNavHeight }}
         >
@@ -468,6 +515,8 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
             This journal entry may have been deleted.
           </Text>
           <Pressable
+            testID="journal-editor-return-history-button"
+            accessibilityLabel="Return to journal history"
             accessibilityRole="button"
             className="mt-6 h-12 items-center justify-center rounded-full bg-[#FF2056] px-6"
             onPress={() => router.replace("/journal-history")}
@@ -490,6 +539,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       <StatusBar hidden />
 
       <ScrollView
+        testID="journal-editor-screen"
         ref={scrollViewRef}
         className="flex-1"
         contentContainerStyle={{
@@ -504,6 +554,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
       >
         <View className="mb-8 flex-row items-center justify-between">
           <AnimatedIconButton
+            testID="journal-editor-back-button"
             accessibilityLabel="Go back"
             onPress={handleGoBack}
             shadow="0 2px 7px rgba(39, 39, 42, 0.16)"
@@ -523,6 +574,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
           <View className="flex-row items-center gap-2">
             {isEditing ? (
               <Pressable
+                testID="journal-editor-delete-button"
                 accessibilityLabel="Delete journal entry"
                 accessibilityRole="button"
                 onPress={handleDelete}
@@ -545,6 +597,8 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
             ) : null}
 
             <Pressable
+              testID="journal-editor-save-button"
+              accessibilityLabel={saveButtonLabel}
               accessibilityRole="button"
               accessibilityState={{ disabled: !canSave }}
               disabled={!canSave}
@@ -572,6 +626,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
                   strokeWidth={2.6}
                 />
                 <Text
+                  testID="journal-editor-sync-status"
                   className="text-[17px] font-semibold leading-6"
                   style={{ color: canSave ? "white" : colors.placeholder }}
                 >
@@ -632,6 +687,8 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
 
               return (
                 <Pressable
+                  testID={`journal-editor-mood-${mood.id}-button`}
+                  accessibilityLabel={`Set mood to ${mood.label}`}
                   accessibilityRole="button"
                   className="h-[52px] shrink-0 flex-row items-center justify-center gap-2 rounded-full px-5"
                   key={mood.label}
@@ -674,6 +731,7 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
           <View className="flex-row flex-wrap gap-2">
             {tags.map((tag) => (
               <Pressable
+                testID={`journal-editor-tag-chip-${normalizeTestIdSegment(tag)}`}
                 accessibilityLabel={`Remove ${formatTagLabel(tag)} tag`}
                 accessibilityRole="button"
                 className="h-10 flex-row items-center justify-center gap-2 rounded-full bg-[#FFE8F0] px-4"
@@ -687,6 +745,8 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
               </Pressable>
             ))}
             <Pressable
+              testID="journal-editor-add-tag-button"
+              accessibilityLabel="Add journal tag"
               accessibilityRole="button"
               onPress={() => setIsTagInputVisible(true)}
               onPressIn={() => handleButtonPressIn(addTagButtonScale)}
@@ -719,6 +779,8 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
           {!hasPromptTitle ? (
             <>
               <TextInput
+                testID="journal-editor-title-input"
+                accessibilityHint="Enter a title for your journal entry"
                 accessibilityLabel="Journal title"
                 className="min-h-[58px] text-[30px] font-bold leading-8 text-zinc-950"
                 onChangeText={(value) => {
@@ -734,6 +796,8 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
           ) : null}
           <View className="h-px w-full bg-zinc-200" />
           <TextInput
+            testID="journal-editor-body-input"
+            accessibilityHint="Write the body of your journal entry"
             accessibilityLabel="Journal entry"
             className={`${hasPromptTitle ? "" : "pt-6"} text-[20px] leading-6 text-zinc-950`}
             multiline
@@ -785,6 +849,8 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
 
       <BottomTabBar activeTab={activeTab} />
       <TagInputModal
+        inputTestID="journal-editor-tag-input"
+        submitTestID="journal-editor-tag-submit-button"
         onAddTag={handleAddTag}
         onClose={() => setIsTagInputVisible(false)}
         visible={isTagInputVisible}
@@ -795,6 +861,16 @@ export function JournalEditorScreen({ entryId }: JournalEditorScreenProps) {
 
 function isEntryType(value: string | undefined): value is EntryType {
   return entryTypes.includes(value as EntryType);
+}
+
+function normalizeTestIdSegment(value: string) {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "tag"
+  );
 }
 
 function AnimatedMoodEmoji({

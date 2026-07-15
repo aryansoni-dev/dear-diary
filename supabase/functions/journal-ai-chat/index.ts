@@ -1,5 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 
+import {
+  releaseAIUsageReservation,
+  reserveAIUsageAccess,
+} from "../_shared/subscriptionAccess.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
@@ -480,6 +485,17 @@ Deno.serve(async (request) => {
       requestId,
     });
 
+    const usageAccess = await reserveAIUsageAccess({
+      feature: "ai_chat",
+      requestId,
+      userId: authClaims.sub,
+    });
+
+    if (!usageAccess.ok) {
+      return jsonResponse(usageAccess.body, usageAccess.status);
+    }
+    const usageReservation = usageAccess.reservation;
+
     try {
       const assistantMessage = await callAIProvider(summaryPrompt, {
         maxTokens: 950,
@@ -528,6 +544,8 @@ Deno.serve(async (request) => {
         requestId,
       });
 
+      await releaseAIUsageReservation(usageReservation, requestId);
+
       return jsonResponse(
         {
           error: "The AI service is temporarily unavailable.",
@@ -568,6 +586,17 @@ Deno.serve(async (request) => {
     useJournalContext,
   });
 
+  const usageAccess = await reserveAIUsageAccess({
+    feature: "ai_chat",
+    requestId,
+    userId: authClaims.sub,
+  });
+
+  if (!usageAccess.ok) {
+    return jsonResponse(usageAccess.body, usageAccess.status);
+  }
+  const usageReservation = usageAccess.reservation;
+
   try {
     const assistantMessage = await callAIProvider(finalPrompt, { requestId });
 
@@ -606,6 +635,8 @@ Deno.serve(async (request) => {
       ...providerError,
       requestId,
     });
+
+    await releaseAIUsageReservation(usageReservation, requestId);
 
     return jsonResponse(
       {

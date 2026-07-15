@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { Animated, Pressable } from "react-native";
 
 type AnimatedIconButtonProps = {
+  accessibilityHint?: string;
   accessibilityLabel: string;
   children: ReactNode;
   disabled?: boolean;
@@ -11,9 +12,11 @@ type AnimatedIconButtonProps = {
   shadow?: string;
   size?: number;
   spinOnPress?: boolean;
+  testID?: string;
 };
 
 export function AnimatedIconButton({
+  accessibilityHint,
   accessibilityLabel,
   children,
   disabled = false,
@@ -22,6 +25,7 @@ export function AnimatedIconButton({
   shadow = "0 4px 14px rgba(39, 39, 42, 0.12)",
   size = 50,
   spinOnPress = false,
+  testID,
 }: AnimatedIconButtonProps) {
   const scaleValue = useRef(new Animated.Value(1)).current;
   const spinValue = useRef(new Animated.Value(0)).current;
@@ -118,6 +122,8 @@ export function AnimatedIconButton({
   return (
     <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
       <Pressable
+        testID={testID}
+        accessibilityHint={accessibilityHint}
         accessibilityLabel={accessibilityLabel}
         accessibilityRole="button"
         accessibilityState={{ disabled }}

@@ -308,6 +308,9 @@ export default function OnboardingScreenOne() {
         >
           <Link href={nextHref} asChild>
             <Pressable
+              testID="onboarding-next-button"
+              accessibilityLabel="Next onboarding screen"
+              accessibilityRole="button"
               className="w-full items-center justify-center rounded-full"
               style={{
                 backgroundColor: colors.brandPrimary,
@@ -322,6 +325,9 @@ export default function OnboardingScreenOne() {
           </Link>
 
           <Pressable
+            testID="onboarding-login-button"
+            accessibilityLabel="I already have an account"
+            accessibilityRole="button"
             className="px-4 py-1"
             onPress={handleExistingAccountPress}
           >

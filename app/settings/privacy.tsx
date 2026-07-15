@@ -68,6 +68,7 @@ export default function PrivacySettingsScreen() {
   return (
     <View className="flex-1 bg-[#FFF7FB]">
       <ScrollView
+        testID="settings-screen"
         className="flex-1"
         contentContainerStyle={{
           paddingBottom: Math.max(insets.bottom + 36, 56),
@@ -79,6 +80,7 @@ export default function PrivacySettingsScreen() {
       >
         <View className="flex-row items-center justify-between">
           <AnimatedIconButton
+            testID="settings-back-button"
             accessibilityLabel="Go back"
             onPress={handleBackPress}
             shadow="0 2px 6px rgba(39, 39, 42, 0.16)"
@@ -100,6 +102,7 @@ export default function PrivacySettingsScreen() {
               icon="file-text"
               label="Privacy Policy"
               onPress={() => router.push(privacyPolicyHref)}
+              testID="profile-privacy-policy-link"
               value=""
             />
             <Divider />
@@ -107,6 +110,7 @@ export default function PrivacySettingsScreen() {
               icon="clipboard"
               label="Terms & Conditions"
               onPress={() => router.push(termsHref)}
+              testID="profile-terms-link"
               value=""
             />
             {accountDeletionUrl ? (
@@ -116,6 +120,7 @@ export default function PrivacySettingsScreen() {
                   icon="external-link"
                   label="External Deletion Page"
                   onPress={() => router.push(accountDeletionUrl as Href)}
+                  testID="settings-external-deletion-row"
                   value="View"
                 />
               </>
@@ -130,6 +135,7 @@ export default function PrivacySettingsScreen() {
               isBusy={busyAction === "disable-lock"}
               label="App Lock"
               onPress={handleAppLockPress}
+              testID="settings-app-lock-row"
               value={isEnabled ? "On" : "Off"}
             />
 

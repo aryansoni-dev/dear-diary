@@ -139,6 +139,7 @@ export function HomeMoodCheckInCard() {
 
   return (
     <View
+      testID="home-mood-card"
       className="mb-9 gap-5 rounded-[24px] bg-white px-5 py-6"
       style={{ boxShadow: "0 12px 34px rgba(0, 0, 0, 0.08)" }}
     >
@@ -165,7 +166,9 @@ export function HomeMoodCheckInCard() {
         disabled={!hasHydrated || Boolean(moodLogHydrationError) || isSaving}
         moods={moodList}
         onSelectMood={handleSelectMood}
+        optionTestIDPrefix="home-mood"
         selectedMoodId={selectedMoodId}
+        testID="home-mood-selector"
       />
 
       {moodLogHydrationError ? (
@@ -174,6 +177,8 @@ export function HomeMoodCheckInCard() {
             {helperText}
           </Text>
           <Pressable
+            testID="home-mood-retry-load-button"
+            accessibilityLabel="Retry loading mood check-in"
             accessibilityRole="button"
             className="self-start rounded-full bg-white px-4 py-2"
             onPress={retryMoodLogHydration}
@@ -189,6 +194,8 @@ export function HomeMoodCheckInCard() {
             We could not save this mood on your device. Please try again.
           </Text>
           <Pressable
+            testID="home-mood-retry-save-button"
+            accessibilityLabel="Retry saving mood"
             accessibilityRole="button"
             className="self-start rounded-full bg-white px-4 py-2"
             onPress={handleSaveMood}
@@ -209,6 +216,7 @@ export function HomeMoodCheckInCard() {
         isSaving={isSaving}
         label={actionLabel}
         onPress={handleSaveMood}
+        testID="home-mood-save-button"
       />
     </View>
   );
