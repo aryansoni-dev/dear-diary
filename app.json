@@ -2,14 +2,14 @@
   "expo": {
     "name": "DearDiary",
     "slug": "dear-diary",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "deardiary",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "buildNumber": "6",
+      "buildNumber": "7",
       "supportsTablet": true
     },
     "android": {
@@ -22,7 +22,7 @@
       "icon": "./assets/images/icon.png",
       "package": "com.aryan.deardiary",
       "permissions": ["com.android.vending.BILLING"],
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "backgroundColor": "#FFDDE8",
         "foregroundImage": "./assets/images/icon.png"
@@ -52,12 +52,14 @@
       "@clerk/expo",
       "expo-notifications",
       "expo-secure-store",
+      "expo-dev-client",
       [
         "expo-local-authentication",
         {
           "faceIDPermission": "Allow DearDiary to use Face ID to protect your private journal."
         }
-      ]
+      ],
+      "./plugins/withAndroidReleaseHardening"
     ],
     "experiments": {
       "typedRoutes": true,
