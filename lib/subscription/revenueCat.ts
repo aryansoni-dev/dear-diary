@@ -10,6 +10,8 @@ import { revenueCatEntitlementId } from "@/lib/subscription/constants";
 
 export type RevenueCatPlatform = "android" | "ios";
 
+let isRevenueCatConfigured = false;
+
 export function getRevenueCatPlatform(): RevenueCatPlatform | null {
   if (process.env.EXPO_OS === "android" || process.env.EXPO_OS === "ios") {
     return process.env.EXPO_OS;
@@ -77,8 +79,13 @@ export function getFriendlyRevenueCatError(error: unknown) {
 }
 
 export function configureRevenueCat(apiKey: string, appUserID?: string) {
-  Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.INFO);
+  if (isRevenueCatConfigured) {
+    return;
+  }
+
+  Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.WARN);
   Purchases.configure(appUserID ? { apiKey, appUserID } : { apiKey });
+  isRevenueCatConfigured = true;
 }
 
 function isPurchasesError(error: unknown): error is PurchasesError {

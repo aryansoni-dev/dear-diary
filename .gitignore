@@ -60,6 +60,8 @@ playwright-report/
 junit.xml
 testsprite_tests/
 .maestro/tests/
+security-artifacts/
+Screenshot_*.png
 
 # Local caches and temporary files
 .cache/

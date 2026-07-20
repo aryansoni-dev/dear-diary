@@ -284,3 +284,5 @@ Before every feature:
 - If you see any svgs in the attached design look for them in the '/assets' folder. If we don't have it, try to create them yourself like you created the Google icon in the login screens.
 
 - Keep the text sizes like : headings, subheadings, body text, etc consistent on each screen.
+
+- Don't run eas build command on your own, i'll do it locally myself. Whenever the app needs to be built, just tell me.

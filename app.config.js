@@ -7,13 +7,24 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
-    plugins: (config.plugins || []).map((plugin) =>
-      plugin === "expo-dev-client"
-        ? [
-            "expo-dev-client",
-            { addGeneratedScheme: shouldGenerateDevClientScheme },
-          ]
-        : plugin,
-    ),
+    plugins: (config.plugins || []).map((plugin) => {
+      const isDevClientPlugin =
+        plugin === "expo-dev-client" ||
+        (Array.isArray(plugin) && plugin[0] === "expo-dev-client");
+
+      if (!isDevClientPlugin) {
+        return plugin;
+      }
+
+      const pluginOptions = Array.isArray(plugin) ? plugin[1] : undefined;
+
+      return [
+        "expo-dev-client",
+        {
+          ...pluginOptions,
+          addGeneratedScheme: shouldGenerateDevClientScheme,
+        },
+      ];
+    }),
   };
 };
