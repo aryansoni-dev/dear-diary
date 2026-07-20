@@ -2,7 +2,7 @@
   "expo": {
     "name": "DearDiary",
     "slug": "dear-diary",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "deardiary",
@@ -22,7 +22,7 @@
       "icon": "./assets/images/icon.png",
       "package": "com.aryan.deardiary",
       "permissions": ["com.android.vending.BILLING"],
-      "versionCode": 7,
+      "versionCode": 8,
       "adaptiveIcon": {
         "backgroundColor": "#FFDDE8",
         "foregroundImage": "./assets/images/icon.png"
