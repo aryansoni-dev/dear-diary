@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { AIResponseRenderer } from "@/components/ai/ai-response-renderer";
+import { AiProcessingAnimation } from "@/components/ai-chat/ai-processing-animation";
 import { addSafeBreakOpportunities } from "@/lib/text/add-safe-break-opportunities";
 import type { EntryAIReflection } from "@/types/entryReflection";
 
@@ -333,7 +334,7 @@ function ReflectionButton({
       }}
     >
       {isLoading ? (
-        <ActivityIndicator color={disabled ? colors.mutedText : "white"} />
+        <AiProcessingAnimation size="compact" />
       ) : (
         icon
       )}

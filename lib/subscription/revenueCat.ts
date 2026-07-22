@@ -1,16 +1,31 @@
+import Constants from "expo-constants";
 import Purchases, {
   LOG_LEVEL,
   PURCHASES_ERROR_CODE,
   type CustomerInfo,
   type PurchasesError,
+  type PurchasesOfferings,
 } from "react-native-purchases";
 
-import { getPublicEnvironment } from "@/lib/environment";
+import { createKeyedRequestDeduper } from "@/lib/subscription/requestDeduper";
 import { revenueCatEntitlementId } from "@/lib/subscription/constants";
+import { createRunOnce } from "@/lib/subscription/runOnce";
+import {
+  hasVerifiedEntitlement,
+  isEntitlementEnvironmentAuthoritative,
+} from "@/lib/subscription/subscriptionState";
 
+export type RevenueCatMode = "google-play" | "test-store";
 export type RevenueCatPlatform = "android" | "ios";
 
-let isRevenueCatConfigured = false;
+type RevenueCatRuntimeConfig = {
+  apiKey: string | null;
+  mode: RevenueCatMode;
+};
+
+const configureOnce = createRunOnce();
+const customerInfoRequests = createKeyedRequestDeduper<CustomerInfo>();
+const offeringRequests = createKeyedRequestDeduper<PurchasesOfferings>();
 
 export function getRevenueCatPlatform(): RevenueCatPlatform | null {
   if (process.env.EXPO_OS === "android" || process.env.EXPO_OS === "ios") {
@@ -20,21 +35,51 @@ export function getRevenueCatPlatform(): RevenueCatPlatform | null {
   return null;
 }
 
-export function getRevenueCatApiKey() {
-  const environment = getPublicEnvironment();
-  const platform = getRevenueCatPlatform();
+export function getRevenueCatRuntimeConfig() {
+  const candidate: unknown = Constants.expoConfig?.extra?.revenueCat;
 
-  if (!environment || !platform) {
+  if (!isRecord(candidate) || !isRevenueCatMode(candidate.mode)) {
     return null;
   }
 
-  return platform === "ios"
-    ? environment.revenueCatIosApiKey
-    : environment.revenueCatAndroidApiKey;
+  if (candidate.apiKey !== null && typeof candidate.apiKey !== "string") {
+    return null;
+  }
+
+  const apiKey = candidate.apiKey?.trim() || null;
+
+  return {
+    apiKey,
+    mode: candidate.mode,
+  } satisfies RevenueCatRuntimeConfig;
 }
 
-export function hasProEntitlement(customerInfo: CustomerInfo | null) {
-  return Boolean(customerInfo?.entitlements.active[revenueCatEntitlementId]);
+export function getRevenueCatApiKey() {
+  if (!getRevenueCatPlatform()) {
+    return null;
+  }
+
+  return getRevenueCatRuntimeConfig()?.apiKey ?? null;
+}
+
+export function getRevenueCatMode() {
+  return getRevenueCatRuntimeConfig()?.mode ?? null;
+}
+
+export function isRevenueCatEntitlementAuthoritative() {
+  return isEntitlementEnvironmentAuthoritative(Constants.executionEnvironment);
+}
+
+export function hasProEntitlement(
+  customerInfo: CustomerInfo | null,
+  identityMatches = true,
+) {
+  return hasVerifiedEntitlement({
+    customerInfo,
+    entitlementId: revenueCatEntitlementId,
+    identityMatches,
+    isAuthoritative: isRevenueCatEntitlementAuthoritative(),
+  });
 }
 
 export function isRevenueCatPurchaseCancelled(error: unknown) {
@@ -50,7 +95,7 @@ export function getFriendlyRevenueCatError(error: unknown) {
   }
 
   if (error.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
-    return "Purchase was cancelled.";
+    return "Purchase was cancelled. You can try again when you are ready.";
   }
 
   if (error.code === PURCHASES_ERROR_CODE.PAYMENT_PENDING_ERROR) {
@@ -79,13 +124,22 @@ export function getFriendlyRevenueCatError(error: unknown) {
 }
 
 export function configureRevenueCat(apiKey: string, appUserID?: string) {
-  if (isRevenueCatConfigured) {
-    return;
-  }
+  return configureOnce.run(() => {
+    Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.WARN);
+    Purchases.configure(appUserID ? { apiKey, appUserID } : { apiKey });
+  });
+}
 
-  Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.WARN);
-  Purchases.configure(appUserID ? { apiKey, appUserID } : { apiKey });
-  isRevenueCatConfigured = true;
+export function getRevenueCatCustomerInfo(identityKey: string) {
+  return customerInfoRequests.run(identityKey, () => Purchases.getCustomerInfo());
+}
+
+export function getRevenueCatOfferings(identityKey: string) {
+  return offeringRequests.run(identityKey, () => Purchases.getOfferings());
+}
+
+function isRevenueCatMode(value: unknown): value is RevenueCatMode {
+  return value === "google-play" || value === "test-store";
 }
 
 function isPurchasesError(error: unknown): error is PurchasesError {
@@ -95,4 +149,8 @@ function isPurchasesError(error: unknown): error is PurchasesError {
     "code" in error &&
     typeof (error as { code: unknown }).code === "string"
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

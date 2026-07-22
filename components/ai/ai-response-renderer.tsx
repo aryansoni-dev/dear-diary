@@ -61,9 +61,11 @@ const variantClasses: Record<
 };
 
 const safeTextStyle = {
+  flexShrink: 1,
+  flexWrap: "wrap",
   includeFontPadding: true,
+  maxWidth: "100%",
   minWidth: 0,
-  overflow: "visible",
 } as const;
 
 export const AIResponseRenderer = memo(function AIResponseRenderer({
@@ -288,7 +290,7 @@ function InlineMarkdownText({
 }) {
   const parts = useMemo(() => parseInlineMarkdown(text), [text]);
   const getRenderedContent = (content: string) =>
-    selectable ? content : addSafeBreakOpportunities(content);
+    addSafeBreakOpportunities(content);
 
   return (
     <Text
@@ -428,9 +430,7 @@ class AIResponseErrorBoundary extends Component<
           style={safeTextStyle}
           textBreakStrategy="highQuality"
         >
-          {this.props.selectable
-            ? this.props.content
-            : addSafeBreakOpportunities(this.props.content)}
+          {addSafeBreakOpportunities(this.props.content)}
         </Text>
       );
     }

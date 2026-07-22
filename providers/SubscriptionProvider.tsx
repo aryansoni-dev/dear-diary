@@ -13,51 +13,49 @@ import {
   configureRevenueCat,
   getFriendlyRevenueCatError,
   getRevenueCatApiKey,
+  getRevenueCatCustomerInfo,
+  getRevenueCatMode,
+  getRevenueCatOfferings,
   hasProEntitlement,
 } from "@/lib/subscription/revenueCat";
+import { synchronizeRevenueCatIdentity } from "@/lib/subscription/revenueCatIdentity";
+import { isRevenueCatIdentityCurrent } from "@/lib/subscription/subscriptionState";
+
+const subscriptionUnavailableMessage =
+  "Subscriptions are unavailable right now.";
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const { isLoaded, userId } = useAuth();
+  const clerkUserId = userId ?? null;
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [offerings, setOfferings] = useState<PurchasesOfferings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const configuredRef = useRef(false);
-  const activeUserIdRef = useRef<string | null>(null);
+  const activeUserIdRef = useRef<string | null>(clerkUserId);
+  const synchronizedUserIdRef = useRef<string | null>(null);
+  const identityVersionRef = useRef(0);
   const apiKey = getRevenueCatApiKey();
+  const revenueCatMode = getRevenueCatMode();
 
-  const resetCustomerState = useCallback(() => {
-    activeUserIdRef.current = null;
+  activeUserIdRef.current = clerkUserId;
+
+  const getIdentityKey = useCallback(
+    (identityUserId: string | null) =>
+      `${revenueCatMode ?? "unavailable"}:${identityUserId ?? "anonymous"}`,
+    [revenueCatMode],
+  );
+
+  useEffect(() => {
+    const identityVersion = identityVersionRef.current + 1;
+
+    identityVersionRef.current = identityVersion;
+    synchronizedUserIdRef.current = null;
     setCustomerInfo(null);
     setOfferings(null);
     setError(null);
-  }, []);
 
-  const loadRevenueCatState = useCallback(async () => {
-    if (!configuredRef.current) {
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const [latestCustomerInfo, latestOfferings] = await Promise.all([
-        Purchases.getCustomerInfo(),
-        Purchases.getOfferings(),
-      ]);
-
-      setCustomerInfo(latestCustomerInfo);
-      setOfferings(latestOfferings);
-    } catch {
-      setError("Subscriptions are unavailable right now.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
     if (!isLoaded) {
       setIsLoading(true);
       return;
@@ -67,69 +65,94 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       configuredRef.current = false;
       setIsConfigured(false);
       setIsLoading(false);
-      resetCustomerState();
       setError("RevenueCat is not configured for this build.");
       return;
     }
 
-    if (!configuredRef.current) {
-      configureRevenueCat(apiKey, userId ?? undefined);
-      configuredRef.current = true;
+    try {
+      if (!configuredRef.current) {
+        configureRevenueCat(apiKey, clerkUserId ?? undefined);
+        configuredRef.current = true;
+      }
+
       setIsConfigured(true);
+    } catch {
+      configuredRef.current = false;
+      setIsConfigured(false);
+      setIsLoading(false);
+      setError("Subscriptions could not be initialized for this build.");
+      return;
     }
 
     let isActive = true;
+    const identityKey = getIdentityKey(clerkUserId);
 
-    async function identifyCustomer() {
+    async function synchronizeIdentity() {
       setIsLoading(true);
-      setCustomerInfo(null);
-      setError(null);
 
       try {
-        if (userId) {
-          activeUserIdRef.current = userId;
-          const result = await Purchases.logIn(userId);
+        const identityResult = await synchronizeRevenueCatIdentity(
+          {
+            getAppUserID: () => Purchases.getAppUserID(),
+            getCustomerInfo: () => getRevenueCatCustomerInfo(identityKey),
+            isAnonymous: () => Purchases.isAnonymous(),
+            logIn: (nextUserId) => Purchases.logIn(nextUserId),
+            logOut: () => Purchases.logOut(),
+          },
+          clerkUserId,
+        );
 
-          if (!isActive || activeUserIdRef.current !== userId) {
-            return;
-          }
-
-          setCustomerInfo(result.customerInfo);
-        } else {
-          activeUserIdRef.current = null;
-          await Purchases.logOut().catch(() => undefined);
-
-          if (!isActive) {
-            return;
-          }
-
-          setCustomerInfo(null);
+        if (!isCurrentIdentity()) {
+          return;
         }
 
-        const latestOfferings = await Purchases.getOfferings();
+        synchronizedUserIdRef.current = identityResult.appUserId;
+        setCustomerInfo(identityResult.customerInfo);
 
-        if (isActive) {
-          setOfferings(latestOfferings);
+        if (!identityResult.appUserId) {
+          return;
+        }
+
+        try {
+          const latestOfferings = await getRevenueCatOfferings(identityKey);
+
+          if (isCurrentIdentity()) {
+            setOfferings(latestOfferings);
+          }
+        } catch {
+          if (isCurrentIdentity()) {
+            setOfferings(null);
+            setError(subscriptionUnavailableMessage);
+          }
         }
       } catch {
-        if (isActive) {
-          setError("Subscriptions are unavailable right now.");
-          setOfferings(null);
+        if (isCurrentIdentity()) {
+          synchronizedUserIdRef.current = null;
           setCustomerInfo(null);
+          setOfferings(null);
+          setError(subscriptionUnavailableMessage);
         }
       } finally {
-        if (isActive) {
+        if (isCurrentIdentity()) {
           setIsLoading(false);
         }
       }
     }
 
-    void identifyCustomer();
+    function isCurrentIdentity() {
+      return (
+        isActive &&
+        identityVersionRef.current === identityVersion &&
+        activeUserIdRef.current === clerkUserId
+      );
+    }
+
+    void synchronizeIdentity();
 
     return () => {
       isActive = false;
     };
-  }, [apiKey, isLoaded, resetCustomerState, userId]);
+  }, [apiKey, clerkUserId, getIdentityKey, isLoaded]);
 
   useEffect(() => {
     if (!isConfigured) {
@@ -137,7 +160,28 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
 
     const listener: CustomerInfoUpdateListener = (nextCustomerInfo) => {
-      setCustomerInfo(nextCustomerInfo);
+      const expectedUserId = activeUserIdRef.current;
+
+      if (
+        !expectedUserId ||
+        synchronizedUserIdRef.current !== expectedUserId
+      ) {
+        return;
+      }
+
+      void Purchases.getAppUserID()
+        .then((revenueCatUserId) => {
+          if (
+            isRevenueCatIdentityCurrent({
+              activeUserId: activeUserIdRef.current,
+              revenueCatUserId,
+              synchronizedUserId: synchronizedUserIdRef.current,
+            })
+          ) {
+            setCustomerInfo(nextCustomerInfo);
+          }
+        })
+        .catch(() => undefined);
     };
 
     Purchases.addCustomerInfoUpdateListener(listener);
@@ -148,67 +192,155 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, [isConfigured]);
 
   const refresh = useCallback(async () => {
-    await loadRevenueCatState();
-  }, [loadRevenueCatState]);
+    const expectedUserId = activeUserIdRef.current;
+
+    if (
+      !configuredRef.current ||
+      !expectedUserId ||
+      synchronizedUserIdRef.current !== expectedUserId
+    ) {
+      return;
+    }
+
+    const identityKey = getIdentityKey(expectedUserId);
+
+    setIsLoading(true);
+    setError(null);
+
+    const [customerInfoResult, offeringsResult] = await Promise.allSettled([
+      getRevenueCatCustomerInfo(identityKey),
+      getRevenueCatOfferings(identityKey),
+    ]);
+
+    if (
+      activeUserIdRef.current !== expectedUserId ||
+      synchronizedUserIdRef.current !== expectedUserId
+    ) {
+      return;
+    }
+
+    if (customerInfoResult.status === "fulfilled") {
+      setCustomerInfo(customerInfoResult.value);
+    }
+
+    if (offeringsResult.status === "fulfilled") {
+      setOfferings(offeringsResult.value);
+    }
+
+    if (
+      customerInfoResult.status === "rejected" ||
+      offeringsResult.status === "rejected"
+    ) {
+      setError(subscriptionUnavailableMessage);
+    }
+
+    setIsLoading(false);
+  }, [getIdentityKey]);
 
   const purchasePackage = useCallback(
     async (selectedPackage: PurchasesPackage) => {
-      if (!configuredRef.current) {
-        throw new Error("Subscriptions are not configured for this build.");
-      }
+      const expectedUserId = requireSynchronizedUser(
+        configuredRef.current,
+        activeUserIdRef.current,
+        synchronizedUserIdRef.current,
+      );
 
       setIsLoading(true);
       setError(null);
 
       try {
-        const result = await Purchases.purchasePackage(selectedPackage);
-
-        setCustomerInfo(result.customerInfo);
-        await loadRevenueCatState();
-        return result.customerInfo;
+        await Purchases.purchasePackage(selectedPackage);
+        return await refreshCustomerForUser(
+          expectedUserId,
+          getIdentityKey(expectedUserId),
+        );
       } catch (purchaseError) {
-        const message = getFriendlyRevenueCatError(purchaseError);
+        if (purchaseError instanceof SubscriptionIdentityError) {
+          throw purchaseError;
+        }
 
-        setError(message);
-        throw new Error(message);
+        throw new Error(getFriendlyRevenueCatError(purchaseError));
       } finally {
-        setIsLoading(false);
+        if (activeUserIdRef.current === expectedUserId) {
+          setIsLoading(false);
+        }
       }
     },
-    [loadRevenueCatState],
+    [getIdentityKey],
   );
 
   const restorePurchases = useCallback(async () => {
-    if (!configuredRef.current) {
-      throw new Error("Subscriptions are not configured for this build.");
-    }
+    const expectedUserId = requireSynchronizedUser(
+      configuredRef.current,
+      activeUserIdRef.current,
+      synchronizedUserIdRef.current,
+    );
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const restoredCustomerInfo = await Purchases.restorePurchases();
-
-      setCustomerInfo(restoredCustomerInfo);
-      await loadRevenueCatState();
-      return restoredCustomerInfo;
+      await Purchases.restorePurchases();
+      return await refreshCustomerForUser(
+        expectedUserId,
+        getIdentityKey(expectedUserId),
+      );
     } catch (restoreError) {
-      const message = getFriendlyRevenueCatError(restoreError);
+      if (restoreError instanceof SubscriptionIdentityError) {
+        throw restoreError;
+      }
 
-      setError(message);
-      throw new Error(message);
+      throw new Error(getFriendlyRevenueCatError(restoreError));
     } finally {
-      setIsLoading(false);
+      if (activeUserIdRef.current === expectedUserId) {
+        setIsLoading(false);
+      }
     }
-  }, [loadRevenueCatState]);
+  }, [getIdentityKey]);
 
+  async function refreshCustomerForUser(
+    expectedUserId: string,
+    identityKey: string,
+  ) {
+    const revenueCatUserId = await Purchases.getAppUserID();
+
+    if (
+      revenueCatUserId !== expectedUserId ||
+      activeUserIdRef.current !== expectedUserId ||
+      synchronizedUserIdRef.current !== expectedUserId
+    ) {
+      throw new SubscriptionIdentityError(
+        "Your account changed before the subscription update completed. Please try again.",
+      );
+    }
+
+    const latestCustomerInfo = await getRevenueCatCustomerInfo(identityKey);
+
+    if (
+      activeUserIdRef.current !== expectedUserId ||
+      synchronizedUserIdRef.current !== expectedUserId
+    ) {
+      throw new SubscriptionIdentityError(
+        "Your account changed before the subscription update completed. Please try again.",
+      );
+    }
+
+    setCustomerInfo(latestCustomerInfo);
+    return latestCustomerInfo;
+  }
+
+  const identityMatches = isRevenueCatIdentityCurrent({
+    activeUserId: clerkUserId,
+    revenueCatUserId: clerkUserId,
+    synchronizedUserId: synchronizedUserIdRef.current,
+  });
   const value = useMemo(
     () => ({
       customerInfo,
       error,
       isConfigured,
       isLoading,
-      isPro: hasProEntitlement(customerInfo),
+      isPro: hasProEntitlement(customerInfo, identityMatches),
       offerings,
       purchasePackage,
       refresh,
@@ -217,6 +349,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     [
       customerInfo,
       error,
+      identityMatches,
       isConfigured,
       isLoading,
       offerings,
@@ -231,4 +364,29 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       {children}
     </SubscriptionContext.Provider>
   );
+}
+
+class SubscriptionIdentityError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SubscriptionIdentityError";
+  }
+}
+
+function requireSynchronizedUser(
+  isConfigured: boolean,
+  activeUserId: string | null,
+  synchronizedUserId: string | null,
+) {
+  if (!isConfigured) {
+    throw new Error("Subscriptions are not configured for this build.");
+  }
+
+  if (!activeUserId || synchronizedUserId !== activeUserId) {
+    throw new Error(
+      "Subscriptions are still synchronizing with your account. Please try again.",
+    );
+  }
+
+  return activeUserId;
 }

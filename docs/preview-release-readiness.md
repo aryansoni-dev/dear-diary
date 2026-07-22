@@ -2,7 +2,9 @@
 
 Audit date: 2026-07-20
 
-Branch/commit: `dev` at `2c6d79e623425cfe5af5a9db9b30757f7c21ffef`
+Preview artifact source: `dev` at `2c6d79e623425cfe5af5a9db9b30757f7c21ffef`
+
+RevenueCat preparation baseline: `dev` at `8b4c5b26f93db6a845cbc458c779200f69fe3173`
 
 Candidate: source version 1.0.8, Android version code 8
 
@@ -29,6 +31,9 @@ This audit now includes the central deep-link security fix and a newly created P
 | `report-analytics.test.ts` | Passed | Compiled and executed from a temporary directory |
 | `report-narrative-parser.test.ts` | Passed | Compiled and executed from a temporary directory |
 | `ai-text-rendering.test.ts` | Passed | Compiled and executed from a temporary directory |
+| `test:revenuecat-config` | Passed | Build mode/key isolation and Production fail-closed coverage |
+| `test:revenuecat-runtime` | Passed | Identity, stale state, request deduplication, and entitlement verification coverage |
+| `verify:revenuecat-config` | Passed | Redacted Development/Preview/Production effective profile report |
 
 ## RevenueCat release logging
 
@@ -38,6 +43,18 @@ This audit now includes the central deep-link security fix and a newly created P
 | Preview/Production logging | Passed | Non-development builds use `LOG_LEVEL.WARN` |
 | One-time configuration | Passed | A module-level guard prevents more than one `Purchases.configure` call per app process; the provider also retains its mount guard |
 | Manual sensitive purchase logging | Passed | No purchase token, customer information, journal content, or entitlement payload is manually logged by the subscription/paywall source |
+
+## RevenueCat Test Store preparation
+
+The existing `development` profile is now the only Test Store path. It uses the Development EAS environment and produces a debuggable Expo development client. Preview and Production explicitly select `google-play` and remain release APK/AAB paths; only Development selects `test-store`. Dynamic Expo configuration exposes only the selected public SDK key and mode. Production rejects Test Store mode, a Test Store-looking selected key, and any Test Store key defined in the Production environment.
+
+`react-native-purchases@10.4.2` exceeds RevenueCat's current React Native Test Store minimum of 9.5.4, so no dependency upgrade or lockfile change was needed. The Clerk user ID remains the App User ID. Account transitions clear subscription state before synchronization; repeated login, anonymous logout, stale CustomerInfo publication, and duplicate in-flight offering work are guarded.
+
+The Test Store app/key presence, products, entitlement/package mapping, and current offering were verified through RevenueCat MCP without changing dashboard resources. Sandbox Testing Access remains the only manual RevenueCat dashboard check because MCP does not expose it. No APK was built. Full setup and runtime steps are in `docs/revenuecat-test-store-setup.md`.
+
+RevenueCat profile verdict: **REVENUECAT TEST STORE DEVELOPMENT PROFILE READY**
+
+This does not replace the overall Preview release verdict or promote any device-runtime row to Passed.
 
 ## Build preparation
 

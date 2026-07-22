@@ -72,8 +72,8 @@ androidx.compose.ui
 `app.config.js` preserves the complete static config passed from `app.json` and changes only the existing Expo Dev Client plugin option:
 
 ```text
-development or unspecified profile -> addGeneratedScheme: true
-preview/production               -> addGeneratedScheme: false
+development profile                 -> addGeneratedScheme: true
+unspecified/preview/production       -> addGeneratedScheme: false
 ```
 
 A dynamic config was necessary because `addGeneratedScheme` must vary by `EAS_BUILD_PROFILE`. Using Expo Dev Client's own option prevents the scheme from being generated and avoids brittle post-generation intent-filter edits. The intentional `deardiary://` scheme, HTTPS filters, launcher filter, and Clerk `clerk://` callback filters are untouched.

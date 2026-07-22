@@ -12,6 +12,9 @@
     "test:entry-reflection-theme-tags": "tsc tests/entry-reflection-theme-tags.test.ts lib/entryReflectionThemeTags.ts lib/tags.ts --outDir /tmp/dear-diary-entry-reflection-theme-tags-test --module commonjs --target es2022 --esModuleInterop --skipLibCheck && node /tmp/dear-diary-entry-reflection-theme-tags-test/tests/entry-reflection-theme-tags.test.js",
     "test:navigation-transitions": "node --no-warnings tests/navigation-transition-map.test.ts",
     "test:route-security": "node --no-warnings tests/route-security.test.mjs",
+    "test:revenuecat-config": "node tests/revenuecat-build-config.test.mjs",
+    "test:revenuecat-runtime": "node --no-warnings tests/revenuecat-runtime.test.ts",
+    "verify:revenuecat-config": "node scripts/verify-revenuecat-config.mjs",
     "web": "expo start --web",
     "lint": "expo lint"
   },
