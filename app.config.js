@@ -1,12 +1,18 @@
-const RELEASE_PROFILES = new Set(["preview", "production"]);
+const {
+  resolveRevenueCatBuildConfigFromEnvironment,
+} = require("./lib/subscription/revenueCatBuildConfig");
 
 module.exports = ({ config }) => {
-  const shouldGenerateDevClientScheme = !RELEASE_PROFILES.has(
-    process.env.EAS_BUILD_PROFILE,
-  );
+  const shouldGenerateDevClientScheme =
+    process.env.EAS_BUILD_PROFILE === "development";
+  const revenueCat = resolveRevenueCatBuildConfigFromEnvironment(process.env);
 
   return {
     ...config,
+    extra: {
+      ...(config.extra || {}),
+      revenueCat,
+    },
     plugins: (config.plugins || []).map((plugin) => {
       const isDevClientPlugin =
         plugin === "expo-dev-client" ||

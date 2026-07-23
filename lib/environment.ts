@@ -4,8 +4,6 @@ export type PublicEnvironment = {
   accountDeletionUrl: string | null;
   appEnvironment: AppEnvironment;
   clerkPublishableKey: string;
-  revenueCatAndroidApiKey: string | null;
-  revenueCatIosApiKey: string | null;
   supabasePublicKey: string;
   supabaseUrl: string;
 };
@@ -14,8 +12,6 @@ export type PublicEnvironmentInput = {
   accountDeletionUrl?: string;
   appEnvironment?: string;
   clerkPublishableKey?: string;
-  revenueCatAndroidApiKey?: string;
-  revenueCatIosApiKey?: string;
   supabasePublicKey?: string;
   supabaseUrl?: string;
 };
@@ -34,9 +30,6 @@ export const publicEnvironmentResult = validatePublicEnvironment({
   accountDeletionUrl: process.env.EXPO_PUBLIC_ACCOUNT_DELETION_URL,
   appEnvironment: process.env.EXPO_PUBLIC_APP_ENV,
   clerkPublishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
-  revenueCatAndroidApiKey:
-    process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY,
-  revenueCatIosApiKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
   supabasePublicKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
 });
@@ -54,8 +47,6 @@ export function validatePublicEnvironment(
   const rawAccountDeletionUrl = input.accountDeletionUrl?.trim();
   const rawAppEnvironment = input.appEnvironment?.trim();
   const rawClerkPublishableKey = input.clerkPublishableKey?.trim();
-  const rawRevenueCatAndroidApiKey = input.revenueCatAndroidApiKey?.trim();
-  const rawRevenueCatIosApiKey = input.revenueCatIosApiKey?.trim();
   const rawSupabasePublicKey = input.supabasePublicKey?.trim();
   const rawSupabaseUrl = input.supabaseUrl?.trim();
   const appEnvironment = getAppEnvironment(rawAppEnvironment);
@@ -119,8 +110,6 @@ export function validatePublicEnvironment(
       accountDeletionUrl: rawAccountDeletionUrl || null,
       appEnvironment,
       clerkPublishableKey: rawClerkPublishableKey,
-      revenueCatAndroidApiKey: rawRevenueCatAndroidApiKey || null,
-      revenueCatIosApiKey: rawRevenueCatIosApiKey || null,
       supabasePublicKey: rawSupabasePublicKey,
       supabaseUrl: rawSupabaseUrl,
     },

@@ -6,18 +6,27 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "environment": "development"
+      "environment": "development",
+      "env": {
+        "EXPO_PUBLIC_REVENUECAT_MODE": "test-store"
+      }
     },
     "preview": {
       "developmentClient": false,
       "distribution": "internal",
       "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_REVENUECAT_MODE": "google-play"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
       "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_REVENUECAT_MODE": "google-play"
+      },
       "android": {
         "buildType": "app-bundle"
       }

@@ -6,7 +6,6 @@ import { StatusBar } from "expo-status-bar";
 import { Sparkles } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Animated,
   Keyboard,
   KeyboardAvoidingView,
   type NativeScrollEvent,
@@ -22,6 +21,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AiProcessingAnimation } from "@/components/ai-chat/ai-processing-animation";
 import { AnimatedIconButton } from "@/components/ui/animated-icon-button";
 import { AIResponseRenderer } from "@/components/ai/ai-response-renderer";
 import { ScreenErrorState } from "@/components/states/ScreenErrorState";
@@ -581,7 +581,9 @@ export function AiChatScreen({
                   DearDiary AI
                 </Text>
               </View>
-              <ThinkingText />
+              <View className="ml-8">
+                <AiProcessingAnimation />
+              </View>
             </View>
           ) : null}
         </View>
@@ -710,58 +712,6 @@ function shouldCountChatIntentTowardQuota(
     "small_talk",
     "unsupported",
   ].includes(intent);
-}
-
-function ThinkingText() {
-  const opacity = useRef(new Animated.Value(0.42)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(opacity, {
-            duration: 620,
-            toValue: 1,
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateY, {
-            duration: 620,
-            toValue: -1.5,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(opacity, {
-            duration: 620,
-            toValue: 0.42,
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateY, {
-            duration: 620,
-            toValue: 0,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]),
-    );
-
-    animation.start();
-
-    return () => animation.stop();
-  }, [opacity, translateY]);
-
-  return (
-    <Animated.Text
-      className="pl-10 text-[15px] font-semibold leading-5 text-[#71717B]"
-      style={{
-        opacity,
-        transform: [{ translateY }],
-      }}
-    >
-      Thinking...
-    </Animated.Text>
-  );
 }
 
 function ChatBubble({

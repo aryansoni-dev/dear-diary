@@ -318,6 +318,8 @@ function ReflectionButton({
   onPress: () => void;
   testID?: string;
 }) {
+  const isVisuallyDisabled = disabled && !isLoading;
+
   return (
     <Pressable
       testID={testID}
@@ -329,18 +331,18 @@ function ReflectionButton({
       disabled={disabled}
       onPress={onPress}
       style={{
-        backgroundColor: disabled ? "#F4F4F5" : colors.accent,
+        backgroundColor: isVisuallyDisabled ? "#F4F4F5" : colors.accent,
       }}
     >
       {isLoading ? (
-        <ActivityIndicator color={disabled ? colors.mutedText : "white"} />
+        <ActivityIndicator color="white" size="small" />
       ) : (
         icon
       )}
       <Text
         className="text-center text-[16px] font-bold"
         style={{
-          color: disabled ? colors.mutedText : "white",
+          color: isVisuallyDisabled ? colors.mutedText : "white",
           includeFontPadding: true,
           lineHeight: 24,
         }}

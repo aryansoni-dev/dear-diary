@@ -2,14 +2,14 @@
   "expo": {
     "name": "DearDiary",
     "slug": "dear-diary",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "deardiary",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "buildNumber": "7",
+      "buildNumber": "9",
       "supportsTablet": true
     },
     "android": {
@@ -22,7 +22,7 @@
       "icon": "./assets/images/icon.png",
       "package": "com.aryan.deardiary",
       "permissions": ["com.android.vending.BILLING"],
-      "versionCode": 8,
+      "versionCode": 9,
       "adaptiveIcon": {
         "backgroundColor": "#FFDDE8",
         "foregroundImage": "./assets/images/icon.png"

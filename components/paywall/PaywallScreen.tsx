@@ -8,7 +8,10 @@ import {
   Text,
   View,
 } from "react-native";
-import type { PurchasesPackage } from "react-native-purchases";
+import {
+  PACKAGE_TYPE,
+  type PurchasesPackage,
+} from "react-native-purchases";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PlanCard } from "@/components/paywall/PlanCard";
@@ -32,11 +35,15 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
     isLoading,
     offerings,
     purchasePackage,
+    refresh,
     restorePurchases,
   } = useSubscription();
   const offering = offerings?.all[revenueCatOfferingId] ?? offerings?.current;
-  const monthlyPackage = offering?.monthly ?? findPackage(offering?.availablePackages, "monthly");
-  const yearlyPackage = offering?.annual ?? findPackage(offering?.availablePackages, "yearly");
+  const monthlyPackage =
+    offering?.monthly ??
+    findPackage(offering?.availablePackages, "monthly");
+  const yearlyPackage =
+    offering?.annual ?? findPackage(offering?.availablePackages, "yearly");
   const availablePackages = useMemo(
     () => [monthlyPackage, yearlyPackage].filter(isPurchasesPackage),
     [monthlyPackage, yearlyPackage],
@@ -51,10 +58,15 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
     availablePackages.some(
       (availablePackage) =>
         availablePackage.identifier === selectedPackage.identifier &&
-        availablePackage.product.identifier === selectedPackage.product.identifier,
+        availablePackage.product.identifier ===
+          selectedPackage.product.identifier,
     );
   const continueDisabled =
-    !isConfigured || !selectedPackageIsAvailable || isPurchasing || isRestoring;
+    !isConfigured ||
+    !selectedPackageIsAvailable ||
+    isLoading ||
+    isPurchasing ||
+    isRestoring;
 
   useEffect(() => {
     const defaultPackage = yearlyPackage ?? monthlyPackage ?? null;
@@ -91,7 +103,8 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
     try {
       const customerInfo = await purchasePackage(selectedPackage);
 
-      if (hasProEntitlement(customerInfo)) {
+      // refreshCustomerForUser has already verified the active identity.
+      if (hasProEntitlement(customerInfo, true)) {
         showDialog({
           confirmText: "Done",
           message:
@@ -122,7 +135,8 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
     try {
       const customerInfo = await restorePurchases();
 
-      if (hasProEntitlement(customerInfo)) {
+      // refreshCustomerForUser has already verified the active identity.
+      if (hasProEntitlement(customerInfo, true)) {
         showDialog({
           confirmText: "Done",
           message: "Subscription restored successfully.",
@@ -253,13 +267,21 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
             testID="paywall-error-message"
             message="Subscriptions are not configured for this build."
           />
-        ) : !offering || availablePackages.length === 0 ? (
+        ) : !isLoading &&
+          (!offering || availablePackages.length === 0) ? (
           <UnavailableMessage
             testID="paywall-error-message"
             message="Subscription plans are not available right now."
+            isRetrying={isLoading}
+            onRetry={() => void refresh()}
           />
         ) : error ? (
-          <UnavailableMessage testID="paywall-error-message" message={error} />
+          <UnavailableMessage
+            testID="paywall-error-message"
+            message={error}
+            isRetrying={isLoading}
+            onRetry={() => void refresh()}
+          />
         ) : null}
 
         {statusMessage ? (
@@ -374,10 +396,14 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
 }
 
 function UnavailableMessage({
+  isRetrying = false,
   message,
+  onRetry,
   testID,
 }: {
+  isRetrying?: boolean;
   message: string;
+  onRetry?: () => void;
   testID?: string;
 }) {
   return (
@@ -385,6 +411,19 @@ function UnavailableMessage({
       <Text className="text-[14px] font-semibold leading-6 text-[#9F1239]">
         {message}
       </Text>
+      {onRetry ? (
+        <Pressable
+          accessibilityLabel="Retry loading subscription plans"
+          accessibilityRole="button"
+          className="mt-2 min-h-10 self-start justify-center"
+          disabled={isRetrying}
+          onPress={onRetry}
+        >
+          <Text className="text-[14px] font-bold leading-6 text-[#FF2056]">
+            {isRetrying ? "Trying again..." : "Try again"}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -394,23 +433,17 @@ function findPackage(
   interval: "monthly" | "yearly",
 ) {
   return packages?.find((candidate) => {
-    const identifier = candidate.identifier.toLowerCase();
-    const productIdentifier = candidate.product.identifier.toLowerCase();
     const period = candidate.product.subscriptionPeriod;
 
     if (interval === "monthly") {
       return (
-        identifier.includes("monthly") ||
-        productIdentifier.includes("monthly") ||
+        candidate.packageType === PACKAGE_TYPE.MONTHLY ||
         period === "P1M"
       );
     }
 
     return (
-      identifier.includes("yearly") ||
-      identifier.includes("annual") ||
-      productIdentifier.includes("yearly") ||
-      productIdentifier.includes("annual") ||
+      candidate.packageType === PACKAGE_TYPE.ANNUAL ||
       period === "P1Y"
     );
   }) ?? null;

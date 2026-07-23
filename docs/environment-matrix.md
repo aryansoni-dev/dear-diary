@@ -2,7 +2,7 @@
 
 ## Development
 
-Used for local Metro-connected work, explicit developer diagnostics, and `__DEV__`-guarded fault injection. Local values belong in ignored `.env` files. The configured EAS development profile is a development client, but `expo-dev-client` is not installed; do not build that profile until the dependency is explicitly approved and added.
+Used for local Metro-connected work, RevenueCat Test Store testing, explicit developer diagnostics, and `__DEV__`-guarded fault injection. Local values belong in ignored `.env` files. The EAS Development profile is a debuggable Expo development client and is the only Test Store build path.
 
 ## Preview
 
@@ -21,6 +21,8 @@ Reserved for a future Play Store AAB using production services. Production value
 | `EXPO_PUBLIC_ACCOUNT_DELETION_URL`                  | Optional public URL                | Optional public Preview URL; missing in EAS                | Future public URL; pending                           |          Yes |           No |
 | `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`            | Optional public Android SDK key    | Preview RevenueCat Android public SDK key; missing in EAS  | Production Android public SDK key; pending           |          Yes | No for core app, yes for purchases |
 | `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`                | Optional public iOS SDK key        | Preview RevenueCat iOS public SDK key when iOS is enabled  | Production iOS public SDK key; pending               |          Yes | No for core app, yes for purchases |
+| `EXPO_PUBLIC_REVENUECAT_TEST_API_KEY`               | Development Test Store public SDK key; configured in EAS | Not used | Must not be defined | Yes | Development purchases only |
+| `EXPO_PUBLIC_REVENUECAT_MODE`                       | `test-store`                       | `google-play`                                              | `google-play`                                        | Yes | Yes for purchase builds |
 | `OPENROUTER_API_KEY`                                | Backend secret storage             | Backend secret storage                                     | Backend secret storage                               |           No | Backend only |
 | `CLERK_SECRET_KEY`                                  | Delete-account Edge Function only  | Delete-account Edge Function only                          | Backend only                                         |           No | Backend only |
 | `REVENUECAT_SECRET_API_KEY`                         | AI Edge Functions only             | AI Edge Functions only                                     | AI Edge Functions only                               |           No | Backend only |
