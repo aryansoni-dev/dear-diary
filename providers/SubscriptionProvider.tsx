@@ -39,13 +39,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const apiKey = getRevenueCatApiKey();
   const revenueCatMode = getRevenueCatMode();
 
-  activeUserIdRef.current = clerkUserId;
-
   const getIdentityKey = useCallback(
     (identityUserId: string | null) =>
       `${revenueCatMode ?? "unavailable"}:${identityUserId ?? "anonymous"}`,
     [revenueCatMode],
   );
+
+  useEffect(() => {
+    activeUserIdRef.current = clerkUserId;
+  }, [clerkUserId]);
 
   useEffect(() => {
     const identityVersion = identityVersionRef.current + 1;

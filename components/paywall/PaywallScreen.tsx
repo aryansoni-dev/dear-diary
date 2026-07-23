@@ -103,7 +103,8 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
     try {
       const customerInfo = await purchasePackage(selectedPackage);
 
-      if (hasProEntitlement(customerInfo)) {
+      // refreshCustomerForUser has already verified the active identity.
+      if (hasProEntitlement(customerInfo, true)) {
         showDialog({
           confirmText: "Done",
           message:
@@ -134,7 +135,8 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
     try {
       const customerInfo = await restorePurchases();
 
-      if (hasProEntitlement(customerInfo)) {
+      // refreshCustomerForUser has already verified the active identity.
+      if (hasProEntitlement(customerInfo, true)) {
         showDialog({
           confirmText: "Done",
           message: "Subscription restored successfully.",
@@ -265,7 +267,8 @@ export function PaywallScreen({ feature }: PaywallScreenProps) {
             testID="paywall-error-message"
             message="Subscriptions are not configured for this build."
           />
-        ) : !offering || availablePackages.length === 0 ? (
+        ) : !isLoading &&
+          (!offering || availablePackages.length === 0) ? (
           <UnavailableMessage
             testID="paywall-error-message"
             message="Subscription plans are not available right now."

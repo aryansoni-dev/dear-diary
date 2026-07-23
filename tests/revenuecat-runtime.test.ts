@@ -211,7 +211,6 @@ async function run() {
     "Restore must require a verified active entitlement.",
   );
 
-  const journalEntries = [{ body: "preserved", id: "entry-1" }];
   const expiredAccess = hasVerifiedEntitlement({
     customerInfo: customerInfo("user-a", false),
     entitlementId,
@@ -219,10 +218,6 @@ async function run() {
     isAuthoritative: true,
   });
   assert(!expiredAccess, "An expired entitlement must remove Plus access.");
-  assert(
-    journalEntries.length === 1 && journalEntries[0]?.body === "preserved",
-    "Subscription expiration must not remove core journal data.",
-  );
   assert(
     !hasVerifiedEntitlement({
       customerInfo: null,

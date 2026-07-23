@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { View } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -34,7 +34,7 @@ type SparkleDirection = "center" | "left" | "right";
 type AnimatedSparkleProps = {
   delay: number;
   direction: SparkleDirection;
-  gradientId: string;
+  idSuffix: string;
   scale: number;
 };
 
@@ -45,12 +45,14 @@ type AiProcessingAnimationProps = {
 export function AiProcessingAnimation({
   size = "default",
 }: AiProcessingAnimationProps) {
+  const idSuffix = useId().replace(/:/g, "");
   const scale = size === "compact" ? 0.67 : 1;
 
   return (
     <View
       accessibilityLabel="DearDiary AI is generating a response"
       accessibilityRole="progressbar"
+      accessibilityState={{ busy: true }}
       className="overflow-hidden"
       pointerEvents="none"
       style={{ height: 48 * scale, width: 64 * scale }}
@@ -59,19 +61,19 @@ export function AiProcessingAnimation({
       <AnimatedSparkle
         delay={0}
         direction="center"
-        gradientId="ai-sparkle-center"
+        idSuffix={idSuffix}
         scale={scale}
       />
       <AnimatedSparkle
         delay={300}
         direction="left"
-        gradientId="ai-sparkle-left"
+        idSuffix={idSuffix}
         scale={scale}
       />
       <AnimatedSparkle
         delay={600}
         direction="right"
-        gradientId="ai-sparkle-right"
+        idSuffix={idSuffix}
         scale={scale}
       />
     </View>
@@ -81,13 +83,14 @@ export function AiProcessingAnimation({
 function AnimatedSparkle({
   delay,
   direction,
-  gradientId,
+  idSuffix,
   scale,
 }: AnimatedSparkleProps) {
   const progress = useSharedValue(0);
+  const gradientId = `ai-sparkle-${direction}-${idSuffix}`;
 
   useEffect(() => {
-    progress.value = withDelay(
+    progress.set(withDelay(
       delay,
       withRepeat(
         withTiming(1, {
@@ -97,7 +100,7 @@ function AnimatedSparkle({
         -1,
         false,
       ),
-    );
+    ));
 
     return () => cancelAnimation(progress);
   }, [delay, progress]);

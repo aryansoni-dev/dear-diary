@@ -325,7 +325,7 @@ function InlineMarkdownText({
               key={index}
               style={{ fontFamily: "monospace" }}
             >
-              {getRenderedContent(part.content)}
+              {part.content}
             </Text>
           );
         }
@@ -338,7 +338,7 @@ function InlineMarkdownText({
               key={index}
               onPress={() => openSafeLink(part.url)}
             >
-              {getRenderedContent(part.content)}
+              {part.content}
             </Text>
           );
         }

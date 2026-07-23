@@ -802,7 +802,9 @@ function ChatBubble({
           borderTopLeftRadius: 24,
           borderTopRightRadius: 24,
           boxShadow: "0 3px 8px rgba(39, 39, 42, 0.12)",
-          width: assistantBubbleMaxWidth,
+          flexShrink: 1,
+          maxWidth: assistantBubbleMaxWidth,
+          overflow: "visible",
         }}
       >
         {firstAssistantGreeting ? (

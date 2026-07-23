@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { AIResponseRenderer } from "@/components/ai/ai-response-renderer";
-import { AiProcessingAnimation } from "@/components/ai-chat/ai-processing-animation";
 import { addSafeBreakOpportunities } from "@/lib/text/add-safe-break-opportunities";
 import type { EntryAIReflection } from "@/types/entryReflection";
 
@@ -319,6 +318,8 @@ function ReflectionButton({
   onPress: () => void;
   testID?: string;
 }) {
+  const isVisuallyDisabled = disabled && !isLoading;
+
   return (
     <Pressable
       testID={testID}
@@ -330,18 +331,18 @@ function ReflectionButton({
       disabled={disabled}
       onPress={onPress}
       style={{
-        backgroundColor: disabled ? "#F4F4F5" : colors.accent,
+        backgroundColor: isVisuallyDisabled ? "#F4F4F5" : colors.accent,
       }}
     >
       {isLoading ? (
-        <AiProcessingAnimation size="compact" />
+        <ActivityIndicator color="white" size="small" />
       ) : (
         icon
       )}
       <Text
         className="text-center text-[16px] font-bold"
         style={{
-          color: disabled ? colors.mutedText : "white",
+          color: isVisuallyDisabled ? colors.mutedText : "white",
           includeFontPadding: true,
           lineHeight: 24,
         }}

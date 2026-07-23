@@ -72,7 +72,7 @@ export function isRevenueCatEntitlementAuthoritative() {
 
 export function hasProEntitlement(
   customerInfo: CustomerInfo | null,
-  identityMatches = true,
+  identityMatches: boolean,
 ) {
   return hasVerifiedEntitlement({
     customerInfo,
